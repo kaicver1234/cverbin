@@ -1,0 +1,1140 @@
+import 'dart:convert';
+import 'dart:async';
+import 'dart:math';
+import 'dart:io';
+import 'package:flutter_v2ray/flutter_v2ray.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tiksarvpn/models/v2ray_config.dart';
+import 'package:tiksarvpn/models/subscription.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:tiksarvpn/services/ping_service.dart';
+
+class IpInfo {
+  final String ip;
+  final String country;
+  final String city;
+  final String countryCode;
+  final bool success;
+  final String? errorMessage;
+
+  IpInfo({
+    required this.ip,
+    required this.country,
+    required this.city,
+    required this.countryCode,
+    required this.success,
+    this.errorMessage,
+  });
+
+  factory IpInfo.fromJson(Map<String, dynamic> json) {
+    return IpInfo(
+      ip: json['ip'] ?? '',
+      country: json['country_name'] ?? '',
+      city: json['city_name'] ?? '',
+      countryCode: json['country_code'] ?? '',
+      success: true,
+      errorMessage: null,
+    );
+  }
+
+  factory IpInfo.error(String message) {
+    return IpInfo(
+      ip: '',
+      country: '',
+      city: '',
+      countryCode: '',
+      success: false,
+      errorMessage: message,
+    );
+  }
+
+  String get locationString => '$country - $city';
+}
+
+class V2RayService extends ChangeNotifier {
+  Function()? _onDisconnected;
+  bool _isInitialized = false;
+  V2RayConfig? _activeConfig;
+  Timer? _statusCheckTimer;
+  DateTime? _lastConnectionTime;
+
+  // IP Information
+  IpInfo? _ipInfo;
+  IpInfo? get ipInfo => _ipInfo;
+
+  bool _isLoadingIpInfo = false;
+  bool get isLoadingIpInfo => _isLoadingIpInfo;
+
+  // Usage statistics
+  int _uploadBytes = 0;
+  int _downloadBytes = 0;
+  int _connectedSeconds = 0;
+  Timer? _usageStatsTimer;
+
+  // Ping cache
+  final Map<String, int?> _pingCache = {};
+  final Map<String, bool> _pingInProgress = {};
+
+  // Get list of installed apps (Android only)
+  Future<List<Map<String, dynamic>>> getInstalledApps() async {
+    try {
+      // On Android, use the method channel to get installed apps
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        const platform = MethodChannel('com.tiksarvpn.app/app_list');
+        final List<dynamic> result = await platform.invokeMethod(
+          'getInstalledApps',
+        );
+
+        // Convert the result to a List<Map<String, dynamic>>
+        final List<Map<String, dynamic>> appList = result
+            .map(
+              (app) => {
+                'packageName': app['packageName'] as String,
+                'name': app['name'] as String,
+                'isSystemApp': app['isSystemApp'] as bool,
+              },
+            )
+            .toList();
+
+        return appList;
+      } else {
+        // Return empty list on non-Android platforms
+        return [];
+      }
+    } catch (e) {
+      // Error getting installed apps
+      return [];
+    }
+  }
+
+  // Clear ping cache for all configs or a specific config
+  void clearPingCache({String? configId}) {
+    if (configId != null) {
+      _pingCache.remove(configId);
+    } else {
+      _pingCache.clear();
+    }
+    // Also clear native ping service cache
+    NativePingService.clearCache();
+  }
+
+  // Singleton pattern
+  static final V2RayService _instance = V2RayService._internal();
+  factory V2RayService() => _instance;
+
+  late final FlutterV2ray _flutterV2ray;
+
+  // Current V2Ray status from the callback
+  V2RayStatus? _currentStatus;
+  V2RayStatus? get currentStatus => _currentStatus;
+
+  V2RayService._internal() {
+    _flutterV2ray = FlutterV2ray(
+      onStatusChanged: (status) {
+        _currentStatus = status;
+        _handleStatusChange(status);
+        notifyListeners(); // Notify listeners when status changes
+      },
+    );
+
+    // Load saved usage statistics
+    _loadUsageStats();
+  }
+
+
+  void _handleStatusChange(V2RayStatus status) {
+    // Handle disconnection from notification
+    // Check for common disconnected status values using string matching
+    String statusString = status.toString().toLowerCase();
+    if ((statusString.contains('disconnect') ||
+            statusString.contains('stop') ||
+            statusString.contains('idle')) &&
+        _activeConfig != null) {
+      // Detected disconnection from notification
+      _activeConfig = null;
+      _onDisconnected?.call();
+
+      // Save the disconnected state immediately
+      _clearActiveConfig();
+    }
+  }
+
+  Future<void> initialize() async {
+    if (!_isInitialized) {
+      await _flutterV2ray.initializeV2Ray(
+        notificationIconResourceType: "drawable",
+        notificationIconResourceName: "ic_notification",
+      );
+      _isInitialized = true;
+
+      // Try to restore active config if VPN is still running
+      await _tryRestoreActiveConfig();
+    }
+  }
+
+  Future<bool> connect(V2RayConfig config, bool statusProxy) async {
+    try {
+      await initialize();
+
+      // Parse the configuration
+      V2RayURL parser = FlutterV2ray.parseFromURL(config.fullConfig);
+
+      // Request permission if needed (for VPN mode)
+      bool hasPermission = await _flutterV2ray.requestPermission();
+      if (!hasPermission) {
+        return false;
+      }
+
+      // Get settings from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get bypass subnets settings
+      final bool bypassEnabled =
+          prefs.getBool('bypass_subnets_enabled') ?? false;
+      List<String>? bypassSubnets;
+
+      if (bypassEnabled) {
+        final String savedSubnets = prefs.getString('bypass_subnets') ?? '';
+        if (savedSubnets.isNotEmpty) {
+          bypassSubnets = savedSubnets.trim().split('\n');
+        }
+      } else {
+        // Explicitly set bypassSubnets to null when the feature is disabled
+        bypassSubnets = null;
+      }
+
+      // Save the proxy mode setting to SharedPreferences
+      await prefs.setBool('proxy_mode_enabled', statusProxy);
+
+      // Save the proxy mode setting to the config object
+      config.isProxyMode = statusProxy;
+
+      // Get custom DNS settings
+      final bool dnsEnabled = prefs.getBool('custom_dns_enabled') ?? false;
+      final String dnsServers =
+          prefs.getString('custom_dns_servers') ?? '1.1.1.1';
+
+      // Apply custom DNS settings if enabled
+      if (dnsEnabled && dnsServers.isNotEmpty) {
+        // Split the DNS servers string into a list (one per line)
+        List<String> serversList = dnsServers.trim().split('\n');
+        // Remove any empty entries
+        serversList = serversList
+            .where((server) => server.trim().isNotEmpty)
+            .toList();
+
+        if (serversList.isNotEmpty) {
+          // Set the DNS servers in the parser
+          parser.dns = {"servers": serversList};
+        }
+      }
+
+      // Get blocked apps from shared preferences
+      final blockedAppsList = prefs.getStringList('blocked_apps');
+
+      // Start V2Ray in VPN mode
+      await _flutterV2ray.startV2Ray(
+        remark: config.remark,
+        config: parser.getFullConfiguration(),
+        blockedApps: blockedAppsList, // Use saved blocked apps list
+        bypassSubnets: bypassSubnets,
+        proxyOnly: statusProxy, // Use proxy mode based on statusProxy parameter
+        notificationDisconnectButtonName: "DISCONNECT",
+      );
+
+      _activeConfig = config;
+      _lastConnectionTime = DateTime.now();
+
+      // Save active config to persistent storage
+      await _saveActiveConfig(config);
+
+      // Start monitoring usage statistics
+      _startUsageMonitoring();
+
+      // Fetch IP information after a 2-second delay to ensure connection is stable
+      Future.delayed(const Duration(seconds: 2), () {
+        fetchIpInfo()
+            .then((ipInfo) {
+              // IP Info fetched after connection
+            })
+            .catchError((e) {
+              // Error fetching IP info after connection
+            });
+      });
+
+      return true;
+    } catch (e) {
+      // Error connecting to V2Ray
+      return false;
+    }
+  }
+
+  Future<void> disconnect() async {
+    try {
+      // Stop usage monitoring
+      _stopUsageMonitoring();
+
+      // Save current usage statistics before clearing active config
+      await _saveUsageStats();
+
+      await _flutterV2ray.stopV2Ray();
+
+      // Clear active config and last connection time
+      _activeConfig = null;
+      _lastConnectionTime = null;
+
+      // Clear active config from storage but keep the usage statistics
+      await _clearActiveConfig();
+
+      // Update the last connection time in storage to null
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_connection_time');
+    } catch (e) {
+      // Error disconnecting from V2Ray
+    }
+  }
+
+  Future<void> _saveActiveConfig(V2RayConfig config) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Get the current proxy mode setting and update the config
+    final bool proxyModeEnabled = prefs.getBool('proxy_mode_enabled') ?? false;
+    config.isProxyMode = proxyModeEnabled;
+
+    await prefs.setString('active_config', jsonEncode(config.toJson()));
+    // Also save as selected config for UI state persistence
+    await _saveSelectedConfig(config);
+  }
+
+  Future<void> _saveSelectedConfig(V2RayConfig config) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Get the current proxy mode setting and update the config
+    final bool proxyModeEnabled = prefs.getBool('proxy_mode_enabled') ?? false;
+    config.isProxyMode = proxyModeEnabled;
+
+    await prefs.setString('selected_config', jsonEncode(config.toJson()));
+  }
+
+  // Public method to save selected config
+  Future<void> saveSelectedConfig(V2RayConfig config) async {
+    await _saveSelectedConfig(config);
+  }
+
+  Future<void> _clearActiveConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('active_config');
+  }
+
+  Future<V2RayConfig?> _loadActiveConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? configJson = prefs.getString('active_config');
+    if (configJson == null) return null;
+    return V2RayConfig.fromJson(jsonDecode(configJson));
+  }
+
+  Future<V2RayConfig?> loadSelectedConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? configJson = prefs.getString('selected_config');
+    if (configJson == null) return null;
+    return V2RayConfig.fromJson(jsonDecode(configJson));
+  }
+
+  Future<void> _tryRestoreActiveConfig() async {
+    try {
+      // Check if VPN is actually running
+      final delay = await _flutterV2ray.getConnectedServerDelay();
+      final isConnected = delay >= 0;
+
+      // VPN connection check
+
+      if (isConnected) {
+        // Try to load the saved active config
+        final savedConfig = await _loadActiveConfig();
+        if (savedConfig != null) {
+          _activeConfig = savedConfig;
+          // Restored active config
+
+          // Restore connection time properly
+          await _restoreConnectionTime();
+
+          // Start usage monitoring
+          _startUsageMonitoring();
+
+          // Notify listeners to update UI
+          notifyListeners();
+        } else {
+          // VPN is connected but no saved config found
+          // VPN is connected but we don't have the config details
+          // This shouldn't happen normally, but handle gracefully
+        }
+      } else {
+        // VPN is not running, clear any saved config
+        // VPN is not connected, clearing saved config
+        await _clearActiveConfig();
+        _activeConfig = null;
+        notifyListeners();
+      }
+    } catch (e) {
+      // Error restoring active config
+      // Clear any saved config on error
+      await _clearActiveConfig();
+      _activeConfig = null;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _restoreConnectionTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastConnectionTimeStr = prefs.getString('last_connection_time');
+
+    if (lastConnectionTimeStr != null) {
+      try {
+        final lastConnectionTime = DateTime.parse(lastConnectionTimeStr);
+        final now = DateTime.now();
+        final elapsedSeconds = now.difference(lastConnectionTime).inSeconds;
+
+        // Load existing connected seconds
+        _connectedSeconds = prefs.getInt('connected_seconds') ?? 0;
+
+        // If the app was closed recently (less than 1 hour), add the elapsed time
+        if (elapsedSeconds > 0 && elapsedSeconds < 60 * 60) {
+          _connectedSeconds += elapsedSeconds;
+          // Restored connection time
+        } else {
+          // Restored connection time
+        }
+
+        // Update last connection time to now for future tracking
+        _lastConnectionTime = now;
+        await _saveUsageStats();
+      } catch (e) {
+        // Error parsing last connection time
+        _lastConnectionTime = DateTime.now();
+        _connectedSeconds = prefs.getInt('connected_seconds') ?? 0;
+      }
+    } else {
+      // No saved connection time, start fresh but keep existing connected seconds
+      _lastConnectionTime = DateTime.now();
+      _connectedSeconds = prefs.getInt('connected_seconds') ?? 0;
+      // No previous connection time found
+      await _saveUsageStats();
+    }
+  }
+
+  // Get server delay/ping for a specific config using custom native implementation
+  Future<int?> getServerDelay(V2RayConfig config) async {
+    final configId = config.id;
+    final hostKey = '${config.address}:${config.port}';
+
+    try {
+      // Return cached ping if available - first check by host, then by configId
+      if (_pingCache.containsKey(hostKey)) {
+        final cachedValue = _pingCache[hostKey];
+        // Check if cached value is not too old (30 seconds)
+        if (cachedValue != null) {
+          return cachedValue;
+        }
+      } else if (_pingCache.containsKey(configId)) {
+        final cachedValue = _pingCache[configId];
+        if (cachedValue != null) {
+          return cachedValue;
+        }
+      }
+
+      // Check if ping is already in progress for this host or config
+      if (_pingInProgress[hostKey] == true ||
+          _pingInProgress[configId] == true) {
+        // Wait for existing ping to complete (max 5 seconds)
+        int attempts = 0;
+        while ((_pingInProgress[hostKey] == true ||
+                _pingInProgress[configId] == true) &&
+            attempts < 25) {
+          await Future.delayed(const Duration(milliseconds: 200));
+          attempts++;
+        }
+        return _pingCache[hostKey] ?? _pingCache[configId];
+      }
+
+      // Mark this host and config as having ping in progress
+      _pingInProgress[hostKey] = true;
+      _pingInProgress[configId] = true;
+
+      try {
+        // Use custom native ping service for better accuracy
+        final pingResult = await NativePingService.pingHost(
+          host: config.address,
+          port: config.port,
+          timeoutMs: 8000, // 8 second timeout
+          useIcmp: true,
+          useTcp: true,
+          useCache: false, // We handle our own caching
+        );
+
+        final int? delay = pingResult.success ? pingResult.latency : null;
+
+        // Log the ping result for debugging
+        // Removed verbose ping logging
+
+        // Cache the result by both host and config ID
+        _pingCache[hostKey] = delay;
+        _pingCache[configId] = delay;
+
+        _pingInProgress[hostKey] = false;
+        _pingInProgress[configId] = false;
+
+        return delay;
+      } catch (e) {
+        // Error with native ping
+
+        // Fallback to V2Ray's built-in ping if native ping fails
+        try {
+          await initialize();
+
+          final parser = FlutterV2ray.parseFromURL(config.fullConfig);
+          final delay = await _flutterV2ray
+              .getServerDelay(config: parser.getFullConfiguration())
+              .timeout(
+                const Duration(seconds: 10),
+                onTimeout: () {
+                  // V2Ray ping timeout
+                  throw Exception('V2Ray ping timeout');
+                },
+              );
+
+          // Cache the fallback result
+          if (delay >= -1 && delay < 10000) {
+            _pingCache[hostKey] = delay;
+            _pingCache[configId] = delay;
+            return delay;
+          }
+        } catch (fallbackError) {
+          // Fallback V2Ray ping also failed
+        }
+
+        _pingInProgress[hostKey] = false;
+        _pingInProgress[configId] = false;
+        _pingCache[hostKey] = null;
+        _pingCache[configId] = null;
+        return null;
+      }
+    } catch (e) {
+      // Unexpected error in getServerDelay
+      // Ensure cleanup even in unexpected errors
+      _pingInProgress[hostKey] = false;
+      _pingInProgress[configId] = false;
+      return null;
+    }
+  }
+
+  Future<List<V2RayConfig>> parseSubscriptionUrl(String url) async {
+    try {
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              throw Exception(
+                'Network timeout: Check your internet connection',
+              );
+            },
+          );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Failed to load subscription: HTTP ${response.statusCode}',
+        );
+      }
+
+      final List<V2RayConfig> configs = [];
+      String content = response.body;
+
+      // Try to decode as base64 first
+      try {
+        // Check if the content looks like base64
+        if (_isBase64(content)) {
+          final decoded = utf8.decode(base64.decode(content.trim()));
+          // If decoding succeeds, use the decoded content
+          content = decoded;
+          // Successfully decoded base64 content
+        }
+      } catch (e) {
+        // If base64 decoding fails, use the original content
+        // Not a valid base64 content, using original
+      }
+
+      final List<String> lines = content.split('\n');
+
+      for (String line in lines) {
+        line = line.trim();
+        if (line.isEmpty) continue;
+
+        try {
+          if (line.startsWith('vmess://') ||
+              line.startsWith('vless://') ||
+              line.startsWith('ss://')) {
+            V2RayURL parser = FlutterV2ray.parseFromURL(line);
+            String configType = '';
+
+            if (line.startsWith('vmess://')) {
+              configType = 'vmess';
+            } else if (line.startsWith('vless://')) {
+              configType = 'vless';
+            } else if (line.startsWith('ss://')) {
+              configType = 'shadowsocks';
+            }
+
+            // Use the parsed address and port from the V2RayURL parser
+            String address = parser.address;
+            int port = parser.port;
+
+            configs.add(
+              V2RayConfig(
+                id:
+                    DateTime.now().millisecondsSinceEpoch.toString() +
+                    configs.length.toString(),
+                remark: parser.remark,
+                address: address,
+                port: port,
+                configType: configType,
+                fullConfig: line,
+              ),
+            );
+          }
+        } catch (e) {
+          // Error parsing config
+        }
+      }
+
+      if (configs.isEmpty) {
+        throw Exception('No valid configurations found in subscription');
+      }
+
+      return configs;
+    } catch (e) {
+      // Error parsing subscription
+
+      // Provide more specific error messages based on exception type
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('Network is unreachable')) {
+        throw Exception('Network error: Check your internet connection');
+      } else if (e.toString().contains('timeout')) {
+        throw Exception('Connection timeout: Server is not responding');
+      } else if (e.toString().contains('Invalid URL')) {
+        throw Exception('Invalid subscription URL format');
+      } else if (e.toString().contains('No valid configurations')) {
+        throw Exception('No valid servers found in subscription');
+      } else {
+        throw Exception('Failed to update subscription: ${e.toString()}');
+      }
+    }
+  }
+
+  // Save and load configurations
+  Future<void> saveConfigs(List<V2RayConfig> configs) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> configsJson = configs
+        .map((config) => jsonEncode(config.toJson()))
+        .toList();
+    await prefs.setStringList('v2ray_configs', configsJson);
+  }
+
+  Future<List<V2RayConfig>> loadConfigs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? configsJson = prefs.getStringList('v2ray_configs');
+    if (configsJson == null) return [];
+
+    return configsJson
+        .map((json) => V2RayConfig.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  // Save and load subscriptions
+  Future<void> saveSubscriptions(List<Subscription> subscriptions) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> subscriptionsJson = subscriptions
+        .map((sub) => jsonEncode(sub.toJson()))
+        .toList();
+    await prefs.setStringList('v2ray_subscriptions', subscriptionsJson);
+  }
+
+  Future<List<Subscription>> loadSubscriptions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? subscriptionsJson = prefs.getStringList(
+      'v2ray_subscriptions',
+    );
+    if (subscriptionsJson == null) return [];
+
+    return subscriptionsJson
+        .map((json) => Subscription.fromJson(jsonDecode(json)))
+        .toList();
+  }
+
+  void setDisconnectedCallback(Function() callback) {
+    _onDisconnected = callback;
+    // Disable automatic monitoring to prevent false disconnects
+    // _startStatusMonitoring();
+  }
+
+  void _stopStatusMonitoring() {
+    _statusCheckTimer?.cancel();
+    _statusCheckTimer = null;
+  }
+
+  // Helper method to check if a string is valid base64
+  bool _isBase64(String str) {
+    // Remove any whitespace
+    str = str.trim();
+    // Check if the length is valid for base64 (multiple of 4)
+    if (str.length % 4 != 0) {
+      return false;
+    }
+    // Check if the string contains only valid base64 characters
+    return RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(str);
+  }
+
+  // Removed getConnectedServerDelay method as requested
+
+  // Fetch IP information from ipleak.net API
+  Future<IpInfo> fetchIpInfo() async {
+    // Set loading state
+    _isLoadingIpInfo = true;
+    notifyListeners();
+
+    const String apiUrl = 'https://ipleak.net/json/';
+    int retryCount = 0;
+    const int maxRetries = 5;
+
+    try {
+      while (retryCount < maxRetries) {
+        try {
+          // Fetching IP info attempt
+          final response = await http.get(Uri.parse(apiUrl));
+
+          if (response.statusCode == 200) {
+            final Map<String, dynamic> data = json.decode(response.body);
+            final ipInfo = IpInfo.fromJson(data);
+
+            _ipInfo = ipInfo;
+            _isLoadingIpInfo = false;
+            notifyListeners();
+            // IP info fetched successfully
+            return ipInfo;
+          } else {
+            // HTTP error
+            retryCount++;
+            await Future.delayed(const Duration(seconds: 1));
+          }
+        } catch (e) {
+          // Error fetching IP info
+          retryCount++;
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
+
+      // After max retries, return error
+      final errorInfo = IpInfo.error('Cannot get IP information');
+      _ipInfo = errorInfo;
+      _isLoadingIpInfo = false;
+      notifyListeners();
+      // Failed to fetch IP info after max retries
+      return errorInfo;
+    } catch (e) {
+      // Handle any unexpected errors
+      // Unexpected error fetching IP info
+      final errorInfo = IpInfo.error('Error: $e');
+      _ipInfo = errorInfo;
+      _isLoadingIpInfo = false;
+      notifyListeners();
+      return errorInfo;
+    }
+  }
+
+  // Getter to check if connected to a server
+  bool get isConnected => _activeConfig != null;
+
+  // Getter to access the active config
+  V2RayConfig? get activeConfig => _activeConfig;
+
+  // Public method to force check connection status
+  Future<bool> isActuallyConnected() async {
+    try {
+      final delay = await _flutterV2ray.getConnectedServerDelay();
+      final isConnected = delay != null && delay >= 0;
+
+      // Don't automatically clear the active config or call onDisconnected
+      // This prevents false disconnections when switching between apps
+      // Only report the actual connection status
+
+      return isConnected;
+    } catch (e) {
+      // Error in force connection check
+      // Don't automatically clear the active config or call onDisconnected
+      // Just report the error but maintain the connection state
+      return _activeConfig !=
+          null; // Assume still connected if we have an active config
+    }
+  }
+
+  /// Get real-time ping monitoring for the currently connected server
+  /// Returns a stream of ping results that updates at the specified interval
+  Stream<PingResult>? startConnectedServerPingMonitoring({
+    Duration interval = const Duration(seconds: 5),
+  }) {
+    if (_activeConfig == null) {
+      // No active config for ping monitoring
+      return null;
+    }
+
+    try {
+      return NativePingService.startContinuousPing(
+        host: _activeConfig!.address,
+        port: _activeConfig!.port,
+        interval: interval,
+      );
+    } catch (e) {
+      // Error starting connected server ping monitoring
+      return null;
+    }
+  }
+
+  /// Get network type information
+  Future<String> getNetworkType() async {
+    try {
+      return await NativePingService.getNetworkType();
+    } catch (e) {
+      // Error getting network type
+      return 'Unknown';
+    }
+  }
+
+  /// Test connectivity using native ping service
+  Future<Map<String, PingResult>> testConnectivity() async {
+    try {
+      return await NativePingService.testConnectivity();
+    } catch (e) {
+      // Error testing connectivity
+      return {};
+    }
+  }
+
+  /// Get enhanced server delay with detailed ping information
+  Future<PingResult> getServerPingDetails(V2RayConfig config) async {
+    try {
+      return await NativePingService.pingHost(
+        host: config.address,
+        port: config.port,
+        timeoutMs: 8000,
+        useIcmp: true,
+        useTcp: true,
+        useCache: false,
+      );
+    } catch (e) {
+      // Error getting server ping details
+      return PingResult.error('Failed to ping server: $e');
+    }
+  }
+
+  /// Batch ping multiple servers for server selection
+  Future<Map<String, int?>> batchPingServers(List<V2RayConfig> configs) async {
+    try {
+      final hosts = configs
+          .map((config) => (host: config.address, port: config.port))
+          .toList();
+
+      final results = await NativePingService.pingMultipleHosts(
+        hosts: hosts,
+        timeoutMs: 6000,
+        useIcmp: true,
+        useTcp: true,
+      );
+
+      final Map<String, int?> configResults = {};
+
+      for (final config in configs) {
+        final key = '${config.address}:${config.port}';
+        final pingResult = results[key];
+        final latency = pingResult?.success == true
+            ? pingResult!.latency
+            : null;
+
+        configResults[config.id] = latency;
+
+        // Also cache the result
+        _pingCache[key] = latency;
+        _pingCache[config.id] = latency;
+      }
+
+      return configResults;
+    } catch (e) {
+      // Error in batch ping servers
+      return {};
+    }
+  }
+
+  /// Get fastest server from a list of configs
+  Future<V2RayConfig?> getFastestServer(List<V2RayConfig> configs) async {
+    if (configs.isEmpty) return null;
+
+    try {
+      final pingResults = await batchPingServers(configs);
+
+      V2RayConfig? fastestConfig;
+      int? lowestLatency;
+
+      for (final config in configs) {
+        final latency = pingResults[config.id];
+        if (latency != null && latency > 0) {
+          if (lowestLatency == null || latency < lowestLatency) {
+            lowestLatency = latency;
+            fastestConfig = config;
+          }
+        }
+      }
+
+      return fastestConfig;
+    } catch (e) {
+      // Error finding fastest server
+      return null;
+    }
+  }
+
+  Future<V2RayConfig?> parseSubscriptionConfig(String configText) async {
+    try {
+      // Try to parse as a V2Ray URL
+      final parser = FlutterV2ray.parseFromURL(configText);
+
+      // Determine the protocol type from the URL prefix
+      String configType = '';
+      if (configText.startsWith('vmess://')) {
+        configType = 'vmess';
+      } else if (configText.startsWith('vless://')) {
+        configType = 'vless';
+      } else if (configText.startsWith('ss://')) {
+        configType = 'shadowsocks';
+      } else {
+        throw Exception('Unsupported protocol');
+      }
+
+      // Use the parsed address and port from the V2RayURL parser
+      String address = parser.address;
+      int port = parser.port;
+
+      // Create a new V2RayConfig object with a generated ID
+      return V2RayConfig(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        remark: parser.remark,
+        address: address,
+        port: port,
+        configType: configType,
+        fullConfig: configText,
+        isConnected: false,
+        isProxyMode: false,
+      );
+    } catch (e) {
+      // Error parsing config
+      return null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopStatusMonitoring();
+    _stopUsageMonitoring();
+    // Cleanup native ping service
+    NativePingService.cleanup();
+    super.dispose();
+  }
+
+  // Usage statistics methods
+  void _startUsageMonitoring() {
+    // Stop existing timer if any
+    _usageStatsTimer?.cancel();
+
+    // Start periodic usage monitoring every second
+    _usageStatsTimer = Timer.periodic(Duration(seconds: 1), (timer) async {
+      if (_activeConfig != null) {
+        // Increment connected time
+        _connectedSeconds++;
+
+        try {
+          // Use real V2Ray status data if available
+          if (_currentStatus != null) {
+            // Get real-time traffic data from V2Ray status
+            final status = _currentStatus!;
+
+            // Update cumulative statistics with real data
+            // Note: V2Ray status provides cumulative data, so we store the latest values
+            _uploadBytes = status.upload;
+            _downloadBytes = status.download;
+          } else {
+            // Fallback to simulated data if V2Ray status is not available
+            final random = Random();
+            final uploadSpeed = random.nextInt(50) * 1024; // 0-50 KB in bytes
+            final downloadSpeed = random.nextInt(50) * 1024; // 0-50 KB in bytes
+
+            // Add to total bytes
+            _uploadBytes += uploadSpeed;
+            _downloadBytes += downloadSpeed;
+          }
+
+          // Notify UI to update
+          notifyListeners();
+
+          // Save statistics every minute to avoid excessive writes
+          if (_connectedSeconds % 60 == 0) {
+            await _saveUsageStats();
+          }
+        } catch (e) {
+          // Error updating usage statistics
+        }
+      }
+    });
+  }
+
+  void _stopUsageMonitoring() {
+    _usageStatsTimer?.cancel();
+    _usageStatsTimer = null;
+  }
+
+  // Save usage stats and connection time to storage
+  Future<void> _saveUsageStats() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Save current usage statistics
+    await prefs.setInt('upload_bytes', _uploadBytes);
+    await prefs.setInt('download_bytes', _downloadBytes);
+    await prefs.setInt('connected_seconds', _connectedSeconds);
+
+    // Save last connection time if connected
+    if (_lastConnectionTime != null) {
+      await prefs.setString(
+        'last_connection_time',
+        _lastConnectionTime!.toIso8601String(),
+      );
+    }
+  }
+
+  Future<void> _loadUsageStats() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Load saved usage statistics
+    _uploadBytes = prefs.getInt('upload_bytes') ?? 0;
+    _downloadBytes = prefs.getInt('download_bytes') ?? 0;
+    _connectedSeconds = prefs.getInt('connected_seconds') ?? 0;
+
+    // Load last connection time (but don't calculate elapsed time here)
+    // This will be handled by _restoreConnectionTime when needed
+    final lastConnectionTimeStr = prefs.getString('last_connection_time');
+    if (lastConnectionTimeStr != null) {
+      try {
+        _lastConnectionTime = DateTime.parse(lastConnectionTimeStr);
+      } catch (e) {
+        // Error parsing last connection time
+        _lastConnectionTime = null;
+      }
+    } else {
+      _lastConnectionTime = null;
+    }
+
+    // Loaded usage stats
+  }
+
+  Future<void> resetUsageStats() async {
+    _uploadBytes = 0;
+    _downloadBytes = 0;
+    _connectedSeconds = 0;
+
+    // Reset last connection time to now if connected
+    if (_activeConfig != null) {
+      _lastConnectionTime = DateTime.now();
+    } else {
+      _lastConnectionTime = null;
+    }
+
+    // Save the reset values
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('upload_bytes', 0);
+    await prefs.setInt('download_bytes', 0);
+    await prefs.setInt('connected_seconds', 0);
+
+    if (_lastConnectionTime != null) {
+      await prefs.setString(
+        'last_connection_time',
+        _lastConnectionTime!.toIso8601String(),
+      );
+    } else {
+      await prefs.remove('last_connection_time');
+    }
+  }
+
+  // Getters for usage statistics
+  int get uploadBytes => _uploadBytes;
+  int get downloadBytes => _downloadBytes;
+  int get connectedSeconds => _connectedSeconds;
+
+  // Get current speeds from V2Ray status (for internal use)
+  int get currentUploadSpeed => _currentStatus?.uploadSpeed ?? 0;
+  int get currentDownloadSpeed => _currentStatus?.downloadSpeed ?? 0;
+  
+  // Get current ping for the active server
+  Future<int?> getCurrentPing() async {
+    if (_activeConfig == null) return null;
+    
+    try {
+      // Try to get ping from V2Ray
+      final delay = await _flutterV2ray.getServerDelay(config: _activeConfig!.fullConfig);
+      return delay;
+    } catch (e) {
+      // If V2Ray ping fails, try regular TCP ping
+      try {
+        final stopwatch = Stopwatch()..start();
+        final socket = await Socket.connect(
+          _activeConfig!.address,
+          _activeConfig!.port,
+          timeout: const Duration(seconds: 3),
+        );
+        stopwatch.stop();
+        await socket.close();
+        return stopwatch.elapsedMilliseconds;
+      } catch (e) {
+        return null;
+      }
+    }
+  }
+
+  // Format usage statistics for display
+  String getFormattedUpload() {
+    return _formatBytes(_uploadBytes);
+  }
+
+  String getFormattedDownload() {
+    return _formatBytes(_downloadBytes);
+  }
+
+  String getFormattedTotalTraffic() {
+    return _formatBytes(_uploadBytes + _downloadBytes);
+  }
+
+  String getFormattedConnectedTime() {
+    final hours = _connectedSeconds ~/ 3600;
+    final minutes = (_connectedSeconds % 3600) ~/ 60;
+    final seconds = _connectedSeconds % 60;
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+  }
+}

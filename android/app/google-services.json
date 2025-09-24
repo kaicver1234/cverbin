@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "246805700616",
+    "project_id": "tiksar-vpn",
+    "storage_bucket": "tiksar-vpn.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:246805700616:android:c5c071d70c247b6397f1bd",
+        "android_client_info": {
+          "package_name": "com.tiksarvpn.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCphADgBooyKXVR-T8khtOWDKfQABqYl5A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
