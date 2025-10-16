@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:math' as math;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
-import '../theme/app_theme.dart';
 import '../widgets/modern_animated_background.dart';
 import '../utils/app_localizations.dart';
 
@@ -50,9 +48,44 @@ class _AboutScreenState extends State<AboutScreen>
 
   Future<void> _launchUrl(String url) async {
     final Uri uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    try {
+      // For Telegram links, try app first, then fallback to web
+      if (url.startsWith('https://t.me/')) {
+        // First try: Open in Telegram app (if installed)
+        bool launched = await launchUrl(
+          uri, 
+          mode: LaunchMode.externalApplication,
+        );
+        
+        if (!launched) {
+          // Second try: Let user choose from multiple Telegram apps or web browser
+          launched = await launchUrl(
+            uri,
+            mode: LaunchMode.platformDefault, // This shows app chooser on Android
+          );
+          
+          if (!launched) {
+            // Final fallback: Open in web browser
+            if (mounted) {
+              _showSnackBar('Opening in browser...', Colors.orange);
+            }
+            await launchUrl(
+              uri,
+              mode: LaunchMode.externalNonBrowserApplication,
+            );
+          }
+        }
+      } else {
+        // For other URLs (Instagram, etc.), use external application
+        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          if (mounted) {
+            _showSnackBar('Could not open $url', Colors.red);
+          }
+        }
+      }
+    } catch (e) {
       if (mounted) {
-        _showSnackBar('Could not open $url', Colors.red);
+        _showSnackBar('Error opening link: $e', Colors.red);
       }
     }
   }
@@ -209,7 +242,7 @@ class _AboutScreenState extends State<AboutScreen>
                 const SizedBox(height: 8),
                 
                 Text(
-                  'Version 1.0.0',
+                  'Version 1.1.0',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.6),
@@ -343,7 +376,7 @@ class _AboutScreenState extends State<AboutScreen>
                 icon: Icons.telegram,
                 label: 'Telegram',
                 gradient: const [Color(0xFF0088CC), Color(0xFF00A0E3)],
-                onTap: () => _launchUrl('https://t.me/abolcver'),
+                onTap: () => _launchUrl('https://t.me/tiksar_vpn'),
                 delay: 800,
               ),
               const SizedBox(width: 16),
@@ -360,9 +393,15 @@ class _AboutScreenState extends State<AboutScreen>
           const SizedBox(height: 16),
           
           _buildOfficialPageButton(
-            icon: Icons.location_city,
+            icon: Icons.camera_alt,
             label: AppLocalizations.of(context).translate('about.tiksar_village_page'),
-            gradient: const [Color(0xFF667EEA), Color(0xFF764BA2)],
+            gradient: const [
+              Color(0xFFFCAF45),
+              Color(0xFFF77737),
+              Color(0xFFE1306C),
+              Color(0xFFC13584),
+              Color(0xFF833AB4),
+            ],
             onTap: () => _launchUrl('https://instagram.com/tiksaar_leyl_gilan'),
             delay: 1000,
           ),

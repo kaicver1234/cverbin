@@ -21,12 +21,14 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   bool _isConnecting = false;
+  late TabController _tabController;
   
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     
     // Initialize provider data
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -38,6 +40,12 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     });
+  }
+  
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _handleConnectionToggle() async {
@@ -212,37 +220,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Modern App Bar
                       _buildModernAppBar(context),
                       
-                      // Main Content
+                      // Tab Bar
+                      _buildTabBar(),
+                      
+                      // Tab View Content
                       Expanded(
-                        child: SingleChildScrollView(
+                        child: TabBarView(
+                          controller: _tabController,
                           physics: const BouncingScrollPhysics(),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Column(
-                              children: [
-                                const SizedBox(height: 20),
-                                
-                                // Main Connection Button
-                                _buildConnectionButton(v2rayProvider),
-                                
-                                const SizedBox(height: 24),
-                                
-                                // Server Selection Card
-                                _buildServerCard(v2rayProvider),
-                                
-                                const SizedBox(height: 20),
-                                
-                                // Stats Grid
-                                if (v2rayProvider.activeConfig != null)
-                                  _buildStatsGrid(v2rayProvider),
-                                
-                                const SizedBox(height: 20),
-                                
-                                // Quick Actions
-                                _buildQuickActions(context),
-                              ],
-                            ),
-                          ),
+                          children: [
+                            // VPN Tab
+                            _buildVPNTab(v2rayProvider),
+                            
+                            // Tools Tab
+                            _buildToolsTab(context),
+                          ],
                         ),
                       ),
                     ],
@@ -353,6 +345,317 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ).animate().scale(delay: 200.ms);
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.15),
+          width: 1,
+        ),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6366F1).withOpacity(0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white.withOpacity(0.6),
+        labelStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.vpn_key, size: 18),
+                const SizedBox(width: 6),
+                Text(AppLocalizations.of(context).translate('navigation.vpn')),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.build, size: 18),
+                const SizedBox(width: 6),
+                Text(AppLocalizations.of(context).translate('navigation.tools')),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2, end: 0);
+  }
+
+  Widget _buildVPNTab(V2RayProvider provider) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            
+            // Main Connection Button
+            _buildConnectionButton(provider),
+            
+            const SizedBox(height: 24),
+            
+            // Server Selection Card
+            _buildServerCard(provider),
+            
+            const SizedBox(height: 20),
+            
+            // Stats Grid
+            if (provider.activeConfig != null)
+              _buildStatsGrid(provider),
+            
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolsTab(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 10),
+            
+            // Title
+            Text(
+              AppLocalizations.of(context).translate('navigation.tools'),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.95),
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
+            ).animate().fadeIn().slideX(),
+            
+            const SizedBox(height: 8),
+            
+            Text(
+              AppLocalizations.of(context).translate('home.quick_actions'),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 14,
+              ),
+            ).animate().fadeIn(delay: 100.ms),
+            
+            const SizedBox(height: 24),
+            
+            // Tools Grid
+            _buildToolsGrid(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolsGrid(BuildContext context) {
+    final tools = [
+      {
+        'icon': Icons.info_outline,
+        'label': AppLocalizations.of(context).translate('home.ip_info'),
+        'subtitle': AppLocalizations.of(context).translate('tools.ip_information_desc'),
+        'color': const Color(0xFF3B82F6),
+        'onTap': () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const IpInfoScreen()),
+          );
+        },
+      },
+      {
+        'icon': Icons.speed,
+        'label': AppLocalizations.of(context).translate('home.speed_test'),
+        'subtitle': AppLocalizations.of(context).translate('tools.speed_test_desc'),
+        'color': const Color(0xFF10B981),
+        'onTap': () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SpeedTestScreen()),
+          );
+        },
+      },
+      {
+        'icon': Icons.dns,
+        'label': AppLocalizations.of(context).translate('home.host_checker'),
+        'subtitle': AppLocalizations.of(context).translate('tools.host_checker_desc'),
+        'color': const Color(0xFF06B6D4),
+        'onTap': () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const HostCheckerScreen()),
+          );
+        },
+      },
+      {
+        'icon': Icons.refresh,
+        'label': AppLocalizations.of(context).translate('home.refresh'),
+        'subtitle': AppLocalizations.of(context).translate('subscription_management.update_all'),
+        'color': const Color(0xFF8B5CF6),
+        'onTap': () async {
+          final provider = Provider.of<V2RayProvider>(context, listen: false);
+          _showSnackBar(
+            AppLocalizations.of(context).translate('home.updating_subscriptions'), 
+            Colors.blue,
+          );
+          await provider.updateAllSubscriptions();
+          if (provider.errorMessage.isEmpty) {
+            _showSnackBar(
+              AppLocalizations.of(context).translate('home.subscriptions_updated'), 
+              Colors.green,
+            );
+          } else {
+            _showSnackBar(provider.errorMessage, Colors.red);
+            provider.clearError();
+          }
+        },
+      },
+    ];
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: tools.length,
+      itemBuilder: (context, index) {
+        final tool = tools[index];
+        return _buildToolCard(
+          icon: tool['icon'] as IconData,
+          label: tool['label'] as String,
+          subtitle: tool['subtitle'] as String,
+          color: tool['color'] as Color,
+          onTap: tool['onTap'] as VoidCallback,
+          delay: (index * 100),
+        );
+      },
+    );
+  }
+
+  Widget _buildToolCard({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+    required int delay,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  color.withOpacity(0.15),
+                  color.withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: color.withOpacity(0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.6),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: color.withOpacity(0.5),
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).animate()
+      .fadeIn(delay: Duration(milliseconds: delay))
+      .slideX(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOutCubic);
   }
 
   Widget _buildConnectionButton(V2RayProvider provider) {
@@ -500,12 +803,69 @@ class _HomeScreenState extends State<HomeScreen> {
     
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ServerSelectionScreen(),
-          ),
-        );
+        // Check if VPN is currently connected
+        if (provider.activeConfig != null) {
+          // Show dialog asking user to disconnect first
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                backgroundColor: const Color(0xFF1E293B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(context).translate('server_selector.connection_active'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Text(
+                  AppLocalizations.of(context).translate('server_selector.disconnect_first'),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 15,
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      AppLocalizations.of(context).translate('common.ok'),
+                      style: const TextStyle(
+                        color: Color(0xFF6366F1),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        } else {
+          // VPN is not connected, navigate to server selection
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ServerSelectionScreen(),
+            ),
+          );
+        }
       },
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -705,140 +1065,4 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          AppLocalizations.of(context).translate('home.quick_actions'),
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 3,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.1,
-          children: [
-            _buildQuickActionItem(
-              icon: Icons.info_outline,
-              label: AppLocalizations.of(context).translate('home.ip_info'),
-              color: Colors.blue,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const IpInfoScreen(),
-                  ),
-                );
-              },
-            ),
-            _buildQuickActionItem(
-              icon: Icons.speed,
-              label: AppLocalizations.of(context).translate('home.speed_test'),
-              color: Colors.green,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SpeedTestScreen(),
-                  ),
-                );
-              },
-            ),
-            _buildQuickActionItem(
-              icon: Icons.refresh,
-              label: AppLocalizations.of(context).translate('home.refresh'),
-              color: const Color(0xFF8B5CF6),
-              onTap: () async {
-                final provider = Provider.of<V2RayProvider>(
-                  context,
-                  listen: false,
-                );
-                
-                // Show loading message
-                _showSnackBar(
-                  AppLocalizations.of(context).translate('home.updating_subscriptions'), 
-                  Colors.blue,
-                );
-                
-                // Actually refresh all subscriptions and get fresh servers
-                await provider.updateAllSubscriptions();
-                
-                // Show result based on success or error
-                if (provider.errorMessage.isEmpty) {
-                  _showSnackBar(
-                    AppLocalizations.of(context).translate('home.subscriptions_updated'), 
-                    Colors.green,
-                  );
-                } else {
-                  _showSnackBar(provider.errorMessage, Colors.red);
-                  provider.clearError();
-                }
-              },
-            ),
-            _buildQuickActionItem(
-              icon: Icons.dns,
-              label: AppLocalizations.of(context).translate('home.host_checker'),
-              color: const Color(0xFF06B6D4),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const HostCheckerScreen(),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ],
-    ).animate().fadeIn(delay: 600.ms);
-  }
-
-  Widget _buildQuickActionItem({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: color,
-              size: 28,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    ).animate().scale(delay: 100.ms * label.length);
-  }
 }

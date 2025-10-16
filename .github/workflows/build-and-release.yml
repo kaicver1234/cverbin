@@ -7,13 +7,21 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to create release for (e.g., v1.0.0)'
+        description: 'Tag to create release for (e.g., v1.1.0)'
         required: true
-        default: 'v1.0.0'
+        default: 'v1.1.0'
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
 
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -58,14 +66,19 @@ jobs:
           fi
         shell: bash
 
-      - name: Create Release
+      - name: Create or Update Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.TAG_NAME }}
           name: Release ${{ env.TAG_NAME }}
           draft: false
           prerelease: false
+          make_latest: true
+          generate_release_notes: false
+          fail_on_unmatched_files: false
           files: |
             release/TiksarVPN-universal.apk
             release/TiksarVPN-armeabi-v7a.apk
@@ -78,7 +91,7 @@ jobs:
             
             | Architecture | Download Link |
             |-------------|---------------|
-            | Universal   | <a href="https://github.com/code3-dev/ProxyCloud/releases/latest/download/proxycloud-universal.apk"><img src="https://img.shields.io/badge/Android-Universal-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android Universal"></a> |
-            | armeabi-v7a | <a href="https://github.com/code3-dev/ProxyCloud/releases/latest/download/proxycloud-armeabi-v7a.apk"><img src="https://img.shields.io/badge/Android-armeabi--v7a-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android armeabi-v7a"></a> |
-            | arm64-v8a   | <a href="https://github.com/code3-dev/ProxyCloud/releases/latest/download/proxycloud-arm64-v8a.apk"><img src="https://img.shields.io/badge/Android-arm64--v8a-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android arm64-v8a"></a> |
-            | x86_64      | <a href="https://github.com/code3-dev/ProxyCloud/releases/latest/download/proxycloud-x86_64.apk"><img src="https://img.shields.io/badge/Android-x86_64-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android x86_64"></a> |
+            | Universal   | <a href="https://github.com/code3-dev/Tiksar-vpn/releases/latest/download/proxTiksarVPNycloud-universal.apk"><img src="https://img.shields.io/badge/Android-Universal-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android Universal"></a> |
+            | armeabi-v7a | <a href="https://github.com/code3-dev/Tiksar-vpn/releases/latest/download/TiksarVPN-armeabi-v7a.apk"><img src="https://img.shields.io/badge/Android-armeabi--v7a-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android armeabi-v7a"></a> |
+            | arm64-v8a   | <a href="https://github.com/code3-dev/Tiksar-vpn/releases/latest/download/TiksarVPN-arm64-v8a.apk"><img src="https://img.shields.io/badge/Android-arm64--v8a-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android arm64-v8a"></a> |
+            | x86_64      | <a href="https://github.com/code3-dev/Tiksar-vpn/releases/latest/download/TiksarVPN-x86_64.apk"><img src="https://img.shields.io/badge/Android-x86_64-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android x86_64"></a> |

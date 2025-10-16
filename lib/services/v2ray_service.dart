@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:math';
 import 'dart:io';
 import 'package:flutter_v2ray/flutter_v2ray.dart';
 import 'package:http/http.dart' as http;
@@ -148,16 +147,39 @@ class V2RayService extends ChangeNotifier {
     // Handle disconnection from notification
     // Check for common disconnected status values using string matching
     String statusString = status.toString().toLowerCase();
-    if ((statusString.contains('disconnect') ||
-            statusString.contains('stop') ||
-            statusString.contains('idle')) &&
-        _activeConfig != null) {
+    String stateString = status.state?.toLowerCase() ?? '';
+    
+    // Check if disconnected by multiple indicators
+    bool isDisconnected = statusString.contains('disconnect') ||
+        statusString.contains('stop') ||
+        statusString.contains('idle') ||
+        stateString.contains('disconnect') ||
+        stateString.contains('stopped') ||
+        stateString.contains('idle') ||
+        stateString == 'disconnected' ||
+        stateString.isEmpty; // Empty state also means disconnected
+    
+    if (isDisconnected && _activeConfig != null) {
       // Detected disconnection from notification
       _activeConfig = null;
       _onDisconnected?.call();
 
       // Save the disconnected state immediately
       _clearActiveConfig();
+      notifyListeners();
+    }
+    
+    // Also check if we're now connected when we weren't before
+    bool isConnected = stateString.contains('connect') ||
+        stateString == 'connected' ||
+        statusString.contains('connected');
+    
+    if (isConnected && _activeConfig == null) {
+      // VPN connected but we don't have active config
+      // Try to restore from saved config
+      _tryRestoreActiveConfig().then((_) {
+        notifyListeners();
+      });
     }
   }
 
@@ -344,15 +366,45 @@ class V2RayService extends ChangeNotifier {
 
   Future<void> _tryRestoreActiveConfig() async {
     try {
-      // Check if VPN is actually running
-      final delay = await _flutterV2ray.getConnectedServerDelay();
-      final isConnected = delay >= 0;
+      // First, try to load saved config
+      final savedConfig = await _loadActiveConfig();
+      
+      // Try multiple times to check if VPN is actually running
+      bool? isConnected;
+      for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+          // Check if VPN is actually running with timeout
+          final delay = await _flutterV2ray.getConnectedServerDelay()
+              .timeout(const Duration(seconds: 8));
+          isConnected = delay >= 0;
+          break; // Success, exit retry loop
+        } catch (e) {
+          // Timeout or error - retry
+          if (attempt < 2) {
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+        }
+      }
 
-      // VPN connection check
+      // If we couldn't determine connection status but have saved config
+      // assume it's still connected (for better user experience after long background)
+      if (isConnected == null && savedConfig != null) {
+        _activeConfig = savedConfig;
+        // Assumed connected based on saved config (couldn't verify VPN status)
+        
+        // Restore connection time properly
+        await _restoreConnectionTime();
+        
+        // Start usage monitoring
+        _startUsageMonitoring();
+        
+        // Notify listeners to update UI
+        notifyListeners();
+        return;
+      }
 
-      if (isConnected) {
-        // Try to load the saved active config
-        final savedConfig = await _loadActiveConfig();
+      if (isConnected == true) {
+        // VPN is definitely connected
         if (savedConfig != null) {
           _activeConfig = savedConfig;
           // Restored active config
@@ -370,8 +422,8 @@ class V2RayService extends ChangeNotifier {
           // VPN is connected but we don't have the config details
           // This shouldn't happen normally, but handle gracefully
         }
-      } else {
-        // VPN is not running, clear any saved config
+      } else if (isConnected == false) {
+        // VPN is definitely not running, clear any saved config
         // VPN is not connected, clearing saved config
         await _clearActiveConfig();
         _activeConfig = null;
@@ -379,10 +431,26 @@ class V2RayService extends ChangeNotifier {
       }
     } catch (e) {
       // Error restoring active config
-      // Clear any saved config on error
-      await _clearActiveConfig();
-      _activeConfig = null;
-      notifyListeners();
+      // Try to restore from saved config as fallback
+      try {
+        final savedConfig = await _loadActiveConfig();
+        if (savedConfig != null) {
+          _activeConfig = savedConfig;
+          await _restoreConnectionTime();
+          _startUsageMonitoring();
+          notifyListeners();
+          // Restored config from fallback despite error
+        } else {
+          await _clearActiveConfig();
+          _activeConfig = null;
+          notifyListeners();
+        }
+      } catch (fallbackError) {
+        // Complete failure - clear everything
+        await _clearActiveConfig();
+        _activeConfig = null;
+        notifyListeners();
+      }
     }
   }
 
@@ -763,31 +831,86 @@ class V2RayService extends ChangeNotifier {
   Future<bool> isActuallyConnected() async {
     try {
       // IMPROVED: Better connection status detection
-      // First check if we have an active config
-      if (_activeConfig == null) {
+      // Check the current V2Ray status first
+      final currentState = _currentStatus?.state?.toLowerCase() ?? '';
+      
+      // If status explicitly says connected, we're connected
+      if (currentState.contains('connect') || currentState == 'connected') {
+        // Update active config if needed
+        if (_activeConfig == null) {
+          await _tryRestoreActiveConfig();
+        }
+        return true;
+      }
+      
+      // If status explicitly says disconnected, we're not connected
+      if (currentState.contains('disconnect') || 
+          currentState.contains('stop') || 
+          currentState.contains('idle') ||
+          currentState == 'disconnected') {
+        if (_activeConfig != null) {
+          _activeConfig = null;
+          await _clearActiveConfig();
+        }
         return false;
       }
 
-      // Check the current V2Ray status
-      if (_currentStatus?.state == 'CONNECTED') {
-        return true;
+      // Try to get connected server delay as verification with multiple attempts
+      for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+          // Increase timeout to 8 seconds for better reliability after long background
+          final delay = await _flutterV2ray.getConnectedServerDelay()
+              .timeout(const Duration(seconds: 8));
+          final isConnected = delay != null && delay >= 0;
+          
+          if (isConnected && _activeConfig == null) {
+            // Connected but no active config, try to restore
+            await _tryRestoreActiveConfig();
+          } else if (!isConnected && _activeConfig != null) {
+            // Not connected but we have active config, clear it
+            _activeConfig = null;
+            await _clearActiveConfig();
+          }
+          
+          return isConnected;
+        } catch (timeoutError) {
+          // If not the last attempt, wait and retry
+          if (attempt < 2) {
+            await Future.delayed(Duration(milliseconds: 500));
+            continue;
+          }
+          
+          // Timeout on final attempt - check if we have an active config saved
+          // Also try to restore config from storage
+          final savedConfig = await _loadActiveConfig();
+          if (savedConfig != null) {
+            _activeConfig = savedConfig;
+            // Assume still connected if we have saved config
+            return true;
+          }
+          
+          if (_activeConfig != null) {
+            // Assume still connected if we have active config
+            return true;
+          }
+          return false;
+        }
       }
-
-      // Try to get connected server delay as final verification
-      try {
-        final delay = await _flutterV2ray.getConnectedServerDelay()
-            .timeout(const Duration(seconds: 3));
-        final isConnected = delay != null && delay >= 0;
-        return isConnected;
-      } catch (timeoutError) {
-        // Timeout or error getting delay
-        // If we have active config and current status shows connected,
-        // assume still connected
-        return _currentStatus?.state == 'CONNECTED';
-      }
+      
+      // If all attempts failed, check saved config
+      final savedConfig = await _loadActiveConfig();
+      return savedConfig != null;
     } catch (e) {
-      // Error in connection check
-      // Be more conservative - only return true if we're certain
+      // Error in connection check - try to restore from saved config
+      try {
+        final savedConfig = await _loadActiveConfig();
+        if (savedConfig != null) {
+          _activeConfig = savedConfig;
+          return true;
+        }
+      } catch (restoreError) {
+        // Ignore restore errors
+      }
       return false;
     }
   }
@@ -979,28 +1102,21 @@ class V2RayService extends ChangeNotifier {
         _connectedSeconds++;
 
         try {
-          // Use real V2Ray status data if available
+          // IMPORTANT: Only use real V2Ray status data (no fake data)
           if (_currentStatus != null) {
             // Get real-time traffic data from V2Ray status
             final status = _currentStatus!;
 
-            // Update cumulative statistics with real data
+            // Update cumulative statistics with REAL data only
             // Note: V2Ray status provides cumulative data, so we store the latest values
             _uploadBytes = status.upload;
             _downloadBytes = status.download;
-          } else {
-            // Fallback to simulated data if V2Ray status is not available
-            final random = Random();
-            final uploadSpeed = random.nextInt(50) * 1024; // 0-50 KB in bytes
-            final downloadSpeed = random.nextInt(50) * 1024; // 0-50 KB in bytes
-
-            // Add to total bytes
-            _uploadBytes += uploadSpeed;
-            _downloadBytes += downloadSpeed;
+            
+            // Notify UI to update with real data
+            notifyListeners();
           }
-
-          // Notify UI to update
-          notifyListeners();
+          // If no V2Ray status available, we keep the previous values
+          // No fake/simulated data generation
 
           // Save statistics every minute to avoid excessive writes
           if (_connectedSeconds % 60 == 0) {
@@ -1008,6 +1124,7 @@ class V2RayService extends ChangeNotifier {
           }
         } catch (e) {
           // Error updating usage statistics
+          // Keep previous values, don't generate fake data
         }
       }
     });

@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_v2ray/flutter_v2ray.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../models/v2ray_config.dart';
-import '../utils/app_localizations.dart';
 import '../widgets/modern_animated_background.dart';
-import 'dart:math' as math;
-import 'dart:io';
-import 'dart:convert';
+import '../services/ping_service.dart';
 
 class ServerSelectionScreen extends StatefulWidget {
   const ServerSelectionScreen({Key? key}) : super(key: key);
@@ -23,7 +19,7 @@ class _ServerSelectionScreenState
     extends State<ServerSelectionScreen>
     with TickerProviderStateMixin {
   bool _isTestingPings = false;
-  Map<String, int> _serverPings = {};
+  Map<String, int> _serverPings = {}; // Map of server ID to ping
   
   late AnimationController _listAnimationController;
   late AnimationController _pingAnimationController;
@@ -69,54 +65,41 @@ class _ServerSelectionScreenState
     
     _pingAnimationController.repeat();
     
+    // Clear native ping cache to ensure fresh results
+    NativePingService.clearCache();
+    
     final provider = Provider.of<V2RayProvider>(context, listen: false);
     final servers = _getFilteredServers(provider);
     
-    // _showSnackBar('Testing ${servers.length} servers...', Colors.blue);
+    _showSnackBar('Testing ${servers.length} servers...', Colors.blue);
     
-    int testedCount = 0;
     int successCount = 0;
     
-    // Test servers in batches to avoid overwhelming the system
-    const int batchSize = 5;
-    for (int i = 0; i < servers.length; i += batchSize) {
+    // Test servers sequentially with a small delay to get unique results
+    // This prevents caching issues and ensures each server gets its own ping
+    for (var server in servers) {
       if (!mounted) break;
       
-      final endIndex = (i + batchSize > servers.length) ? servers.length : i + batchSize;
-      final batch = servers.sublist(i, endIndex);
-      
-      // Test current batch in parallel
-      final List<Future<void>> batchFutures = [];
-      
-      for (var server in batch) {
-        final future = _testSingleServerPing(server).then((ping) {
-          if (mounted) {
-            setState(() {
-              _serverPings[server.remark] = ping;
-              testedCount++;
-              if (ping < 999) successCount++;
-            });
-            
-            // Show progress
-            // if (testedCount % 5 == 0) {
-            //   _showSnackBar(
-            //     'Tested $testedCount/${servers.length} servers ($successCount active)', 
-            //     Colors.blue
-            //   );
-            // }
-          }
-        });
+      try {
+        final ping = await _testSingleServerPing(server);
         
-        batchFutures.add(future);
-      }
-      
-      // Wait for current batch to complete
-      await Future.wait(batchFutures, eagerError: false)
-          .timeout(const Duration(seconds: 5), onTimeout: () => []);
-      
-      // Small delay between batches to prevent overwhelming
-      if (i + batchSize < servers.length) {
+        if (mounted) {
+          setState(() {
+            // Use server ID as key to ensure uniqueness
+            _serverPings[server.id] = ping;
+            if (ping < 9999) successCount++;
+          });
+        }
+        
+        // Small delay between tests to ensure fresh results
         await Future.delayed(const Duration(milliseconds: 100));
+      } catch (e) {
+        // Error testing server, mark as timeout
+        if (mounted) {
+          setState(() {
+            _serverPings[server.id] = 9999;
+          });
+        }
       }
     }
     
@@ -128,7 +111,7 @@ class _ServerSelectionScreenState
     // Show final results with more details
     final avgPing = successCount > 0
         ? _serverPings.values
-            .where((p) => p < 999)
+            .where((p) => p < 9999)
             .reduce((a, b) => a + b) ~/ successCount
         : 0;
     
@@ -141,7 +124,7 @@ class _ServerSelectionScreenState
       message = '✅ $successCount/${servers.length} servers online (Avg: ${avgPing}ms)';
     }
     
-    // _showSnackBar(message, successCount > 0 ? Colors.green : Colors.red);
+    _showSnackBar(message, successCount > 0 ? Colors.green : Colors.red);
   }
 
   Future<void> _connectToFastestServer() async {
@@ -155,47 +138,40 @@ class _ServerSelectionScreenState
     }
     
     // Find server with lowest ping
-    String? fastestServer;
+    String? fastestServerId;
     int lowestPing = 999999;
     
-    _serverPings.forEach((server, ping) {
-      if (ping < lowestPing) {
+    _serverPings.forEach((serverId, ping) {
+      if (ping < lowestPing && ping < 9999) {
         lowestPing = ping;
-        fastestServer = server;
+        fastestServerId = serverId;
       }
     });
     
-    if (fastestServer != null) {
+    if (fastestServerId != null) {
       final provider = Provider.of<V2RayProvider>(context, listen: false);
       final server = provider.configs.firstWhere(
-        (s) => s.remark == fastestServer,
+        (s) => s.id == fastestServerId,
       );
       
       await provider.selectConfig(server);
       await provider.connectToServer(server, false);
       
-      _showSnackBar('Connected to fastest server: $fastestServer ($lowestPing ms)', Colors.green);
+      _showSnackBar('Connected to fastest server: ${server.remark} ($lowestPing ms)', Colors.green);
       Navigator.pop(context, server);
+    } else {
+      _showSnackBar('No fast server found', Colors.red);
     }
   }
 
   List<V2RayConfig> _getFilteredServers(V2RayProvider provider) {
-    // Remove duplicates based on server address and port
-    final uniqueServers = <String, V2RayConfig>{};
-    for (var server in provider.configs) {
-      final key = '${server.address}:${server.port}';
-      if (!uniqueServers.containsKey(key)) {
-        uniqueServers[key] = server;
-      }
-    }
-    
-    var servers = uniqueServers.values.toList();
+    var servers = provider.configs.toList();
     
     // Sort by ping if available
     if (_serverPings.isNotEmpty) {
       servers.sort((a, b) {
-        final pingA = _serverPings[a.remark] ?? 999999;
-        final pingB = _serverPings[b.remark] ?? 999999;
+        final pingA = _serverPings[a.id] ?? 999999;
+        final pingB = _serverPings[b.id] ?? 999999;
         return pingA.compareTo(pingB);
       });
     }
@@ -218,29 +194,9 @@ class _ServerSelectionScreenState
     );
   }
 
-  // Test real delay for a V2Ray server (inspired by v2rayNG implementation)
+  // Test real delay for a V2Ray server using Native Ping Service
   Future<int> _testSingleServerPing(V2RayConfig server) async {
     try {
-      // Method 1: Try using flutter_v2ray's built-in delay test
-      try {
-        final FlutterV2ray flutterV2ray = FlutterV2ray(
-          onStatusChanged: (status) {},
-        );
-        
-        // Test with Google's 204 endpoint (same as v2rayNG)
-        final delay = await flutterV2ray.getServerDelay(
-          config: server.fullConfig,
-          url: 'https://www.google.com/generate_204',
-        );
-        
-        if (delay > 0 && delay < 10000) {
-          return delay;
-        }
-      } catch (e) {
-        // If flutter_v2ray method fails, fall back to TCP test
-      }
-      
-      // Method 2: TCP connection test (fallback)
       final host = server.address;
       final port = server.port;
       
@@ -248,30 +204,20 @@ class _ServerSelectionScreenState
         return 9999;
       }
       
-      final stopwatch = Stopwatch()..start();
+      // Use NativePingService for accurate ping measurement
+      // Disable cache to get fresh results for each server
+      final pingResult = await NativePingService.pingHost(
+        host: host,
+        port: port,
+        timeoutMs: 8000,
+        useIcmp: true,
+        useTcp: true,
+        useCache: false, // IMPORTANT: Disable cache for unique results
+      );
       
-      try {
-        // Resolve host
-        final addresses = await InternetAddress.lookup(host)
-            .timeout(const Duration(seconds: 2));
-        
-        if (addresses.isEmpty) {
-          return 9999;
-        }
-        
-        // TCP connection test
-        final socket = await Socket.connect(
-          addresses.first,
-          port,
-          timeout: const Duration(seconds: 3),
-        );
-        
-        stopwatch.stop();
-        final delay = stopwatch.elapsedMilliseconds;
-        await socket.close();
-        
-        return delay.clamp(1, 9999);
-      } catch (e) {
+      if (pingResult.success && pingResult.latency > 0) {
+        return pingResult.latency;
+      } else {
         return 9999;
       }
     } catch (e) {
@@ -531,7 +477,7 @@ class _ServerSelectionScreenState
           itemBuilder: (context, index) {
             final server = servers[index];
             final isActive = provider.activeConfig?.remark == server.remark;
-            final ping = _serverPings[server.remark];
+            final ping = _serverPings[server.id];
             
             return _buildServerItem(
               server: server,
@@ -677,7 +623,7 @@ class _ServerSelectionScreenState
                           child: Row(
                             children: [
                               Icon(
-                                (ping != null && ping < 100) ? Icons.speed : Icons.signal_cellular_alt,
+                                (ping < 100) ? Icons.speed : Icons.signal_cellular_alt,
                                 size: 12,
                                 color: pingColor,
                               ),
