@@ -12,15 +12,8 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Auto-update all subscriptions when app opens
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<V2RayProvider>(context, listen: false);
-      provider.updateAllSubscriptions();
-    });
-  }
+  // No need to call updateAllSubscriptions here
+  // It's already called in V2RayProvider constructor
 
   @override
   Widget build(BuildContext context) {

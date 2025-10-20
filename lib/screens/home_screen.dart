@@ -30,14 +30,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     
-    // Initialize provider data
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<V2RayProvider>(context, listen: false);
-      // Start with fetching default servers if needed
-      if (provider.configs.isEmpty) {
-        provider.fetchServers(
-          customUrl: 'https://raw.githubusercontent.com/cverhud/v2ray-sub/refs/heads/main/sub.txt',
-        );
+    // Add listener to TabController to update UI when tab changes
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          // Update the UI when tab changes
+        });
       }
     });
   }
@@ -220,21 +218,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       // Modern App Bar
                       _buildModernAppBar(context),
                       
-                      // Tab Bar
-                      _buildTabBar(),
-                      
                       // Tab View Content
                       Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          physics: const BouncingScrollPhysics(),
-                          children: [
-                            // VPN Tab
-                            _buildVPNTab(v2rayProvider),
-                            
-                            // Tools Tab
-                            _buildToolsTab(context),
-                          ],
+                        child: AnimatedBuilder(
+                          animation: _tabController,
+                          builder: (context, child) {
+                            return _tabController.index == 0
+                                ? _buildVPNTab(v2rayProvider)
+                                : _buildToolsTab(context);
+                          },
                         ),
                       ),
                     ],
@@ -242,6 +234,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
               ),
             ),
+            // Tab Bar moved to bottom
+            bottomNavigationBar: _buildBottomTabBar(),
         );
       },
     );
@@ -347,70 +341,72 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     ).animate().scale(delay: 200.ms);
   }
 
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.15),
-          width: 1,
-        ),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+  Widget _buildBottomTabBar() {
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.15),
+            width: 1,
           ),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6366F1).withOpacity(0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+        ),
+        child: TabBar(
+          controller: _tabController,
+          indicator: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6366F1).withOpacity(0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          indicatorSize: TabBarIndicatorSize.tab,
+          dividerColor: Colors.transparent,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.6),
+          labelStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+          tabs: [
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.vpn_key, size: 18),
+                  const SizedBox(width: 6),
+                  Text(AppLocalizations.of(context).translate('navigation.vpn')),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.build, size: 18),
+                  const SizedBox(width: 6),
+                  Text(AppLocalizations.of(context).translate('navigation.tools')),
+                ],
+              ),
             ),
           ],
         ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.white.withOpacity(0.6),
-        labelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-        tabs: [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.vpn_key, size: 18),
-                const SizedBox(width: 6),
-                Text(AppLocalizations.of(context).translate('navigation.vpn')),
-              ],
-            ),
-          ),
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.build, size: 18),
-                const SizedBox(width: 6),
-                Text(AppLocalizations.of(context).translate('navigation.tools')),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2, end: 0);
+      ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0),
+    );
   }
 
   Widget _buildVPNTab(V2RayProvider provider) {
@@ -432,9 +428,25 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             
             const SizedBox(height: 20),
             
-            // Stats Grid
-            if (provider.activeConfig != null)
-              _buildStatsGrid(provider),
+            // Stats Grid with smooth animation
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.1),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: provider.activeConfig != null
+                  ? _buildStatsGrid(provider)
+                  : const SizedBox.shrink(key: ValueKey('empty')),
+            ),
             
             const SizedBox(height: 20),
           ],
@@ -665,37 +677,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       alignment: Alignment.center,
       children: [
         // Pulse Animation Rings
-        ...List.generate(3, (index) {
-          return TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0.0, end: 1.0),
-            duration: Duration(seconds: 3),
-            curve: Curves.easeInOut,
-            builder: (context, value, child) {
-              return AnimatedScale(
-                scale: isConnected ? (0.8 + (value * 0.6) + (index * 0.1)) : 0.8,
-                duration: Duration(milliseconds: 600),
-                child: AnimatedOpacity(
-                  opacity: isConnected ? (1.0 - value - (index * 0.3)).clamp(0.0, 1.0) : 0,
-                  duration: Duration(milliseconds: 600),
-                  child: Container(
-                    width: 200,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFF10B981).withOpacity(0.3),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-            onEnd: () {
-              // Animation loop handled by TweenAnimationBuilder
-            },
-          );
-        }),
+        if (isConnected)
+          ...List.generate(3, (index) {
+            return _PulseRing(
+              delay: index * 0.33,
+              size: 200.0,
+            );
+          }),
         
         // Main Circle Button
         GestureDetector(
@@ -930,6 +918,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     
     // Use StreamBuilder to update stats every second
     return StreamBuilder(
+      key: const ValueKey('stats'),
       stream: Stream.periodic(const Duration(seconds: 1)),
       builder: (context, snapshot) {
         return Container(
@@ -1065,4 +1054,81 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+}
+
+// Pulse Ring Animation Widget
+class _PulseRing extends StatefulWidget {
+  final double delay;
+  final double size;
+
+  const _PulseRing({
+    required this.delay,
+    required this.size,
+  });
+
+  @override
+  State<_PulseRing> createState() => _PulseRingState();
+}
+
+class _PulseRingState extends State<_PulseRing>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.4).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.6, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    // Start animation with delay
+    Future.delayed(Duration(milliseconds: (widget.delay * 1000).toInt()), () {
+      if (mounted) {
+        _controller.repeat();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Opacity(
+            opacity: _opacityAnimation.value,
+            child: Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF10B981),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

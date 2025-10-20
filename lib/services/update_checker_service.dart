@@ -1,14 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_update_info.dart';
 
 class UpdateCheckerService {
   // Add timestamp to bypass cache
   static String get _updateUrl => 
       'https://gist.githubusercontent.com/cverhud/41d9dbbc00a9320853b2d880c9184e5f/raw/tiksar-vpn.json?t=${DateTime.now().millisecondsSinceEpoch}';
-  static const String _dismissedVersionKey = 'dismissed_version';
 
   // Check for updates - called every time app opens
   static Future<AppUpdateInfo?> checkForUpdate() async {
@@ -34,15 +32,7 @@ class UpdateCheckerService {
 
         // Check if update is newer than current version
         if (updateInfo.isNewerThan(currentVersion)) {
-          // If it's not forced, check if user dismissed this version before
-          if (!updateInfo.isForced) {
-            final prefs = await SharedPreferences.getInstance();
-            final dismissedVersion = prefs.getString(_dismissedVersionKey);
-            if (dismissedVersion == updateInfo.version) {
-              return null; // User already dismissed this version
-            }
-          }
-
+          // Always show update if version is newer, regardless of dismiss status
           return updateInfo;
         }
       }
@@ -51,11 +41,5 @@ class UpdateCheckerService {
     }
 
     return null;
-  }
-
-  // Save dismissed version
-  static Future<void> dismissUpdate(String version) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_dismissedVersionKey, version);
   }
 }

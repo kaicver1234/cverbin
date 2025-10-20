@@ -268,6 +268,9 @@ class V2RayService extends ChangeNotifier {
 
       _activeConfig = config;
       _lastConnectionTime = DateTime.now();
+      
+      // Notify listeners immediately for UI update
+      notifyListeners();
 
       // Save active config to persistent storage
       await _saveActiveConfig(config);
@@ -306,6 +309,9 @@ class V2RayService extends ChangeNotifier {
       // Clear active config and last connection time
       _activeConfig = null;
       _lastConnectionTime = null;
+      
+      // Notify listeners immediately for UI update
+      notifyListeners();
 
       // Clear active config from storage but keep the usage statistics
       await _clearActiveConfig();

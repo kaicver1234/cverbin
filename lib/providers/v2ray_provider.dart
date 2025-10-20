@@ -40,10 +40,17 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   V2RayProvider() {
     WidgetsBinding.instance.addObserver(this);
+    // Listen to V2RayService changes to update UI automatically
+    _v2rayService.addListener(_onV2RayServiceChanged);
     _initialize();
     // Timer will start when app becomes active (in didChangeAppLifecycleState)
     // Start it now for initial load
     _startConnectionMonitoring();
+  }
+  
+  void _onV2RayServiceChanged() {
+    // When V2RayService state changes, notify our listeners
+    notifyListeners();
   }
 
   Future<void> _initialize() async {
@@ -374,6 +381,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _connectionMonitorTimer?.cancel();
     _connectionMonitorTimer = null;
     WidgetsBinding.instance.removeObserver(this);
+    // Remove listener from V2RayService
+    _v2rayService.removeListener(_onV2RayServiceChanged);
     // Dispose the service to stop monitoring
     _v2rayService.dispose();
     // Disconnect if connected when disposing
