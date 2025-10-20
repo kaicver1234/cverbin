@@ -214,23 +214,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               isConnected: isConnected,
               child: SafeArea(
                 child: Column(
-                    children: [
-                      // Modern App Bar
-                      _buildModernAppBar(context),
-                      
-                      // Tab View Content
-                      Expanded(
-                        child: AnimatedBuilder(
-                          animation: _tabController,
-                          builder: (context, child) {
-                            return _tabController.index == 0
-                                ? _buildVPNTab(v2rayProvider)
-                                : _buildToolsTab(context);
-                          },
-                        ),
+                  children: [
+                    // Modern App Bar
+                    _buildModernAppBar(context),
+                    
+                    // Tab View Content
+                    Expanded(
+                      child: AnimatedBuilder(
+                        animation: _tabController,
+                        builder: (context, child) {
+                          return _tabController.index == 0
+                              ? _buildVPNTab(v2rayProvider)
+                              : _buildToolsTab(context);
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
