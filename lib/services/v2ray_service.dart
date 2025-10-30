@@ -147,7 +147,7 @@ class V2RayService extends ChangeNotifier {
     // Handle disconnection from notification
     // Check for common disconnected status values using string matching
     String statusString = status.toString().toLowerCase();
-    String stateString = status.state?.toLowerCase() ?? '';
+    String stateString = status.state.toLowerCase();
     
     // Check if disconnected by multiple indicators
     bool isDisconnected = statusString.contains('disconnect') ||
@@ -836,43 +836,74 @@ class V2RayService extends ChangeNotifier {
   // Public method to force check connection status
   Future<bool> isActuallyConnected() async {
     try {
-      // CRITICAL FIX: Use getConnectionState for accurate detection (like ProxyCloud)
-      final connectionState = await _flutterV2ray.getConnectionState();
-      final isConnected = connectionState == "CONNECTED" || 
-                         connectionState == "V2RAY_CONNECTED" ||
-                         connectionState?.toLowerCase().contains('connect') == true;
-
-      // Update active config based on connection state
-      if (isConnected && _activeConfig == null) {
-        // Connected but no active config, try to restore
-        await _tryRestoreActiveConfig();
-      } else if (!isConnected && _activeConfig != null) {
-        // Not connected but we have active config, clear it
-        _activeConfig = null;
-        await _clearActiveConfig();
-        notifyListeners();
+      // Check the current V2Ray status first
+      final currentState = _currentStatus?.state.toLowerCase() ?? '';
+      
+      // If status explicitly says connected, we're connected
+      if (currentState.contains('connect') || currentState == 'connected') {
+        // Update active config if needed
+        if (_activeConfig == null) {
+          await _tryRestoreActiveConfig();
+        }
+        return true;
+      }
+      
+      // If status explicitly says disconnected, we're not connected
+      if (currentState.contains('disconnect') || 
+          currentState.contains('stop') || 
+          currentState.contains('idle') ||
+          currentState == 'disconnected') {
+        if (_activeConfig != null) {
+          _activeConfig = null;
+          await _clearActiveConfig();
+          notifyListeners();
+        }
+        return false;
       }
 
-      return isConnected;
-    } catch (e) {
-      // Error in connection check - fallback to delay-based check
+      // Try to get connected server delay as verification
       try {
         final delay = await _flutterV2ray.getConnectedServerDelay()
             .timeout(const Duration(seconds: 3));
-        final isConnected = delay != null && delay >= 0;
+        final isConnected = delay >= 0;
         
-        if (!isConnected && _activeConfig != null) {
+        if (isConnected && _activeConfig == null) {
+          // Connected but no active config, try to restore
+          await _tryRestoreActiveConfig();
+        } else if (!isConnected && _activeConfig != null) {
+          // Not connected but we have active config, clear it
           _activeConfig = null;
           await _clearActiveConfig();
           notifyListeners();
         }
         
         return isConnected;
-      } catch (fallbackError) {
-        // Complete failure - check if we have saved config
+      } catch (timeoutError) {
+        // Timeout - check if we have saved config
         final savedConfig = await _loadActiveConfig();
-        return savedConfig != null;
+        if (savedConfig != null) {
+          _activeConfig = savedConfig;
+          return true;
+        }
+        
+        if (_activeConfig != null) {
+          // Assume still connected if we have active config
+          return true;
+        }
+        return false;
       }
+    } catch (e) {
+      // Error in connection check - try to restore from saved config
+      try {
+        final savedConfig = await _loadActiveConfig();
+        if (savedConfig != null) {
+          _activeConfig = savedConfig;
+          return true;
+        }
+      } catch (restoreError) {
+        // Ignore restore errors
+      }
+      return false;
     }
   }
 

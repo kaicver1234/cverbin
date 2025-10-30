@@ -12,6 +12,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Handle intent in onCreate for fresh app starts
+        handleIntent(intent)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -26,11 +28,14 @@ class MainActivity : FlutterActivity() {
     
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Update the intent and handle it
+        setIntent(intent)
         handleIntent(intent)
     }
     
     override fun onResume() {
         super.onResume()
+        // Handle any pending intents
         handleIntent(intent)
     }
     
@@ -38,6 +43,8 @@ class MainActivity : FlutterActivity() {
         if (intent?.action == "FROM_DISCONNECT_BTN") {
             // Send message to Flutter to disconnect VPN
             vpnControlChannel?.invokeMethod("disconnectFromNotification", null)
+            // Clear the intent action to prevent repeated handling
+            intent.action = null
         }
     }
 }

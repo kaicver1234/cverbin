@@ -47,6 +47,11 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Intent filter for notification disconnect action -->
+            <intent-filter>
+                <action android:name="FROM_DISCONNECT_BTN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
         </activity>
         
         <!-- VPN Traffic Background Service -->

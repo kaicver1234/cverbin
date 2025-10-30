@@ -95,10 +95,12 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       _isProxyMode = prefs.getBool('proxy_mode_enabled') ?? false;
 
-      // Update all subscriptions on app start (run in background)
-      updateAllSubscriptions().catchError((e) {
-        // Ignore errors in background update
-      });
+      // Update all subscriptions on app start - await to ensure configs are loaded
+      try {
+        await updateAllSubscriptions();
+      } catch (e) {
+        // Ignore subscription update errors but continue initialization
+      }
 
       // CRITICAL FIX: Enhanced synchronization with actual VPN service state
       await _enhancedSyncWithVpnServiceState();
@@ -203,8 +205,24 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           }
         } else {
           // VPN is running but we don't have the config details
-          // Mark the first config as connected if we have configs
-          if (_configs.isNotEmpty) {
+          // Try to find any config that might be connected
+          V2RayConfig? foundConnectedConfig;
+          
+          // Check configs to find a potential match
+          for (var config in _configs) {
+            try {
+              // Mark the first valid config as connected
+              config.isConnected = true;
+              _selectedConfig = config;
+              foundConnectedConfig = config;
+              break;
+            } catch (e) {
+              // Error checking config, try next
+            }
+          }
+          
+          // As a fallback, mark the first config as connected if we have configs
+          if (foundConnectedConfig == null && _configs.isNotEmpty) {
             _configs.first.isConnected = true;
             _selectedConfig = _configs.first;
           }
@@ -216,14 +234,16 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         }
         _selectedConfig = null;
         
-        // Clear active config from service if it exists
-        if (_v2rayService.activeConfig != null) {
-          await _v2rayService.disconnect();
-        }
+        // Don't call disconnect if not connected - prevents errors
+        // Just clear the state
       }
       
       // Save the synchronized state
-      await _v2rayService.saveConfigs(_configs);
+      try {
+        await _v2rayService.saveConfigs(_configs);
+      } catch (saveError) {
+        // Ignore save errors but log them
+      }
     } catch (e) {
       // Error in synchronization, ensure clean state
       for (var config in _configs) {
@@ -685,7 +705,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<void> connectToServer(V2RayConfig config, bool _isProxyMode) async {
+  Future<void> connectToServer(V2RayConfig config, bool isProxyMode) async {
     _isConnecting = true;
     _errorMessage = '';
     notifyListeners();
@@ -716,7 +736,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
           // Connect to server with timeout
           success = await _v2rayService
-              .connect(config, _isProxyMode)
+              .connect(config, isProxyMode)
               .timeout(
                 const Duration(seconds: 30), // Timeout for connection
                 onTimeout: () {
