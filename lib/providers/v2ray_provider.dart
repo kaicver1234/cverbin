@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_v2ray/flutter_v2ray.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/v2ray_config.dart';
 import '../models/subscription.dart';
@@ -21,8 +22,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   String _errorMessage = '';
   bool _isLoadingServers = false;
   bool _isProxyMode = false;
-  Timer? _connectionMonitorTimer;
-  bool _isAppInForeground = true; // Track if app is active
+  bool _isInitializing = true; // Track initialization state
+  
+  // Method channel for VPN control
+  static const platform = MethodChannel('com.tiksarvpn.app/vpn_control');
 
   List<V2RayConfig> get configs => _configs;
   List<Subscription> get subscriptions => _subscriptions;
@@ -34,6 +37,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   String get errorMessage => _errorMessage;
   V2RayService get v2rayService => _v2rayService;
   bool get isProxyMode => _isProxyMode;
+  bool get isInitializing => _isInitializing;
 
   // Expose V2Ray status for real-time traffic monitoring
   V2RayStatus? get currentStatus => _v2rayService.currentStatus;
@@ -43,9 +47,20 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     // Listen to V2RayService changes to update UI automatically
     _v2rayService.addListener(_onV2RayServiceChanged);
     _initialize();
-    // Timer will start when app becomes active (in didChangeAppLifecycleState)
-    // Start it now for initial load
-    _startConnectionMonitoring();
+    
+    // Set up method channel handler for notification disconnect
+    platform.setMethodCallHandler(_handleMethodCall);
+  }
+  
+  // Handle method calls from native side
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    switch (call.method) {
+      case 'disconnectFromNotification':
+        await _handleNotificationDisconnect();
+        break;
+      default:
+        throw MissingPluginException();
+    }
   }
   
   void _onV2RayServiceChanged() {
@@ -55,12 +70,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _initialize() async {
     _setLoading(true);
+    _isInitializing = true;
+    notifyListeners();
+    
     try {
       // OPTIMISTIC UI: Load saved config immediately and show UI first
-      // Then verify in background
       await _loadSavedStateAndShowUI();
       
-      // Initialize service in background
+      // Initialize service
       await _v2rayService.initialize();
 
       // Set up callback for notification disconnects
@@ -68,81 +85,26 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         _handleNotificationDisconnect();
       });
 
-      // Configs already loaded in _loadSavedStateAndShowUI, skip duplicate load
+      // Load configurations first
+      await loadConfigs();
 
       // Load subscriptions
       await loadSubscriptions();
+      
+      // Load proxy mode setting from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      _isProxyMode = prefs.getBool('proxy_mode_enabled') ?? false;
 
-      // Update all subscriptions on app start (run in background, non-blocking)
+      // Update all subscriptions on app start (run in background)
       updateAllSubscriptions().catchError((e) {
         // Ignore errors in background update
       });
 
+      // CRITICAL FIX: Enhanced synchronization with actual VPN service state
+      await _enhancedSyncWithVpnServiceState();
+      
       // Load saved selected server
       await _loadSelectedServer();
-
-      // IMPROVED: Check actual VPN status (optimistically, then verify)
-      // Get immediate status from service (already restored in initialize)
-      bool isActuallyConnected = false;
-      V2RayConfig? activeConfig = _v2rayService.activeConfig;
-      
-      // Quick check without retry for immediate feedback
-      try {
-        isActuallyConnected = await _v2rayService.isActuallyConnected()
-            .timeout(const Duration(seconds: 2));
-      } catch (e) {
-        // If quick check fails, assume config is valid if it exists
-        isActuallyConnected = activeConfig != null;
-      }
-      
-      // IMPROVED: Only mark as connected if actually connected
-      if (activeConfig != null && isActuallyConnected) {
-        // VPN is truly connected, update configs
-        bool configFound = false;
-
-        for (var config in _configs) {
-          if (config.fullConfig == activeConfig.fullConfig) {
-            config.isConnected = true;
-            _selectedConfig = config;
-            configFound = true;
-            // Found exact matching config
-            break;
-          }
-        }
-
-        // If we couldn't find the exact active config in our list,
-        // try to find a matching one by address and port
-        if (!configFound) {
-          for (var config in _configs) {
-            if (config.address == activeConfig.address &&
-                config.port == activeConfig.port) {
-              config.isConnected = true;
-              _selectedConfig = config;
-              configFound = true;
-              // Found matching config by address/port
-              break;
-            }
-          }
-        }
-
-        if (!configFound) {
-          // No matching config found in list for active VPN connection
-          // The active config is not in our current list
-          // This could happen if subscriptions were updated while VPN was connected
-          // Add the active config to our list temporarily
-          _configs.add(activeConfig);
-          activeConfig.isConnected = true;
-          _selectedConfig = activeConfig;
-        }
-      } else {
-        // VPN not connected or config not found, ensure all are marked disconnected
-        for (var config in _configs) {
-          config.isConnected = false;
-        }
-      }
-      
-      // Start background verification to double-check status
-      _verifyConnectionStatusInBackground();
       
       if (_selectedConfig == null && _configs.isNotEmpty) {
         // If no active connection and no saved selection, select first server
@@ -150,16 +112,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         await _saveSelectedServer();
       }
 
-      // Sort configs with connected one first
-      _configs.sort((a, b) {
-        if (a.isConnected && !b.isConnected) return -1;
-        if (!a.isConnected && b.isConnected) return 1;
-        return 0;
-      });
+      notifyListeners();
     } catch (e) {
       // Failed to initialize V2Ray
+      _setError('Failed to initialize: $e');
     } finally {
       _setLoading(false);
+      _isInitializing = false;
+      notifyListeners();
     }
   }
   
@@ -191,6 +151,85 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
     } catch (e) {
       // Error saving selected server
+    }
+  }
+  
+  // CRITICAL FIX: Enhanced method to synchronize with actual VPN service state
+  Future<void> _enhancedSyncWithVpnServiceState() async {
+    try {
+      // Check if VPN is actually running using the improved method
+      final isActuallyConnected = await _v2rayService.isActuallyConnected();
+      
+      // Reset all connection states first
+      for (int i = 0; i < _configs.length; i++) {
+        _configs[i].isConnected = false;
+      }
+      
+      if (isActuallyConnected) {
+        // VPN is actually running, synchronizing config states
+        final activeConfigFromService = _v2rayService.activeConfig;
+        
+        if (activeConfigFromService != null) {
+          bool configFound = false;
+          
+          // Try to find exact matching config
+          for (var config in _configs) {
+            if (config.fullConfig == activeConfigFromService.fullConfig) {
+              config.isConnected = true;
+              _selectedConfig = config;
+              configFound = true;
+              break;
+            }
+          }
+          
+          // If exact match not found, try matching by address and port
+          if (!configFound) {
+            for (var config in _configs) {
+              if (config.address == activeConfigFromService.address &&
+                  config.port == activeConfigFromService.port) {
+                config.isConnected = true;
+                _selectedConfig = config;
+                configFound = true;
+                break;
+              }
+            }
+          }
+          
+          // If still no matching config found, add the active config temporarily
+          if (!configFound) {
+            _configs.add(activeConfigFromService);
+            activeConfigFromService.isConnected = true;
+            _selectedConfig = activeConfigFromService;
+          }
+        } else {
+          // VPN is running but we don't have the config details
+          // Mark the first config as connected if we have configs
+          if (_configs.isNotEmpty) {
+            _configs.first.isConnected = true;
+            _selectedConfig = _configs.first;
+          }
+        }
+      } else {
+        // VPN is not actually connected, clearing connection states
+        for (var config in _configs) {
+          config.isConnected = false;
+        }
+        _selectedConfig = null;
+        
+        // Clear active config from service if it exists
+        if (_v2rayService.activeConfig != null) {
+          await _v2rayService.disconnect();
+        }
+      }
+      
+      // Save the synchronized state
+      await _v2rayService.saveConfigs(_configs);
+    } catch (e) {
+      // Error in synchronization, ensure clean state
+      for (var config in _configs) {
+        config.isConnected = false;
+      }
+      _selectedConfig = null;
     }
   }
 
@@ -378,8 +417,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _connectionMonitorTimer?.cancel();
-    _connectionMonitorTimer = null;
     WidgetsBinding.instance.removeObserver(this);
     // Remove listener from V2RayService
     _v2rayService.removeListener(_onV2RayServiceChanged);
@@ -763,11 +800,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             // Analytics logging failed, ignore
           }
           
-          // Verify connection status after a short delay (only if app is in foreground)
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (_isAppInForeground) checkConnectionStatus();
-          });
-          
           // Successfully connected
         } catch (e) {
           // Error in post-connection setup
@@ -808,6 +840,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       
       await _v2rayService.disconnect();
       statusPingOnly = false;
+      
       // Update config status
       for (int i = 0; i < _configs.length; i++) {
         _configs[i].isConnected = false;
@@ -818,11 +851,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       // Persist the changes
       await _v2rayService.saveConfigs(_configs);
-      
-      // Verify disconnection status after a short delay (only if app is in foreground)
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (_isAppInForeground) checkConnectionStatus();
-      });
     } catch (e) {
       _setError('Error disconnecting: $e');
     } finally {
@@ -868,178 +896,48 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void _handleNotificationDisconnect() {
+  Future<void> _handleNotificationDisconnect() async {
+    // Actually disconnect the VPN service
+    await _v2rayService.disconnect();
+    
     // Update config status when disconnected from notification
     for (int i = 0; i < _configs.length; i++) {
       _configs[i].isConnected = false;
     }
 
-    // Keep the selected config when disconnecting
-    // Don't set _selectedConfig to null
+    _selectedConfig = null;
 
     // Notify listeners immediately to update UI in real-time
     notifyListeners();
 
-    // Persist the changes and check status multiple times
-    _v2rayService
-        .saveConfigs(_configs)
-        .then((_) {
-          notifyListeners();
-          // Immediate check
-          checkConnectionStatus();
-          // Check again after 300ms (only if app is in foreground)
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (_isAppInForeground) checkConnectionStatus();
-          });
-          // Final check after 800ms (only if app is in foreground)
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (_isAppInForeground) checkConnectionStatus();
-          });
-        })
-        .catchError((e) {
-          // Error saving configs after notification disconnect
-          notifyListeners();
-        });
+    // Persist the changes
+    try {
+      await _v2rayService.saveConfigs(_configs);
+      notifyListeners();
+    } catch (e) {
+      // Error saving configs after notification disconnect
+      notifyListeners();
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // App lifecycle state changed
 
     // Handle app lifecycle changes
     if (state == AppLifecycleState.resumed) {
-      // Mark app as in foreground
-      _isAppInForeground = true;
-      
-      // App is now active - start monitoring to save battery
-      _startConnectionMonitoring();
-      
-      // OPTIMIZED: When app is resumed, check immediately then verify in background
-      // This gives instant feedback while ensuring accuracy
-      
-      // Triple immediate checks (no delay)
-      checkConnectionStatus();
-      fetchNotificationStatus();
-      
-      // Very quick follow-up (100ms)
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (_isAppInForeground) checkConnectionStatus();
-      });
-      
-      // Quick follow-up checks for reliability
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_isAppInForeground) fetchNotificationStatus();
-      });
-      
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (_isAppInForeground) checkConnectionStatus();
-      });
-      
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (_isAppInForeground) checkConnectionStatus();
-      });
-      
-      // Background verification for long background periods
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        if (_isAppInForeground) fetchNotificationStatus();
-      });
-      
-      Future.delayed(const Duration(milliseconds: 2500), () {
-        if (_isAppInForeground) checkConnectionStatus();
+      // When app is resumed, check connection status after a delay
+      // This allows the VPN connection time to stabilize
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        // CRITICAL FIX: Enhanced synchronization with actual VPN service state when app resumes
+        await _enhancedSyncWithVpnServiceState();
+        notifyListeners();
       });
     } else if (state == AppLifecycleState.paused) {
-      // Mark app as in background
-      _isAppInForeground = false;
-      
-      // App is paused - stop monitoring to save battery
-      // VPN service continues running in background
-      _stopConnectionMonitoring();
-    } else if (state == AppLifecycleState.inactive) {
-      // App is inactive (e.g., notification pulled down), check status
-      checkConnectionStatus();
+      // App is paused, VPN status will be maintained in background
     }
   }
 
-  // Method to fetch connection status from the notification
-  Future<void> fetchNotificationStatus() async {
-    try {
-      // Get the actual connection status from the service
-      final isActuallyConnected = await _v2rayService.isActuallyConnected();
-      final activeConfig = _v2rayService.activeConfig;
-
-      // Fetching notification status
-
-      // Update all configs based on the actual status
-      bool statusChanged = false;
-
-      if (activeConfig != null && isActuallyConnected) {
-        // VPN is connected, update the matching config
-        bool foundMatch = false;
-        for (int i = 0; i < _configs.length; i++) {
-          bool shouldBeConnected = false;
-
-          // Find the matching config by comparing the server details
-          shouldBeConnected =
-              _configs[i].fullConfig == activeConfig.fullConfig ||
-              (_configs[i].address == activeConfig.address &&
-                  _configs[i].port == activeConfig.port);
-
-          if (_configs[i].isConnected != shouldBeConnected) {
-            _configs[i].isConnected = shouldBeConnected;
-            statusChanged = true;
-
-            if (shouldBeConnected) {
-              _selectedConfig = _configs[i];
-              foundMatch = true;
-              // Updated config to connected
-            }
-          } else if (shouldBeConnected) {
-            // Already connected to this config
-            _selectedConfig = _configs[i];
-            foundMatch = true;
-          }
-        }
-        
-        // If no matching config found, add the active config temporarily
-        if (!foundMatch && activeConfig != null) {
-          // Check if this config already exists in list
-          bool exists = _configs.any((c) => c.id == activeConfig.id);
-          if (!exists) {
-            activeConfig.isConnected = true;
-            _configs.insert(0, activeConfig);
-            _selectedConfig = activeConfig;
-            statusChanged = true;
-          }
-        }
-      } else {
-        // VPN is not connected, clear all connected states
-        for (int i = 0; i < _configs.length; i++) {
-          if (_configs[i].isConnected) {
-            _configs[i].isConnected = false;
-            statusChanged = true;
-            // Updated config to disconnected
-          }
-        }
-        if (statusChanged) {
-          // Keep the selected config even when disconnected
-          // _selectedConfig = null;
-        }
-      }
-
-      if (statusChanged) {
-        await _v2rayService.saveConfigs(_configs);
-        notifyListeners();
-        // Connection status updated from notification check
-      } else {
-        // Even if status didn't change, notify to ensure UI is updated
-        notifyListeners();
-      }
-    } catch (e) {
-      // Error fetching notification status
-      // Don't change connection state on errors
-    }
-  }
 
   // OPTIMISTIC UI: Load saved state immediately for instant UI display
   Future<void> _loadSavedStateAndShowUI() async {
@@ -1065,29 +963,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     } catch (e) {
       // Error loading saved state, continue with empty list
     }
-  }
-  
-  // Background verification of connection status (non-blocking)
-  void _verifyConnectionStatusInBackground() {
-    // Run verification in background after a short delay
-    Future.delayed(const Duration(milliseconds: 500), () async {
-      if (!_isAppInForeground) return; // Skip if app in background
-      try {
-        await checkConnectionStatus();
-      } catch (e) {
-        // Ignore errors in background verification
-      }
-    });
-    
-    // Double-check after 2 seconds
-    Future.delayed(const Duration(seconds: 2), () async {
-      if (!_isAppInForeground) return; // Skip if app in background
-      try {
-        await checkConnectionStatus();
-      } catch (e) {
-        // Ignore errors in background verification
-      }
-    });
   }
 
   // Method to manually check connection status
@@ -1155,21 +1030,4 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
   
-  // Start periodic connection monitoring to keep UI in sync
-  void _startConnectionMonitoring() {
-    // Check connection status every 1 second for faster detection
-    _connectionMonitorTimer?.cancel();
-    _connectionMonitorTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) async {
-        await checkConnectionStatus();
-      },
-    );
-  }
-  
-  // Stop periodic connection monitoring to save battery
-  void _stopConnectionMonitoring() {
-    _connectionMonitorTimer?.cancel();
-    _connectionMonitorTimer = null;
-  }
 }

@@ -836,88 +836,43 @@ class V2RayService extends ChangeNotifier {
   // Public method to force check connection status
   Future<bool> isActuallyConnected() async {
     try {
-      // IMPROVED: Better connection status detection
-      // Check the current V2Ray status first
-      final currentState = _currentStatus?.state?.toLowerCase() ?? '';
-      
-      // If status explicitly says connected, we're connected
-      if (currentState.contains('connect') || currentState == 'connected') {
-        // Update active config if needed
-        if (_activeConfig == null) {
-          await _tryRestoreActiveConfig();
-        }
-        return true;
-      }
-      
-      // If status explicitly says disconnected, we're not connected
-      if (currentState.contains('disconnect') || 
-          currentState.contains('stop') || 
-          currentState.contains('idle') ||
-          currentState == 'disconnected') {
-        if (_activeConfig != null) {
-          _activeConfig = null;
-          await _clearActiveConfig();
-        }
-        return false;
+      // CRITICAL FIX: Use getConnectionState for accurate detection (like ProxyCloud)
+      final connectionState = await _flutterV2ray.getConnectionState();
+      final isConnected = connectionState == "CONNECTED" || 
+                         connectionState == "V2RAY_CONNECTED" ||
+                         connectionState?.toLowerCase().contains('connect') == true;
+
+      // Update active config based on connection state
+      if (isConnected && _activeConfig == null) {
+        // Connected but no active config, try to restore
+        await _tryRestoreActiveConfig();
+      } else if (!isConnected && _activeConfig != null) {
+        // Not connected but we have active config, clear it
+        _activeConfig = null;
+        await _clearActiveConfig();
+        notifyListeners();
       }
 
-      // Try to get connected server delay as verification with multiple attempts
-      for (int attempt = 0; attempt < 3; attempt++) {
-        try {
-          // Increase timeout to 8 seconds for better reliability after long background
-          final delay = await _flutterV2ray.getConnectedServerDelay()
-              .timeout(const Duration(seconds: 8));
-          final isConnected = delay != null && delay >= 0;
-          
-          if (isConnected && _activeConfig == null) {
-            // Connected but no active config, try to restore
-            await _tryRestoreActiveConfig();
-          } else if (!isConnected && _activeConfig != null) {
-            // Not connected but we have active config, clear it
-            _activeConfig = null;
-            await _clearActiveConfig();
-          }
-          
-          return isConnected;
-        } catch (timeoutError) {
-          // If not the last attempt, wait and retry
-          if (attempt < 2) {
-            await Future.delayed(Duration(milliseconds: 500));
-            continue;
-          }
-          
-          // Timeout on final attempt - check if we have an active config saved
-          // Also try to restore config from storage
-          final savedConfig = await _loadActiveConfig();
-          if (savedConfig != null) {
-            _activeConfig = savedConfig;
-            // Assume still connected if we have saved config
-            return true;
-          }
-          
-          if (_activeConfig != null) {
-            // Assume still connected if we have active config
-            return true;
-          }
-          return false;
-        }
-      }
-      
-      // If all attempts failed, check saved config
-      final savedConfig = await _loadActiveConfig();
-      return savedConfig != null;
+      return isConnected;
     } catch (e) {
-      // Error in connection check - try to restore from saved config
+      // Error in connection check - fallback to delay-based check
       try {
-        final savedConfig = await _loadActiveConfig();
-        if (savedConfig != null) {
-          _activeConfig = savedConfig;
-          return true;
+        final delay = await _flutterV2ray.getConnectedServerDelay()
+            .timeout(const Duration(seconds: 3));
+        final isConnected = delay != null && delay >= 0;
+        
+        if (!isConnected && _activeConfig != null) {
+          _activeConfig = null;
+          await _clearActiveConfig();
+          notifyListeners();
         }
-      } catch (restoreError) {
-        // Ignore restore errors
+        
+        return isConnected;
+      } catch (fallbackError) {
+        // Complete failure - check if we have saved config
+        final savedConfig = await _loadActiveConfig();
+        return savedConfig != null;
       }
-      return false;
     }
   }
 
