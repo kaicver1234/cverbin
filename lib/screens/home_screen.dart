@@ -64,12 +64,24 @@ class _HomeScreenState extends State<HomeScreen> {
           _showSnackBar('Please select a server first', Colors.red);
         } else {
           await provider.connectToServer(provider.selectedConfig!, false);
-          // Force UI refresh after connection
+          
+          // Multiple UI refreshes to ensure state is shown
           if (mounted) {
             setState(() {});
-            // Small delay to ensure state is fully propagated
-            await Future.delayed(const Duration(milliseconds: 300));
-            setState(() {});
+            
+            // Wait for provider to finish all updates
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (mounted) setState(() {});
+            
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (mounted) setState(() {});
+            
+            // Check if actually connected and show appropriate message
+            if (mounted && provider.activeConfig != null) {
+              // Successfully connected
+            } else if (mounted && provider.errorMessage.isNotEmpty) {
+              _showSnackBar(provider.errorMessage, Colors.red);
+            }
           }
         }
       }
@@ -407,7 +419,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ? const LinearGradient(
                   colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
                 )
-              : null,
+              : LinearGradient(
+                  colors: [
+                    const Color(0xFF1E293B).withOpacity(0.3),
+                    const Color(0xFF0F172A).withOpacity(0.3),
+                  ],
+                ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: isActive
               ? [
@@ -918,7 +935,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Server Location',
+                    AppLocalizations.of(context).translate('home.server_location_label'),
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.6),
                       fontSize: 12,
@@ -1026,21 +1043,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ).animate().fadeIn(delay: 500.ms);
   }
 
-  String _formatSpeed(int bytesPerSecond) {
-    if (bytesPerSecond == 0) return '0 B/s';
-    
-    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
-    int unitIndex = 0;
-    double speed = bytesPerSecond.toDouble();
-    
-    while (speed >= 1024 && unitIndex < units.length - 1) {
-      speed /= 1024;
-      unitIndex++;
-    }
-    
-    return '${speed.toStringAsFixed(1)} ${units[unitIndex]}';
-  }
-  
   Widget _buildStatItem({
     required IconData icon,
     required String label,

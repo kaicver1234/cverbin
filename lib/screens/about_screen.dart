@@ -228,7 +228,7 @@ class _AboutScreenState extends State<AboutScreen>
                 const SizedBox(height: 20),
                 
                 Text(
-                  'Tiksar VPN',
+                  AppLocalizations.of(context).translate('about.app_name'),
                   style: const TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -315,9 +315,9 @@ class _AboutScreenState extends State<AboutScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                'Developed with',
-                style: TextStyle(
+              Text(
+                AppLocalizations.of(context).translate('about.developed_with'),
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                 ),
@@ -374,7 +374,7 @@ class _AboutScreenState extends State<AboutScreen>
             children: [
               _buildSocialButton(
                 icon: Icons.telegram,
-                label: 'Telegram',
+                label: AppLocalizations.of(context).translate('about.telegram_button'),
                 gradient: const [Color(0xFF0088CC), Color(0xFF00A0E3)],
                 onTap: () => _launchUrl('https://t.me/tiksar_vpn'),
                 delay: 800,
@@ -382,7 +382,7 @@ class _AboutScreenState extends State<AboutScreen>
               const SizedBox(width: 16),
               _buildSocialButton(
                 icon: Icons.camera_alt,
-                label: 'Instagram',
+                label: AppLocalizations.of(context).translate('about.instagram_button'),
                 gradient: const [Color(0xFFE1306C), Color(0xFFF56040), Color(0xFFFCAF45)],
                 onTap: () => _launchUrl('https://instagram.com/aboljahany'),
                 delay: 900,

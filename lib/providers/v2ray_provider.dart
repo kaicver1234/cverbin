@@ -815,6 +815,22 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             // Don't fail the connection for this
           }
 
+          // Wait a bit more for VPN service to fully establish connection
+          await Future.delayed(const Duration(milliseconds: 1000));
+          
+          // Force sync with VPN service to ensure activeConfig is updated
+          await _enhancedSyncWithVpnServiceState();
+          
+          debugPrint('✅ Connection established - activeConfig: ${_v2rayService.activeConfig?.remark}');
+          debugPrint('✅ Connection established - isConnected: ${config.isConnected}');
+          
+          // Notify UI multiple times to ensure update
+          notifyListeners();
+          await Future.delayed(const Duration(milliseconds: 300));
+          notifyListeners();
+          
+          debugPrint('✅ UI notified - Connection should be visible now');
+          
           // Log analytics event for successful connection
           try {
             await _analyticsService.logVpnConnect(
@@ -827,10 +843,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           } catch (e) {
             // Analytics logging failed, ignore
           }
-          
-          // Final sync to ensure UI is up to date
-          await Future.delayed(const Duration(milliseconds: 500));
-          notifyListeners();
           
           // Successfully connected
         } catch (e) {
@@ -848,6 +860,12 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       _setError('Unexpected error connecting to ${config.remark}: $e');
     } finally {
       _isConnecting = false;
+      // Final sync to make absolutely sure UI is updated
+      try {
+        await _enhancedSyncWithVpnServiceState();
+      } catch (e) {
+        debugPrint('Final sync error: $e');
+      }
       notifyListeners();
     }
   }
