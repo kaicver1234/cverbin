@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/language_provider.dart';
+import '../widgets/vpn_gradient_background.dart';
 import '../models/app_language.dart';
 import 'privacy_welcome_screen.dart';
 
@@ -14,9 +15,8 @@ class LanguageSelectionScreen extends StatefulWidget {
 }
 
 class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> 
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   AppLanguage? _selectedLanguage;
-  late AnimationController _backgroundController;
   late AnimationController _contentController;
   bool _isChangingLanguage = false;
 
@@ -40,11 +40,6 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
   @override
   void initState() {
     super.initState();
-    _backgroundController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 20),
-    )..repeat();
-    
     _contentController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -64,7 +59,6 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
 
   @override
   void dispose() {
-    _backgroundController.dispose();
     _contentController.dispose();
     super.dispose();
   }
@@ -118,41 +112,11 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
+    return VPNGradientBackground(
+      status: VPNBackgroundStatus.disconnected,
+      child: Stack(
         children: [
-          // Animated Gradient Background
-          AnimatedBuilder(
-            animation: _backgroundController,
-            builder: (context, child) {
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment(
-                      -1 + 2 * (_backgroundController.value),
-                      -1 + 2 * (_backgroundController.value),
-                    ),
-                    end: Alignment(
-                      1 - 2 * (_backgroundController.value),
-                      1 - 2 * (_backgroundController.value),
-                    ),
-                    colors: [
-                      const Color(0xFF0F172A),
-                      const Color(0xFF1E293B),
-                      const Color(0xFF334155),
-                      const Color(0xFF475569),
-                      const Color(0xFF334155),
-                      const Color(0xFF1E293B),
-                      const Color(0xFF0F172A),
-                    ],
-                    stops: const [0.0, 0.16, 0.33, 0.5, 0.66, 0.83, 1.0],
-                  ),
-                ),
-              );
-            },
-          ),
-          
-          // Floating Orbs
+          // Floating Orbs (kept for visual effect)
           ...List.generate(5, (index) {
             return _FloatingOrb(
               delay: Duration(milliseconds: index * 400),

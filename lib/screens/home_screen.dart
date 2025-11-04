@@ -1,9 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
-import '../widgets/modern_animated_background.dart';
+import '../widgets/vpn_gradient_background.dart';
 import '../models/app_language.dart';
 import '../utils/app_localizations.dart';
 import '../screens/server_selection_screen.dart';
@@ -220,44 +221,57 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Consumer2<V2RayProvider, LanguageProvider>(
       builder: (context, v2rayProvider, languageProvider, child) {
-        final isConnected = v2rayProvider.activeConfig != null;
+        // Determine background status based on VPN state
+        final backgroundStatus = _getBackgroundStatus(v2rayProvider);
         
         return Directionality(
           textDirection: languageProvider.textDirection,
-          child: Scaffold(
-            body: ModernAnimatedBackground(
-              isConnected: isConnected,
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    // Modern App Bar
-                    _buildModernAppBar(context),
-                    
-                    // Page View Content with swipe support
-                    Expanded(
-                      child: PageView(
-                        controller: _pageController,
-                        onPageChanged: (index) {
-                          setState(() {
-                            _currentPage = index;
-                          });
-                        },
-                        children: [
-                          _buildVPNTab(v2rayProvider),
-                          _buildToolsTab(context),
-                        ],
-                      ),
+          child: VPNGradientBackground(
+            status: backgroundStatus,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Modern App Bar
+                  _buildModernAppBar(context),
+                  
+                  // Page View Content with swipe support
+                  Expanded(
+                    child: PageView(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentPage = index;
+                        });
+                      },
+                      children: [
+                        _buildVPNTab(v2rayProvider),
+                        _buildToolsTab(context),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  
+                  // Tab Bar inside the main body for unified background
+                  _buildBottomTabBar(),
+                ],
               ),
             ),
-            // Tab Bar moved to bottom
-            bottomNavigationBar: _buildBottomTabBar(),
           ),
         );
       },
     );
+  }
+  
+  // Helper method to determine background status from VPN state
+  VPNBackgroundStatus _getBackgroundStatus(V2RayProvider provider) {
+    if (provider.isConnecting) {
+      return VPNBackgroundStatus.connecting;
+    } else if (provider.activeConfig != null) {
+      return VPNBackgroundStatus.connected;
+    } else if (provider.errorMessage.isNotEmpty) {
+      return VPNBackgroundStatus.error;
+    } else {
+      return VPNBackgroundStatus.disconnected;
+    }
   }
 
   Widget _buildModernAppBar(BuildContext context) {
@@ -363,42 +377,66 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBottomTabBar() {
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Colors.transparent, 
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildTabButton(
-              icon: Icons.vpn_key,
-              label: AppLocalizations.of(context).translate('navigation.vpn'),
-              isActive: _currentPage == 0,
-              onTap: () {
-                _pageController.animateToPage(
-                  0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              },
-            ),
-          ),
-          Expanded(
-            child: _buildTabButton(
-              icon: Icons.build,
-              label: AppLocalizations.of(context).translate('navigation.tools'),
-              isActive: _currentPage == 1,
-              onTap: () {
-                _pageController.animateToPage(
-                  1,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              },
-            ),
+        // Glassmorphism effect to blend with background
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF1E293B).withOpacity(0.4),
+            const Color(0xFF0F172A).withOpacity(0.5),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildTabButton(
+                  icon: Icons.vpn_key,
+                  label: AppLocalizations.of(context).translate('navigation.vpn'),
+                  isActive: _currentPage == 0,
+                  onTap: () {
+                    _pageController.animateToPage(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildTabButton(
+                  icon: Icons.build,
+                  label: AppLocalizations.of(context).translate('navigation.tools'),
+                  isActive: _currentPage == 1,
+                  onTap: () {
+                    _pageController.animateToPage(
+                      1,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0);
   }
@@ -412,26 +450,38 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
           gradient: isActive
               ? const LinearGradient(
                   colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 )
               : LinearGradient(
                   colors: [
-                    const Color(0xFF1E293B).withOpacity(0.3),
-                    const Color(0xFF0F172A).withOpacity(0.3),
+                    Colors.white.withOpacity(0.05),
+                    Colors.white.withOpacity(0.02),
                   ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isActive 
+                ? const Color(0xFF6366F1).withOpacity(0.3)
+                : Colors.white.withOpacity(0.05),
+            width: 1,
+          ),
           boxShadow: isActive
               ? [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withOpacity(0.4),
-                    blurRadius: 12,
+                    color: const Color(0xFF6366F1).withOpacity(0.5),
+                    blurRadius: 16,
                     offset: const Offset(0, 4),
+                    spreadRadius: 0,
                   ),
                 ]
               : null,
@@ -441,16 +491,16 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(
               icon,
-              size: 18,
+              size: 20,
               color: isActive ? Colors.white : const Color(0xFF94A3B8),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                letterSpacing: 0.5,
+                letterSpacing: 0.3,
                 color: isActive ? Colors.white : const Color(0xFF94A3B8),
               ),
             ),
@@ -553,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'icon': Icons.info_outline,
         'label': AppLocalizations.of(context).translate('home.ip_info'),
         'subtitle': AppLocalizations.of(context).translate('tools.ip_information_desc'),
-        'color': const Color(0xFF3B82F6),
+        'color': const Color(0xFF21AD86), // defyxVPN connected color
         'onTap': () {
           Navigator.push(
             context,
@@ -565,7 +615,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'icon': Icons.speed,
         'label': AppLocalizations.of(context).translate('home.speed_test'),
         'subtitle': AppLocalizations.of(context).translate('tools.speed_test_desc'),
-        'color': const Color(0xFF10B981),
+        'color': const Color(0xFF23499C), // defyxVPN connecting color
         'onTap': () {
           Navigator.push(
             context,
@@ -577,7 +627,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'icon': Icons.dns,
         'label': AppLocalizations.of(context).translate('home.host_checker'),
         'subtitle': AppLocalizations.of(context).translate('tools.host_checker_desc'),
-        'color': const Color(0xFF06B6D4),
+        'color': const Color(0xFFD9B639), // defyxVPN warning color
         'onTap': () {
           Navigator.push(
             context,
@@ -589,7 +639,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'icon': Icons.refresh,
         'label': AppLocalizations.of(context).translate('home.refresh'),
         'subtitle': AppLocalizations.of(context).translate('subscription_management.update_all'),
-        'color': const Color(0xFF8B5CF6),
+        'color': const Color(0xFF72D9FF), // defyxVPN upload color
         'onTap': () async {
           final provider = Provider.of<V2RayProvider>(context, listen: false);
           _showSnackBar(
@@ -648,22 +698,28 @@ class _HomeScreenState extends State<HomeScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  color.withOpacity(0.15),
-                  color.withOpacity(0.05),
+                  color.withOpacity(0.25),
+                  color.withOpacity(0.08),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: color.withOpacity(0.3),
+                color: color.withOpacity(0.4),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.1),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: color.withOpacity(0.2),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -672,8 +728,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
+                    color: color.withOpacity(0.25),
                     borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     icon,

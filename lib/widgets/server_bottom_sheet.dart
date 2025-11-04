@@ -82,7 +82,14 @@ class _ServerBottomSheetState extends State<ServerBottomSheet> {
   Widget _buildBottomSheet(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.secondaryDark,
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF1C1C1C),
+            Color(0xFF2A2A2A),
+          ],
+        ),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),

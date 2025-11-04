@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../models/app_language.dart';
 import '../providers/language_provider.dart';
 import '../widgets/error_snackbar.dart';
+import '../widgets/vpn_gradient_background.dart';
 
 class LanguageSettingsScreen extends StatefulWidget {
   const LanguageSettingsScreen({super.key});
@@ -73,66 +74,100 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
 
         return Directionality(
           textDirection: languageProvider.textDirection,
-          child: Scaffold(
-            backgroundColor: AppTheme.primaryDark,
-            appBar: AppBar(
-              title: Text(
-                languageProvider.translate('language_settings.title'),
-                style: titleStyle,
-              ),
-              backgroundColor: AppTheme.primaryDark,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: AppTheme.textLight),
-            ),
-            body: FadeTransition(
-              opacity: _fadeAnimation,
+          child: VPNGradientBackground(
+            status: VPNBackgroundStatus.disconnected,
+            child: SafeArea(
               child: Column(
                 children: [
-                  // Header Section
+                  // Custom App Bar
                   Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Row(
                       children: [
-                        Text(
-                          languageProvider.translate(
-                            'language_settings.subtitle',
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.arrow_back,
+                              color: Colors.white,
+                              size: 22,
+                            ),
                           ),
-                          style: subtitleStyle,
                         ),
-                        const SizedBox(height: 24),
-                        _buildCurrentLanguageCard(
-                          languageProvider,
-                          isRtlLanguage,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            languageProvider.translate('language_settings.title'),
+                            style: titleStyle.copyWith(fontSize: 24),
+                          ),
                         ),
                       ],
                     ),
                   ),
-
-                  // Available Languages Section
+                  
+                  // Body with FadeTransition
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                              vertical: 16.0,
-                            ),
-                            child: Text(
-                              languageProvider.translate(
-                                'language_settings.available_languages',
-                              ),
-                              style: sectionTitleStyle,
+                          // Header Section
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  languageProvider.translate(
+                                    'language_settings.subtitle',
+                                  ),
+                                  style: subtitleStyle,
+                                ),
+                                const SizedBox(height: 24),
+                                _buildCurrentLanguageCard(
+                                  languageProvider,
+                                  isRtlLanguage,
+                                ),
+                              ],
                             ),
                           ),
+
+                          // Available Languages Section
                           Expanded(
-                            child: _buildLanguageList(
-                              languageProvider,
-                              isRtlLanguage,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0,
+                                      vertical: 16.0,
+                                    ),
+                                    child: Text(
+                                      languageProvider.translate(
+                                        'language_settings.available_languages',
+                                      ),
+                                      style: sectionTitleStyle,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _buildLanguageList(
+                                      languageProvider,
+                                      isRtlLanguage,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -315,14 +350,14 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
             child: Card(
               color: isSelected
                   ? AppTheme.primaryGreen.withValues(alpha: 0.1)
-                  : AppTheme.cardDark,
+                  : Colors.white.withOpacity(0.05),
               elevation: isSelected ? 8 : 2,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
                   color: isSelected
                       ? AppTheme.primaryGreen.withValues(alpha: 0.5)
-                      : Colors.transparent,
+                      : Colors.white.withOpacity(0.1),
                   width: 2,
                 ),
               ),
@@ -340,7 +375,7 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppTheme.primaryGreen.withValues(alpha: 0.2)
-                              : AppTheme.secondaryDark,
+                              : Colors.white.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(

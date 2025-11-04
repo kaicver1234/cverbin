@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
-import '../widgets/modern_animated_background.dart';
+import '../widgets/vpn_gradient_background.dart';
 
 class IpInfoScreen extends StatefulWidget {
   const IpInfoScreen({Key? key}) : super(key: key);
@@ -89,10 +89,9 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       builder: (context, languageProvider, child) {
         return Directionality(
           textDirection: languageProvider.textDirection,
-          child: Scaffold(
-            body: ModernAnimatedBackground(
-              isConnected: false,
-              child: SafeArea(
+          child: VPNGradientBackground(
+            status: VPNBackgroundStatus.disconnected,
+            child: SafeArea(
                 child: Column(
                   children: [
                     // App Bar
@@ -110,8 +109,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                 ),
               ),
             ),
-          ),
-        );
+          );
       },
     );
   }

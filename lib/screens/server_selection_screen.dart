@@ -4,7 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../models/v2ray_config.dart';
-import '../widgets/modern_animated_background.dart';
+import '../widgets/vpn_gradient_background.dart';
 import '../services/ping_service.dart';
 
 class ServerSelectionScreen extends StatefulWidget {
@@ -232,28 +232,31 @@ class _ServerSelectionScreenState
         final servers = _getFilteredServers(v2rayProvider);
         final isConnected = v2rayProvider.activeConfig != null;
         
+        // Determine background status based on connection state
+        final backgroundStatus = isConnected 
+            ? VPNBackgroundStatus.connected 
+            : VPNBackgroundStatus.disconnected;
+        
         return Directionality(
           textDirection: languageProvider.textDirection,
-          child: Scaffold(
-            body: ModernAnimatedBackground(
-              isConnected: isConnected,
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    // Modern App Bar
-                    _buildAppBar(context),
-                    
-                    // Quick Actions
-                    _buildQuickActions(),
-                    
-                    // Server List
-                    Expanded(
-                      child: servers.isEmpty
-                          ? _buildEmptyState()
-                          : _buildServerList(servers, v2rayProvider),
-                    ),
-                  ],
-                ),
+          child: VPNGradientBackground(
+            status: backgroundStatus,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Modern App Bar
+                  _buildAppBar(context),
+                  
+                  // Quick Actions
+                  _buildQuickActions(),
+                  
+                  // Server List
+                  Expanded(
+                    child: servers.isEmpty
+                        ? _buildEmptyState()
+                        : _buildServerList(servers, v2rayProvider),
+                  ),
+                ],
               ),
             ),
           ),

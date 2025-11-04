@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
+import '../widgets/vpn_gradient_background.dart';
 import 'main_navigation_screen.dart';
 import '../utils/app_localizations.dart';
 
@@ -14,21 +15,15 @@ class PrivacyWelcomeScreen extends StatefulWidget {
 }
 
 class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen> 
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   
-  late AnimationController _backgroundController;
   late AnimationController _contentController;
 
   @override
   void initState() {
     super.initState();
-    _backgroundController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
-    
     _contentController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -37,7 +32,6 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
 
   @override
   void dispose() {
-    _backgroundController.dispose();
     _contentController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -91,42 +85,11 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
       builder: (context, languageProvider, child) {
         return Directionality(
           textDirection: languageProvider.textDirection,
-          child: Scaffold(
-            body: Stack(
+          child: VPNGradientBackground(
+            status: VPNBackgroundStatus.disconnected,
+            child: Stack(
               children: [
-                // Animated Background
-                AnimatedBuilder(
-                  animation: _backgroundController,
-                  builder: (context, child) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color.lerp(
-                              const Color(0xFF0F172A),
-                              const Color(0xFF1E293B),
-                              (_backgroundController.value * 2) % 1,
-                            )!,
-                            Color.lerp(
-                              const Color(0xFF1E293B),
-                              const Color(0xFF334155),
-                              (_backgroundController.value * 2 + 0.5) % 1,
-                            )!,
-                            Color.lerp(
-                              const Color(0xFF334155),
-                              const Color(0xFF0F172A),
-                              (_backgroundController.value * 2 + 1) % 1,
-                            )!,
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                
-                // Floating Particles
+                // Floating Particles (kept for visual effect)
                 ...List.generate(15, (index) {
                   return Positioned(
                     left: (index * 73) % MediaQuery.of(context).size.width,

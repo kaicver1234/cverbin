@@ -3,7 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
-import '../widgets/modern_animated_background.dart';
+import '../widgets/vpn_gradient_background.dart';
 import '../utils/app_localizations.dart';
 
 class AboutScreen extends StatefulWidget {
@@ -17,7 +17,6 @@ class _AboutScreenState extends State<AboutScreen>
     with TickerProviderStateMixin {
   late AnimationController _heartController;
   late AnimationController _floatController;
-  late AnimationController _backgroundController;
   
   @override
   void initState() {
@@ -31,18 +30,12 @@ class _AboutScreenState extends State<AboutScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
-    
-    _backgroundController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 15),
-    )..repeat();
   }
   
   @override
   void dispose() {
     _heartController.dispose();
     _floatController.dispose();
-    _backgroundController.dispose();
     super.dispose();
   }
 
@@ -110,35 +103,33 @@ class _AboutScreenState extends State<AboutScreen>
       builder: (context, languageProvider, child) {
         return Directionality(
           textDirection: languageProvider.textDirection,
-          child: Scaffold(
-            body: ModernAnimatedBackground(
-              isConnected: false,
-              child: SafeArea(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    children: [
-                      // App Bar
-                      _buildAppBar(context),
-                      
-                      // Logo Section
-                      _buildLogoSection(),
-                      
-                      // App Info
-                      _buildAppInfo(),
-                      
-                      // Developer Info
-                      _buildDeveloperCard(),
-                      
-                      // Social Media Buttons
-                      _buildSocialButtons(),
-                      
-                      // Footer
-                      _buildFooter(),
-                      
-                      const SizedBox(height: 30),
-                    ],
-                  ),
+          child: VPNGradientBackground(
+            status: VPNBackgroundStatus.disconnected,
+            child: SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    // App Bar
+                    _buildAppBar(context),
+                    
+                    // Logo Section
+                    _buildLogoSection(),
+                    
+                    // App Info
+                    _buildAppInfo(),
+                    
+                    // Developer Info
+                    _buildDeveloperCard(),
+                    
+                    // Social Media Buttons
+                    _buildSocialButtons(),
+                    
+                    // Footer
+                    _buildFooter(),
+                    
+                    const SizedBox(height: 30),
+                  ],
                 ),
               ),
             ),
