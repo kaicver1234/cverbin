@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_internet_speed_test/flutter_internet_speed_test.dart';
 import '../providers/language_provider.dart';
 import '../widgets/vpn_gradient_background.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_localizations.dart';
+import '../services/cloudflare_speed_test_service.dart';
 
 class SpeedTestScreen extends StatefulWidget {
   const SpeedTestScreen({super.key});
@@ -17,14 +17,16 @@ class SpeedTestScreen extends StatefulWidget {
 
 class _SpeedTestScreenState extends State<SpeedTestScreen>
     with TickerProviderStateMixin {
-  final FlutterInternetSpeedTest speedTest = FlutterInternetSpeedTest();
+  final CloudflareSpeedTestService _speedTestService = CloudflareSpeedTestService();
   
   // Test State
   SpeedTestStatus _currentStatus = SpeedTestStatus.ready;
+  TestPhase _currentPhase = TestPhase.loading;
   double _downloadSpeed = 0.0;
   double _uploadSpeed = 0.0;
   int _ping = 0;
   double _progress = 0.0;
+  double _currentSpeed = 0.0;
   
   // Animation Controllers
   late AnimationController _pulseController;
@@ -57,7 +59,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   void dispose() {
     _pulseController.dispose();
     _rotationController.dispose();
-    speedTest.cancelTest();
+    _speedTestService.dispose();
     super.dispose();
   }
   
@@ -69,77 +71,61 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
     
     setState(() {
       _currentStatus = SpeedTestStatus.testing;
+      _currentPhase = TestPhase.loading;
       _downloadSpeed = 0.0;
       _uploadSpeed = 0.0;
       _ping = 0;
       _progress = 0.0;
+      _currentSpeed = 0.0;
     });
     
     _rotationController.repeat();
     
-    try {
-      // Start download test
-      await speedTest.startTesting(
-        onStarted: () {
-          debugPrint('Speed test started');
-        },
-        onCompleted: (TestResult download, TestResult upload) {
-          setState(() {
-            _downloadSpeed = download.transferRate;
-            _uploadSpeed = upload.transferRate;
-            _progress = 1.0;
-            _currentStatus = SpeedTestStatus.completed;
-          });
-          _rotationController.stop();
-          _showCompletionAnimation();
-        },
-        onProgress: (double percent, TestResult data) {
-          setState(() {
-            if (data.type == TestType.download) {
-              _downloadSpeed = data.transferRate;
-              _progress = percent / 200; // 0-50%
-            } else {
-              _uploadSpeed = data.transferRate;
-              _progress = 0.5 + (percent / 200); // 50-100%
-            }
-          });
-        },
-        onError: (String errorMessage, String speedTestError) {
-          _handleError(errorMessage);
-        },
-        onDefaultServerSelectionInProgress: () {
-          debugPrint('Selecting server...');
-        },
-        onDefaultServerSelectionDone: (Client? client) {
-          debugPrint('Server selected: $client');
-        },
-        onDownloadComplete: (TestResult data) {
-          setState(() {
-            _downloadSpeed = data.transferRate;
-            _progress = 0.5;
-          });
-        },
-        onUploadComplete: (TestResult data) {
-          setState(() {
-            _uploadSpeed = data.transferRate;
-            _progress = 1.0;
-          });
-        },
-        onCancel: () {
-          debugPrint('Test cancelled');
-        },
-      );
-    } catch (e) {
-      _handleError(e.toString());
-    }
+    await _speedTestService.startTest(
+      onPhaseChange: (phase, progress) {
+        if (!mounted) return;
+        
+        setState(() {
+          _currentPhase = phase;
+          _progress = progress;
+        });
+      },
+      onSpeedUpdate: (speed) {
+        if (!mounted) return;
+        
+        setState(() {
+          _currentSpeed = speed;
+        });
+      },
+      onComplete: (result) {
+        if (!mounted) return;
+        
+        setState(() {
+          _downloadSpeed = result.downloadSpeed;
+          _uploadSpeed = result.uploadSpeed;
+          _ping = result.ping;
+          _currentSpeed = 0.0;
+          _progress = 1.0;
+          _currentStatus = SpeedTestStatus.completed;
+        });
+        
+        _rotationController.stop();
+        _showCompletionAnimation();
+      },
+      onError: (error) {
+        if (!mounted) return;
+        _handleError(error);
+      },
+    );
   }
   
   void _stopTest() {
-    speedTest.cancelTest();
+    _speedTestService.cancelTest();
     _rotationController.stop();
     setState(() {
       _currentStatus = SpeedTestStatus.ready;
       _progress = 0.0;
+      _currentSpeed = 0.0;
     });
   }
   
@@ -147,13 +133,16 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
     _rotationController.stop();
     setState(() {
       _currentStatus = SpeedTestStatus.error;
+      _currentSpeed = 0.0;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${AppLocalizations.of(context).translate('speed_test.error')}: $error'),
-        backgroundColor: Colors.red,
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${AppLocalizations.of(context).translate('speed_test.error')}: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
   
   void _showCompletionAnimation() {
@@ -319,6 +308,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
             painter: _ProgressPainter(
               progress: _progress,
               status: _currentStatus,
+              phase: _currentPhase,
             ),
           ),
         ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
@@ -333,14 +323,12 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
                 child: Icon(
                   Icons.speed,
                   size: 60,
-                  color: AppColors.bottomGradientConnecting,
+                  color: _getPhaseColor(),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                _progress < 0.5 
-                  ? AppLocalizations.of(context).translate('speed_test.download')
-                  : AppLocalizations.of(context).translate('speed_test.upload'),
+                _getPhaseLabel(),
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 14,
@@ -350,7 +338,9 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
               ),
               const SizedBox(height: 8),
               Text(
-                '${(_progress < 0.5 ? _downloadSpeed : _uploadSpeed).toStringAsFixed(2)} ${AppLocalizations.of(context).translate('speed_test.mbps')}',
+                _currentSpeed > 0
+                    ? '${_currentSpeed.toStringAsFixed(2)} ${AppLocalizations.of(context).translate('speed_test.mbps')}'
+                    : '--',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 28,
@@ -426,6 +416,28 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
           ),
       ],
     );
+  }
+  
+  String _getPhaseLabel() {
+    switch (_currentPhase) {
+      case TestPhase.loading:
+        return 'PING';
+      case TestPhase.download:
+        return AppLocalizations.of(context).translate('speed_test.download');
+      case TestPhase.upload:
+        return AppLocalizations.of(context).translate('speed_test.upload');
+    }
+  }
+  
+  Color _getPhaseColor() {
+    switch (_currentPhase) {
+      case TestPhase.loading:
+        return AppColors.warningColor;
+      case TestPhase.download:
+        return AppColors.downloadColor;
+      case TestPhase.upload:
+        return AppColors.uploadColor;
+    }
   }
   
   Widget _buildMetrics() {
@@ -515,10 +527,12 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
 class _ProgressPainter extends CustomPainter {
   final double progress;
   final SpeedTestStatus status;
+  final TestPhase phase;
   
   _ProgressPainter({
     required this.progress,
     required this.status,
+    required this.phase,
   });
   
   @override
@@ -557,16 +571,23 @@ class _ProgressPainter extends CustomPainter {
   List<Color> _getProgressColors() {
     if (status == SpeedTestStatus.completed) {
       return [AppColors.downloadColor, AppColors.uploadColor];
-    } else if (progress < 0.5) {
-      return [AppColors.bottomGradientConnecting, AppColors.downloadColor];
-    } else {
-      return [AppColors.downloadColor, AppColors.uploadColor];
+    }
+    
+    switch (phase) {
+      case TestPhase.loading:
+        return [AppColors.warningColor, AppColors.warningColor];
+      case TestPhase.download:
+        return [AppColors.bottomGradientConnecting, AppColors.downloadColor];
+      case TestPhase.upload:
+        return [AppColors.downloadColor, AppColors.uploadColor];
     }
   }
   
   @override
   bool shouldRepaint(_ProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.status != status;
+    return oldDelegate.progress != progress || 
+           oldDelegate.status != status ||
+           oldDelegate.phase != phase;
   }
 }
 

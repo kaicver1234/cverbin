@@ -52,7 +52,6 @@ dependencies:
   flutter_animate: ^4.3.0
   cached_network_image: ^3.3.1
   intl: ^0.20.2
-  webview_flutter: ^4.5.0
   connectivity_plus: ^5.0.2
   flutter_launcher_icons: ^0.13.1
   html: ^0.15.4
@@ -64,7 +63,7 @@ dependencies:
   file_picker: ^10.3.2
   permission_handler: ^12.0.1
   image_picker: ^1.1.2
-  flutter_internet_speed_test: ^1.5.0
+  dio: ^5.4.0
 
 dev_dependencies:
   flutter_test:
