@@ -971,7 +971,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         try {
           debugPrint('✅ VPN connection successful, updating UI state...');
           
-          // Update config status IMMEDIATELY before any delays
+          // Clear any previous error messages IMMEDIATELY
+          _errorMessage = '';
+          
+          // Update config status IMMEDIATELY
           for (int i = 0; i < _configs.length; i++) {
             if (_configs[i].id == config.id) {
               _configs[i].isConnected = true;
@@ -983,60 +986,36 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           
           // Notify UI FIRST to show connected state immediately
           notifyListeners();
-          debugPrint('✅ UI updated immediately with connected state');
+          debugPrint('✅ UI updated immediately - Connected: true, Error: empty');
           
-          // Then wait for connection to stabilize
-          await Future.delayed(const Duration(milliseconds: 800));
-
-          // Verify the connection is actually established
-          final isVerified = await _v2rayService.isActuallyConnected();
-          debugPrint('✅ Connection verification: $isVerified');
+          // Small delay to ensure UI updates before background tasks
+          await Future.delayed(const Duration(milliseconds: 100));
           
-          if (isVerified) {
-            // Connection verified, persist the changes
-            try {
-              await _v2rayService.saveConfigs(_configs);
-              debugPrint('✅ Configs saved successfully');
-            } catch (e) {
-              debugPrint('⚠️ Error saving configs after connection: $e');
-              // Don't fail the connection for this
-            }
+          // Persist the changes in background (don't wait)
+          _v2rayService.saveConfigs(_configs).catchError((e) {
+            debugPrint('⚠️ Error saving configs after connection: $e');
+          });
 
-            // Reset usage statistics when connecting to a new server
-            try {
-              await _v2rayService.resetUsageStats();
-            } catch (e) {
-              debugPrint('⚠️ Error resetting usage stats: $e');
-              // Don't fail the connection for this
-            }
-            
-            // Notify UI again to ensure update
-            notifyListeners();
-            debugPrint('✅ Connection established - activeConfig: ${_v2rayService.activeConfig?.remark}');
-            
-            // Log analytics event for successful connection
-            try {
-              await _analyticsService.logVpnConnect(
-                serverName: config.remark,
-                serverAddress: config.address,
-                serverPort: config.port,
-                country: config.remark.split('-').first.trim(),
-                protocol: config.configType,
-              );
-            } catch (e) {
-              debugPrint('⚠️ Analytics logging failed: $e');
-            }
-          } else {
-            // Connection verification failed
-            debugPrint('❌ Connection verification failed, reverting state');
-            config.isConnected = false;
-            _setError('Connection established but verification failed');
-            notifyListeners();
-          }
+          // Reset usage statistics in background
+          _v2rayService.resetUsageStats().catchError((e) {
+            debugPrint('⚠️ Error resetting usage stats: $e');
+          });
+          
+          debugPrint('✅ Connection established - activeConfig: ${_v2rayService.activeConfig?.remark}');
+          
+          // Log analytics event in background
+          _analyticsService.logVpnConnect(
+            serverName: config.remark,
+            serverAddress: config.address,
+            serverPort: config.port,
+            country: config.remark.split('-').first.trim(),
+            protocol: config.configType,
+          ).catchError((e) {
+            debugPrint('⚠️ Analytics logging failed: $e');
+          });
         } catch (e) {
           debugPrint('❌ Error in post-connection setup: $e');
-          // Connection succeeded but post-setup failed
-          _setError('Connected but failed to update settings: $e');
+          // Don't set error - connection succeeded, just logging failed
         }
       } else {
         _setError(

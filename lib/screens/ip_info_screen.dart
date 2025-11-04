@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -158,15 +159,15 @@ class _IpInfoScreenState extends State<IpInfoScreen>
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF6366F1).withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF6366F1).withOpacity(0.4),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.refresh,
-                color: Color(0xFF6366F1),
+                color: Colors.white.withValues(alpha: 0.9),
                 size: 22,
               ),
             ),
@@ -324,15 +325,20 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           
           // Location Card
           _buildInfoCard(
-            title: 'Location',
-            icon: Icons.location_on,
-            color: const Color(0xFF10B981),
+            title: 'Location Information',
+            icon: Icons.language,
             items: [
+              _InfoItem('IP Address', _ipData!['query'] ?? 'Unknown', showCopy: true),
               _InfoItem('Country', '${_ipData!['country'] ?? 'Unknown'} ${_ipData!['countryCode'] != null ? '(${_ipData!['countryCode']})' : ''}'),
+              _InfoItem('Continent', '${_ipData!['continent'] ?? 'Unknown'} ${_ipData!['continentCode'] != null ? '(${_ipData!['continentCode']})' : ''}'),
               _InfoItem('Region', _ipData!['regionName'] ?? 'Unknown'),
               _InfoItem('City', _ipData!['city'] ?? 'Unknown'),
+              if (_ipData!['district'] != null && _ipData!['district'].toString().isNotEmpty)
+                _InfoItem('District', _ipData!['district'] ?? 'Unknown'),
               _InfoItem('ZIP Code', _ipData!['zip'] ?? 'N/A'),
               _InfoItem('Timezone', _ipData!['timezone'] ?? 'Unknown'),
+              _InfoItem('UTC Offset', '${_ipData!['offset'] ?? 'N/A'}'),
+              _InfoItem('Currency', _ipData!['currency'] ?? 'Unknown'),
               _InfoItem('Coordinates', '${_ipData!['lat']?.toStringAsFixed(4) ?? 'N/A'}, ${_ipData!['lon']?.toStringAsFixed(4) ?? 'N/A'}'),
             ],
             delay: 200,
@@ -342,17 +348,20 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           
           // Network Card
           _buildInfoCard(
-            title: 'Network',
-            icon: Icons.router,
-            color: const Color(0xFFF59E0B),
+            title: 'Network Details',
+            icon: Icons.router_outlined,
             items: [
               _InfoItem('ISP', _ipData!['isp'] ?? 'Unknown'),
               _InfoItem('Organization', _ipData!['org'] ?? 'Unknown'),
-              _InfoItem('AS', _ipData!['as'] ?? 'Unknown'),
+              _InfoItem('AS Number', _ipData!['as'] ?? 'Unknown'),
               _InfoItem('AS Name', _ipData!['asname'] ?? 'Unknown'),
+              if (_ipData!['reverse'] != null && _ipData!['reverse'].toString().isNotEmpty)
+                _InfoItem('Reverse DNS', _ipData!['reverse'] ?? 'N/A'),
             ],
-            delay: 400,
+            delay: 300,
           ),
+          
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -362,48 +371,73 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-        ),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.4),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          ),
-        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.public,
               size: 40,
-              color: Colors.white,
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
           const SizedBox(height: 16),
           Text(
             'Your IP Address',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _ipData!['query'] ?? 'Unknown',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => _copyToClipboard(_ipData!['query'] ?? ''),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.copy,
+                    size: 18,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
-            _ipData!['query'] ?? 'Unknown',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
+            '${_ipData!['city'] ?? 'Unknown'}, ${_ipData!['country'] ?? 'Unknown'}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 14,
             ),
           ),
         ],
@@ -413,20 +447,35 @@ class _IpInfoScreenState extends State<IpInfoScreen>
         .slideY(begin: 0.3, end: 0)
         .scale(curve: Curves.elasticOut);
   }
+  
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('IP address copied: $text'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   Widget _buildInfoCard({
     required String title,
     required IconData icon,
-    required Color color,
     required List<_InfoItem> items,
     required int delay,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.08),
         ),
       ),
       child: Column(
@@ -434,7 +483,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(20),
               ),
@@ -444,12 +493,12 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
-                    color: color,
+                    color: Colors.white.withValues(alpha: 0.8),
                     size: 20,
                   ),
                 ),
@@ -458,7 +507,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                   title,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -483,23 +532,43 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             item.label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 14,
             ),
           ),
+          const SizedBox(width: 16),
           Flexible(
-            child: Text(
-              item.value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    item.value,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (item.showCopy) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _copyToClipboard(item.value),
+                    child: Icon(
+                      Icons.copy,
+                      size: 16,
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -511,8 +580,9 @@ class _IpInfoScreenState extends State<IpInfoScreen>
 class _InfoItem {
   final String label;
   final String value;
+  final bool showCopy;
 
-  _InfoItem(this.label, this.value);
+  _InfoItem(this.label, this.value, {this.showCopy = false});
 }
 
 class _FloatingParticle extends StatefulWidget {
