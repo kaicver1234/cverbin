@@ -20,15 +20,21 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   bool _isConnecting = false;
   late PageController _pageController;
   int _currentPage = 0;
   
   @override
+  bool get wantKeepAlive => true;
+  
+  @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _pageController = PageController(
+      keepPage: true,
+      viewportFraction: 1.0,
+    );
   }
   
   @override
@@ -223,6 +229,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
     return Consumer2<V2RayProvider, LanguageProvider>(
       builder: (context, v2rayProvider, languageProvider, child) {
         // Determine background status based on VPN state
@@ -238,18 +246,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Modern App Bar
                   _buildModernAppBar(context),
                   
-                  // Page View Content with swipe support
+                  // Page View Content with swipe support (Optimized)
                   Expanded(
                     child: PageView(
                       controller: _pageController,
+                      physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
+                      ),
                       onPageChanged: (index) {
-                        setState(() {
-                          _currentPage = index;
-                        });
+                        if (mounted) {
+                          setState(() {
+                            _currentPage = index;
+                          });
+                        }
                       },
                       children: [
-                        _buildVPNTab(v2rayProvider),
-                        _buildToolsTab(context),
+                        // Wrap in RepaintBoundary for better performance
+                        RepaintBoundary(
+                          key: const PageStorageKey<String>('vpn_tab'),
+                          child: _buildVPNTab(v2rayProvider),
+                        ),
+                        RepaintBoundary(
+                          key: const PageStorageKey<String>('tools_tab'),
+                          child: _buildToolsTab(context),
+                        ),
                       ],
                     ),
                   ),
@@ -412,11 +432,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: AppLocalizations.of(context).translate('navigation.vpn'),
                   isActive: _currentPage == 0,
                   onTap: () {
-                    _pageController.animateToPage(
-                      0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
+                    if (_currentPage != 0) {
+                      _pageController.animateToPage(
+                        0,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.fastOutSlowIn,
+                      );
+                    }
                   },
                 ),
               ),
@@ -427,11 +449,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: AppLocalizations.of(context).translate('navigation.tools'),
                   isActive: _currentPage == 1,
                   onTap: () {
-                    _pageController.animateToPage(
-                      1,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
+                    if (_currentPage != 1) {
+                      _pageController.animateToPage(
+                        1,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.fastOutSlowIn,
+                      );
+                    }
                   },
                 ),
               ),
@@ -450,9 +474,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.fastOutSlowIn,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
           // Darker and more subtle colors
@@ -470,19 +495,25 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isActive ? Colors.white : const Color(0xFF6B7280),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.fastOutSlowIn,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                 letterSpacing: 0.2,
                 color: isActive ? Colors.white : const Color(0xFF6B7280),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: isActive ? Colors.white : const Color(0xFF6B7280),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(label),
+                ],
               ),
             ),
           ],

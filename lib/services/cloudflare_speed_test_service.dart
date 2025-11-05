@@ -4,10 +4,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 /// Cloudflare Speed Test Service
-/// Exactly like defyxVPN - uses official Cloudflare speed.cloudflare.com API
+/// Time-based testing: 30s download + 30s upload + real ping
 class CloudflareSpeedTestService {
   final Dio _dio = Dio();
   bool _isCancelled = false;
+  Timer? _testTimer;
   
   // Measurement ID for Cloudflare logging
   String _measurementId = '';
@@ -17,22 +18,18 @@ class CloudflareSpeedTestService {
   final List<double> _uploadSpeeds = [];
   final List<int> _latencies = [];
   
-  // Optimized measurement configuration - 60 seconds total
-  // 5s latency + 30s download + 25s upload = ~60s
-  static const List<Map<String, dynamic>> measurements = [
-    // Quick latency test (5 seconds)
-    {'type': 'latency', 'numPackets': 10, 'delay': 500}, // 10 packets × 500ms = 5s
-    
-    // Download test - 30 seconds with progressive sizes for accuracy
-    {'type': 'download', 'bytes': 500000, 'count': 5},      // 5 × 500KB (warm up)
-    {'type': 'download', 'bytes': 2000000, 'count': 6},     // 6 × 2MB (medium)
-    {'type': 'download', 'bytes': 5000000, 'count': 4},     // 4 × 5MB (large)
-    
-    // Upload test - 25 seconds with progressive sizes
-    {'type': 'upload', 'bytes': 500000, 'count': 5},        // 5 × 500KB (warm up)
-    {'type': 'upload', 'bytes': 2000000, 'count': 5},       // 5 × 2MB (medium)
-    {'type': 'upload', 'bytes': 5000000, 'count': 3},       // 3 × 5MB (large)
-  ];
+  // Test durations
+  static const int downloadDurationSeconds = 30;
+  static const int uploadDurationSeconds = 30;
+  static const int pingTestCount = 5;
+  
+  // Current test phase tracking
+  DateTime? _phaseStartTime;
+  
+  // Public getters for accessing results during test
+  List<int> get latencies => _latencies;
+  List<double> get downloadSpeeds => _downloadSpeeds;
+  List<double> get uploadSpeeds => _uploadSpeeds;
   
   CloudflareSpeedTestService() {
     _dio.options.baseUrl = 'https://speed.cloudflare.com';
@@ -47,33 +44,51 @@ class CloudflareSpeedTestService {
     return (Random().nextDouble() * 1e16).round().toString();
   }
   
-  /// Start complete speed test - exactly like defyxVPN
+  /// Reset all test data
+  void _resetTestData() {
+    _downloadSpeeds.clear();
+    _uploadSpeeds.clear();
+    _latencies.clear();
+    _phaseStartTime = null;
+    _testTimer?.cancel();
+    _testTimer = null;
+  }
+  
+  /// Start complete speed test - Time-based: Ping → 30s Download → 30s Upload
   Future<void> startTest({
     required Function(TestPhase phase, double progress) onPhaseChange,
     required Function(double speed) onSpeedUpdate,
     required Function(SpeedTestResult result) onComplete,
     required Function(String error) onError,
   }) async {
+    // Reset everything on new test
     _isCancelled = false;
+    _resetTestData();
     _measurementId = _generateMeasurementId();
     
-    _downloadSpeeds.clear();
-    _uploadSpeeds.clear();
-    _latencies.clear();
-    
     try {
-      debugPrint('🚀 Cloudflare Speed Test Started - ID: $_measurementId');
+      debugPrint('🚀 Speed Test Started - ID: $_measurementId');
       
-      // Run measurement sequence
-      await _runMeasurementSequence(
-        onPhaseChange: onPhaseChange,
-        onSpeedUpdate: onSpeedUpdate,
-      );
+      // Phase 1: Real Ping Test
+      debugPrint('📡 Phase 1: Testing Ping...');
+      onPhaseChange(TestPhase.loading, 0.0);
+      await _runRealPingTest(onPhaseChange);
       
-      if (_isCancelled) {
-        debugPrint('🛑 Speed test cancelled');
-        return;
-      }
+      if (_isCancelled) return;
+      
+      // Phase 2: 30 Second Download Test
+      debugPrint('📥 Phase 2: Testing Download (30s)...');
+      onPhaseChange(TestPhase.download, 0.0);
+      await _run30SecondDownloadTest(onPhaseChange, onSpeedUpdate);
+      
+      if (_isCancelled) return;
+      
+      // Phase 3: 30 Second Upload Test
+      debugPrint('📤 Phase 3: Testing Upload (30s)...');
+      onPhaseChange(TestPhase.upload, 0.0);
+      await _run30SecondUploadTest(onPhaseChange, onSpeedUpdate);
+      
+      if (_isCancelled) return;
       
       // Calculate final results
       final result = _calculateFinalResults();
@@ -86,72 +101,16 @@ class CloudflareSpeedTestService {
       if (!_isCancelled) {
         onError(e.toString());
       }
+    } finally {
+      _testTimer?.cancel();
     }
   }
   
-  /// Run measurement sequence - exactly like defyxVPN
-  Future<void> _runMeasurementSequence({
-    required Function(TestPhase phase, double progress) onPhaseChange,
-    required Function(double speed) onSpeedUpdate,
-  }) async {
-    TestPhase currentPhase = TestPhase.loading;
-    int totalSteps = measurements.length;
-    
-    for (int i = 0; i < measurements.length; i++) {
-      if (_isCancelled) return;
-      
-      final measurement = measurements[i];
-      final type = measurement['type'] as String;
-      
-      // Check if we need to change phase
-      TestPhase? nextPhase;
-      if (type == 'latency' && currentPhase != TestPhase.loading) {
-        nextPhase = TestPhase.loading;
-      } else if (type == 'download' && currentPhase != TestPhase.download) {
-        nextPhase = TestPhase.download;
-      } else if (type == 'upload' && currentPhase != TestPhase.upload) {
-        nextPhase = TestPhase.upload;
-      }
-      
-      if (nextPhase != null) {
-        currentPhase = nextPhase;
-        onPhaseChange(currentPhase, 0.0);
-        await Future.delayed(const Duration(milliseconds: 300));
-      }
-      
-      debugPrint('📊 Step ${i + 1}/$totalSteps: $type');
-      
-      // Run measurement based on type
-      switch (type) {
-        case 'latency':
-          await _runLatencyMeasurement(measurement);
-          break;
-        case 'download':
-          await _runDownloadMeasurement(
-            measurement,
-            onSpeedUpdate: onSpeedUpdate,
-            onPhaseProgress: (p) => onPhaseChange(currentPhase, p),
-          );
-          break;
-        case 'upload':
-          await _runUploadMeasurement(
-            measurement,
-            onSpeedUpdate: onSpeedUpdate,
-            onPhaseProgress: (p) => onPhaseChange(currentPhase, p),
-          );
-          break;
-      }
-      
-      await Future.delayed(const Duration(milliseconds: 50));
-    }
-  }
-  
-  /// Test latency with configurable delay
-  Future<void> _runLatencyMeasurement(Map<String, dynamic> config) async {
-    final numPackets = config['numPackets'] as int;
-    final delayMs = config['delay'] as int? ?? 100; // Default 100ms
-    
-    for (int i = 0; i < numPackets; i++) {
+  /// Run real ping test
+  Future<void> _runRealPingTest(
+    Function(TestPhase phase, double progress) onPhaseChange,
+  ) async {
+    for (int i = 0; i < pingTestCount; i++) {
       if (_isCancelled) return;
       
       try {
@@ -169,49 +128,121 @@ class CloudflareSpeedTestService {
         final latency = stopwatch.elapsedMilliseconds;
         _latencies.add(latency);
         
-        debugPrint('   🏓 Ping ${i + 1}/$numPackets: $latency ms');
+        debugPrint('   🏓 Ping ${i + 1}/$pingTestCount: $latency ms');
+        
+        // Update progress
+        onPhaseChange(TestPhase.loading, (i + 1) / pingTestCount);
       } catch (e) {
-        debugPrint('   ❌ Latency test failed: $e');
+        debugPrint('   ❌ Ping test failed: $e');
       }
       
-      // Wait between packets
-      if (i < numPackets - 1) {
-        await Future.delayed(Duration(milliseconds: delayMs));
+      // Small delay between pings
+      if (i < pingTestCount - 1) {
+        await Future.delayed(const Duration(milliseconds: 200));
       }
     }
   }
   
-  /// Test download speed - exactly like defyxVPN
-  Future<void> _runDownloadMeasurement(
-    Map<String, dynamic> config, {
-    required Function(double speed) onSpeedUpdate,
-    required Function(double progress) onPhaseProgress,
-  }) async {
-    final bytes = config['bytes'] as int;
-    final count = config['count'] as int;
+  /// Run 30-second download test with continuous measurement
+  Future<void> _run30SecondDownloadTest(
+    Function(TestPhase phase, double progress) onPhaseChange,
+    Function(double speed) onSpeedUpdate,
+  ) async {
+    _phaseStartTime = DateTime.now();
+    final endTime = _phaseStartTime!.add(Duration(seconds: downloadDurationSeconds));
     
-    for (int i = 0; i < count; i++) {
-      if (_isCancelled) return;
+    // Start progress timer
+    _testTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (_isCancelled) {
+        timer.cancel();
+        return;
+      }
       
+      final now = DateTime.now();
+      final elapsed = now.difference(_phaseStartTime!).inMilliseconds / 1000.0;
+      final progress = (elapsed / downloadDurationSeconds).clamp(0.0, 1.0);
+      onPhaseChange(TestPhase.download, progress);
+    });
+    
+    // Keep downloading until 30 seconds
+    while (DateTime.now().isBefore(endTime) && !_isCancelled) {
       try {
+        // Download a chunk (5MB for good measurement)
         final speed = await _measureDownloadSpeed(
-          bytes: bytes,
+          bytes: 5000000,
           onSpeedUpdate: onSpeedUpdate,
         );
         
         if (speed > 0) {
           _downloadSpeeds.add(speed);
-          
-          // Calculate 90th percentile (like defyxVPN)
-          final percentile = _calculatePercentile(_downloadSpeeds, 0.9);
-          debugPrint('   📥 Download ${i + 1}/$count: ${speed.toStringAsFixed(2)} Mbps (90th: ${percentile.toStringAsFixed(2)} Mbps)');
+          debugPrint('   📥 Download speed: ${speed.toStringAsFixed(2)} Mbps');
         }
-        
-        onPhaseProgress((i + 1) / count);
       } catch (e) {
-        debugPrint('   ❌ Download test ${i + 1} failed: $e');
+        debugPrint('   ⚠️ Download chunk failed: $e');
+        // Continue testing even if one chunk fails
+      }
+      
+      // Small delay to prevent overwhelming the server
+      if (DateTime.now().isBefore(endTime)) {
+        await Future.delayed(const Duration(milliseconds: 100));
       }
     }
+    
+    _testTimer?.cancel();
+    onPhaseChange(TestPhase.download, 1.0);
+    
+    debugPrint('✅ Download test completed: ${_downloadSpeeds.length} measurements');
+  }
+  
+  /// Run 30-second upload test with continuous measurement
+  Future<void> _run30SecondUploadTest(
+    Function(TestPhase phase, double progress) onPhaseChange,
+    Function(double speed) onSpeedUpdate,
+  ) async {
+    _phaseStartTime = DateTime.now();
+    final endTime = _phaseStartTime!.add(Duration(seconds: uploadDurationSeconds));
+    
+    // Start progress timer
+    _testTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (_isCancelled) {
+        timer.cancel();
+        return;
+      }
+      
+      final now = DateTime.now();
+      final elapsed = now.difference(_phaseStartTime!).inMilliseconds / 1000.0;
+      final progress = (elapsed / uploadDurationSeconds).clamp(0.0, 1.0);
+      onPhaseChange(TestPhase.upload, progress);
+    });
+    
+    // Keep uploading until 30 seconds
+    while (DateTime.now().isBefore(endTime) && !_isCancelled) {
+      try {
+        // Upload a chunk (5MB for good measurement)
+        final speed = await _measureUploadSpeed(
+          bytes: 5000000,
+          onSpeedUpdate: onSpeedUpdate,
+        );
+        
+        if (speed > 0) {
+          _uploadSpeeds.add(speed);
+          debugPrint('   📤 Upload speed: ${speed.toStringAsFixed(2)} Mbps');
+        }
+      } catch (e) {
+        debugPrint('   ⚠️ Upload chunk failed: $e');
+        // Continue testing even if one chunk fails
+      }
+      
+      // Small delay to prevent overwhelming the server
+      if (DateTime.now().isBefore(endTime)) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
+    
+    _testTimer?.cancel();
+    onPhaseChange(TestPhase.upload, 1.0);
+    
+    debugPrint('✅ Upload test completed: ${_uploadSpeeds.length} measurements');
   }
   
   /// Measure single download speed
@@ -262,39 +293,6 @@ class CloudflareSpeedTestService {
       return mbps;
     } catch (e) {
       throw Exception('Download failed: $e');
-    }
-  }
-  
-  /// Test upload speed - exactly like defyxVPN
-  Future<void> _runUploadMeasurement(
-    Map<String, dynamic> config, {
-    required Function(double speed) onSpeedUpdate,
-    required Function(double progress) onPhaseProgress,
-  }) async {
-    final bytes = config['bytes'] as int;
-    final count = config['count'] as int;
-    
-    for (int i = 0; i < count; i++) {
-      if (_isCancelled) return;
-      
-      try {
-        final speed = await _measureUploadSpeed(
-          bytes: bytes,
-          onSpeedUpdate: onSpeedUpdate,
-        );
-        
-        if (speed > 0) {
-          _uploadSpeeds.add(speed);
-          
-          // Calculate 90th percentile (like defyxVPN)
-          final percentile = _calculatePercentile(_uploadSpeeds, 0.9);
-          debugPrint('   📤 Upload ${i + 1}/$count: ${speed.toStringAsFixed(2)} Mbps (90th: ${percentile.toStringAsFixed(2)} Mbps)');
-        }
-        
-        onPhaseProgress((i + 1) / count);
-      } catch (e) {
-        debugPrint('   ❌ Upload test ${i + 1} failed: $e');
-      }
     }
   }
   
@@ -420,11 +418,14 @@ class CloudflareSpeedTestService {
   /// Cancel test
   void cancelTest() {
     _isCancelled = true;
+    _testTimer?.cancel();
+    _testTimer = null;
     debugPrint('🛑 Speed test cancelled');
   }
   
   /// Dispose
   void dispose() {
+    _testTimer?.cancel();
     _dio.close();
   }
 }

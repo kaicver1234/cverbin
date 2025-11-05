@@ -69,6 +69,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
       return;
     }
     
+    // Complete reset before starting new test
     setState(() {
       _currentStatus = SpeedTestStatus.testing;
       _currentPhase = TestPhase.loading;
@@ -88,6 +89,15 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
         setState(() {
           _currentPhase = phase;
           _progress = progress;
+          
+          // Update results immediately as they become available
+          if (phase == TestPhase.loading && progress == 1.0) {
+            // Ping test completed, show ping result
+            final result = _speedTestService.latencies;
+            if (result.isNotEmpty) {
+              _ping = (result.reduce((a, b) => a + b) / result.length).round();
+            }
+          }
         });
       },
       onSpeedUpdate: (speed) {
@@ -95,6 +105,13 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
         
         setState(() {
           _currentSpeed = speed;
+          
+          // Update current phase result in real-time
+          if (_currentPhase == TestPhase.download && speed > 0) {
+            _downloadSpeed = speed;
+          } else if (_currentPhase == TestPhase.upload && speed > 0) {
+            _uploadSpeed = speed;
+          }
         });
       },
       onComplete: (result) {

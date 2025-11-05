@@ -1159,17 +1159,28 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
     // Handle app lifecycle changes
     if (state == AppLifecycleState.resumed) {
-      debugPrint('📱 App resumed, force checking VPN status...');
+      debugPrint('📱 App resumed, checking VPN status...');
       
       // When app is resumed, force check VPN status after a delay
-      // This allows the VPN connection time to stabilize
-      // Using forceCheckVpnStatus (inspired by defyxVPN) for more reliable status check
-      Future.delayed(const Duration(milliseconds: 500), () async {
+      // Using longer delay (1.5s) to ensure VPN service is fully ready
+      // This is especially important after app has been in background for a long time
+      Future.delayed(const Duration(milliseconds: 1500), () async {
+        debugPrint('📱 Starting VPN status verification...');
         await forceCheckVpnStatus();
+        
+        // Double check after another second to ensure state is synced
+        Future.delayed(const Duration(milliseconds: 1000), () async {
+          debugPrint('📱 Double-checking VPN status...');
+          await forceCheckVpnStatus();
+        });
       });
     } else if (state == AppLifecycleState.paused) {
       // App is paused, VPN status will be maintained in background
       debugPrint('📱 App paused, VPN will continue in background');
+    } else if (state == AppLifecycleState.inactive) {
+      debugPrint('📱 App inactive');
+    } else if (state == AppLifecycleState.detached) {
+      debugPrint('📱 App detached');
     }
   }
   
@@ -1301,7 +1312,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       if (isActuallyConnected) {
         // VPN is running, sync state
         await _enhancedSyncWithVpnServiceState();
+        
+        // Clear any error messages when VPN is actually connected
+        if (_errorMessage.isNotEmpty) {
+          _errorMessage = '';
+          debugPrint('✅ Cleared error message (VPN is connected)');
+        }
+        
         debugPrint('✅ VPN status confirmed: CONNECTED');
+        debugPrint('✅ Active server: ${_v2rayService.activeConfig?.remark ?? "Unknown"}');
       } else {
         // VPN is not running, clear all connection states
         bool stateChanged = false;
