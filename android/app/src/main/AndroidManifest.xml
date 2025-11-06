@@ -5,21 +5,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
-    <!-- Storage permissions only for Android 12 and below -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="32" />
+    <!-- Battery optimization permission -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <application
         android:label="Tiksar VPN"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:extractNativeLibs="false"
-        android:networkSecurityConfig="@xml/network_security_config"
-        android:allowBackup="false"
-        android:fullBackupContent="false">
+        android:icon="@mipmap/ic_launcher">
         
         <!-- Default notification icon -->
         <meta-data
@@ -29,7 +24,7 @@
         <!-- VPN notification icon -->
         <meta-data
             android:name="com.github.shadowsocks.plugin.v2ray.notification.icon"
-            android:resource="@drawable/ic_vpn_key" />
+            android:resource="@drawable/ic_notification" />
             
         <activity
             android:name=".MainActivity"

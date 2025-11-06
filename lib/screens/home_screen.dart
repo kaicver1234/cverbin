@@ -866,9 +866,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         )
                       : Icon(
                           isConnected 
-                              ? Icons.lock
+                              ? Icons.vpn_key
                               : Icons.power_settings_new,
-                          key: ValueKey(isConnected ? 'lock' : 'power'),
+                          key: ValueKey(isConnected ? 'vpn_key' : 'power'),
                           size: 60,
                           color: Colors.white,
                         ),

@@ -20,6 +20,19 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
   bool _isChecking = false;
   late AnimationController _pulseController;
 
+  final List<String> _popularHosts = [
+    'google.com',
+    'youtube.com',
+    'facebook.com',
+    'instagram.com',
+    'twitter.com',
+    'github.com',
+    'stackoverflow.com',
+    'reddit.com',
+    'amazon.com',
+    'netflix.com',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -309,6 +322,48 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
             ),
           ).animate().fadeIn().slideY(begin: 0.2, end: 0),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPopularHosts() {
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: _popularHosts.length,
+        itemBuilder: (context, index) {
+          final host = _popularHosts[index];
+          return GestureDetector(
+            onTap: () {
+              _hostController.text = host;
+              _checkHost(host);
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFF6366F1).withOpacity(0.4),
+                ),
+              ),
+              child: Text(
+                host,
+                style: const TextStyle(
+                  color: Color(0xFF6366F1),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ).animate()
+              .fadeIn(delay: Duration(milliseconds: 100 * index))
+              .slideX(begin: 0.2, end: 0);
+        },
       ),
     );
   }
