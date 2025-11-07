@@ -127,9 +127,11 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                         child: PageView(
                           controller: _pageController,
                           onPageChanged: (page) {
-                            setState(() {
-                              _currentPage = page;
-                            });
+                            if (mounted) {
+                              setState(() {
+                                _currentPage = page;
+                              });
+                            }
                           },
                           children: [
                             _buildWelcomePage(),

@@ -69,6 +69,8 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
       return;
     }
     
+    if (!mounted) return;
+    
     // Complete reset before starting new test
     setState(() {
       _currentStatus = SpeedTestStatus.testing;
@@ -139,6 +141,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   void _stopTest() {
     _speedTestService.cancelTest();
     _rotationController.stop();
+    if (!mounted) return;
     setState(() {
       _currentStatus = SpeedTestStatus.ready;
       _progress = 0.0;
@@ -148,6 +151,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   
   void _handleError(String error) {
     _rotationController.stop();
+    if (!mounted) return;
     setState(() {
       _currentStatus = SpeedTestStatus.error;
       _currentSpeed = 0.0;

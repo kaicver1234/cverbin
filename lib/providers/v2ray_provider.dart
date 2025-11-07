@@ -113,12 +113,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   void _handleNativeVpnStatusChange(String status) {
     debugPrint('🔄 Handling native VPN status change: $status');
     
-    // IMPORTANT: Ignore ALL native events for 3 seconds after successful connection
+    // CRITICAL FIX: Ignore ALL native events for 5 seconds after successful connection
     // This prevents race conditions where native sends stale events that reset UI
+    // Increased to 5 seconds for first-time connections which may take longer to stabilize
     if (_lastSuccessfulConnection != null) {
       final timeSinceConnection = DateTime.now().difference(_lastSuccessfulConnection!);
-      if (timeSinceConnection.inSeconds < 3) {
-        debugPrint('⏭️ Ignoring native event (within 3s grace period after connection)');
+      if (timeSinceConnection.inSeconds < 5) {
+        debugPrint('⏭️ Ignoring ALL native events (within 5s grace period after connection)');
+        debugPrint('⏭️ Time since connection: ${timeSinceConnection.inSeconds}s');
         return;
       }
     }
@@ -150,15 +152,27 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         // VPN disconnected from native side
         debugPrint('❌ Native reports VPN disconnected');
         
-        // IMPORTANT: Ignore native disconnect events during connection process
+        // CRITICAL: Ignore native disconnect events during connection process
         // to prevent UI from resetting while we're connecting
         if (_isConnecting) {
           debugPrint('⏭️ Ignoring native disconnect event during connection process');
           break;
         }
         
-        // Only update if we think we're connected
-        if (_configs.any((c) => c.isConnected)) {
+        // ADDITIONAL FIX: Double-check that we actually have a connected config
+        // and that we're not in the process of establishing a connection
+        final hasConnectedConfig = _configs.any((c) => c.isConnected);
+        final hasActiveConfig = _v2rayService.activeConfig != null;
+        
+        // If native says disconnected but we just connected, ignore this stale event
+        if (hasActiveConfig && !hasConnectedConfig) {
+          debugPrint('⏭️ Ignoring stale disconnect event - activeConfig exists but configs not yet updated');
+          break;
+        }
+        
+        // Only update if we think we're connected and have an active config
+        if (hasConnectedConfig || hasActiveConfig) {
+          debugPrint('🔄 Processing native disconnect event...');
           // Run async operation properly with error handling
           Future(() async {
             try {
@@ -174,6 +188,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
               notifyListeners();
             }
           });
+        } else {
+          debugPrint('⏭️ Ignoring disconnect event - already disconnected');
         }
         break;
         
@@ -952,8 +968,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         try {
           debugPrint('✅ VPN connection successful, updating UI state...');
           
-          // Mark the successful connection time - this enables grace period
+          // CRITICAL: Mark the successful connection time FIRST
+          // This enables grace period before ANY other operations
           _lastSuccessfulConnection = DateTime.now();
+          debugPrint('🛡️ Grace period enabled for 5 seconds (ignore native events)');
           
           // Clear any previous error messages IMMEDIATELY
           _errorMessage = '';
@@ -968,10 +986,16 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           }
           _selectedConfig = config;
           
+          // Verify activeConfig is set (should be set by v2ray_service.connect)
+          if (_v2rayService.activeConfig == null) {
+            debugPrint('⚠️ Warning: activeConfig is null after successful connection!');
+          } else {
+            debugPrint('✅ Verified activeConfig: ${_v2rayService.activeConfig?.remark}');
+          }
+          
           // Notify UI FIRST to show connected state immediately
           notifyListeners();
           debugPrint('✅ UI updated immediately - Connected: true, Error: empty');
-          debugPrint('🛡️ Grace period enabled for 3 seconds (ignore native events)');
           
           // Small delay to ensure UI updates before background tasks
           await Future.delayed(const Duration(milliseconds: 100));
@@ -986,7 +1010,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             debugPrint('⚠️ Error resetting usage stats: $e');
           });
           
-          debugPrint('✅ Connection established - activeConfig: ${_v2rayService.activeConfig?.remark}');
+          debugPrint('✅ Connection established successfully');
           
           // Log analytics event in background
           _analyticsService.logVpnConnect(
@@ -1150,18 +1174,35 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       debugPrint('📱 App resumed, checking VPN status...');
       
-      // When app is resumed, force check VPN status after a delay
-      // Using longer delay (1.5s) to ensure VPN service is fully ready
-      // This is especially important after app has been in background for a long time
-      Future.delayed(const Duration(milliseconds: 1500), () async {
-        debugPrint('📱 Starting VPN status verification...');
-        await forceCheckVpnStatus();
-        
-        // Double check after another second to ensure state is synced
-        Future.delayed(const Duration(milliseconds: 1000), () async {
-          debugPrint('📱 Double-checking VPN status...');
+      // CRITICAL FIX: Immediately show last known state first for instant UI response
+      // This prevents blank/incorrect UI while checking actual status
+      notifyListeners();
+      debugPrint('📱 UI refreshed with last known state');
+      
+      // QUICK CHECK: First check after minimal delay (300ms)
+      // This catches most cases where VPN is already connected
+      Future.delayed(const Duration(milliseconds: 300), () async {
+        if (!_isInitializing) {
+          debugPrint('📱 Quick VPN status check...');
           await forceCheckVpnStatus();
-        });
+        }
+      });
+      
+      // THOROUGH CHECK: Second check after longer delay (1.5s)
+      // This ensures VPN service is fully ready after long background time
+      Future.delayed(const Duration(milliseconds: 1500), () async {
+        if (!_isInitializing) {
+          debugPrint('📱 Thorough VPN status verification...');
+          await forceCheckVpnStatus();
+        }
+      });
+      
+      // FINAL VERIFICATION: Last check to ensure state is perfectly synced
+      Future.delayed(const Duration(milliseconds: 3000), () async {
+        if (!_isInitializing) {
+          debugPrint('📱 Final VPN status verification...');
+          await forceCheckVpnStatus();
+        }
       });
     } else if (state == AppLifecycleState.paused) {
       // App is paused, VPN status will be maintained in background
@@ -1293,10 +1334,18 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       debugPrint('🔎 Force checking VPN status from service...');
       
-      // Get actual connection status from service
-      final isActuallyConnected = await _v2rayService.isActuallyConnected();
+      // Get actual connection status from service with timeout
+      final isActuallyConnected = await _v2rayService.isActuallyConnected()
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('⚠️ VPN status check timeout, assuming last known state');
+              return _v2rayService.activeConfig != null;
+            },
+          );
       
       debugPrint('🔎 VPN actually connected: $isActuallyConnected');
+      debugPrint('🔎 Active config: ${_v2rayService.activeConfig?.remark ?? "none"}');
       
       if (isActuallyConnected) {
         // VPN is running, sync state
@@ -1308,8 +1357,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           debugPrint('✅ Cleared error message (VPN is connected)');
         }
         
+        // CRITICAL: Ensure UI shows connected state
+        final connectedConfig = _configs.firstWhere(
+          (c) => c.isConnected,
+          orElse: () => _configs.first,
+        );
+        
         debugPrint('✅ VPN status confirmed: CONNECTED');
         debugPrint('✅ Active server: ${_v2rayService.activeConfig?.remark ?? "Unknown"}');
+        debugPrint('✅ UI showing: ${connectedConfig.remark} as connected');
       } else {
         // VPN is not running, clear all connection states
         bool stateChanged = false;
@@ -1323,12 +1379,20 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         if (stateChanged) {
           await _v2rayService.saveConfigs(_configs);
           debugPrint('✅ VPN status confirmed: DISCONNECTED');
+          debugPrint('✅ All configs marked as disconnected');
+        } else {
+          debugPrint('ℹ️ VPN already disconnected, no state change needed');
         }
       }
       
+      // CRITICAL: Always notify UI to refresh, even if state didn't change
+      // This ensures UI reflects the correct state after app resume
       notifyListeners();
+      debugPrint('✅ UI notified of current VPN state');
     } catch (e) {
       debugPrint('❌ Error force checking VPN status: $e');
+      // Still notify listeners to show last known state
+      notifyListeners();
     }
   }
   

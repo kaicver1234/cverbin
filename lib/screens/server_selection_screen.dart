@@ -51,12 +51,16 @@ class _ServerSelectionScreenState
     final provider = Provider.of<V2RayProvider>(context, listen: false);
     // Initialize with existing data if available
     if (provider.configs.isNotEmpty) {
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
   Future<void> _testAllServersPing() async {
     if (_isTestingPings) return;
+    
+    if (!mounted) return;
     
     setState(() {
       _isTestingPings = true;
@@ -104,6 +108,7 @@ class _ServerSelectionScreenState
     }
     
     _pingAnimationController.stop();
+    if (!mounted) return;
     setState(() {
       _isTestingPings = false;
     });
@@ -310,9 +315,11 @@ class _ServerSelectionScreenState
               _showSnackBar('Refreshing servers...', Colors.blue);
               
               // Clear old ping results before refreshing
-              setState(() {
-                _serverPings.clear();
-              });
+              if (mounted) {
+                setState(() {
+                  _serverPings.clear();
+                });
+              }
               
               // Update all subscriptions to get fresh server list
               await provider.updateAllSubscriptions();

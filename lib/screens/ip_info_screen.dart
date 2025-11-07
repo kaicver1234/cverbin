@@ -47,6 +47,8 @@ class _IpInfoScreenState extends State<IpInfoScreen>
   }
 
   Future<void> _fetchIpInfo() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -57,26 +59,32 @@ class _IpInfoScreenState extends State<IpInfoScreen>
         Uri.parse('http://ip-api.com/json/?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,reverse,mobile,proxy,hosting,query'),
       ).timeout(const Duration(seconds: 10));
 
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'success') {
+          if (!mounted) return;
           setState(() {
             _ipData = data;
             _isLoading = false;
           });
         } else {
+          if (!mounted) return;
           setState(() {
             _errorMessage = data['message'] ?? 'Failed to fetch IP information';
             _isLoading = false;
           });
         }
       } else {
+        if (!mounted) return;
         setState(() {
           _errorMessage = 'Failed to connect to the server';
           _isLoading = false;
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Error: ${e.toString()}';
         _isLoading = false;

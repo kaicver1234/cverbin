@@ -66,6 +66,8 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
   Future<void> _selectLanguage(AppLanguage language) async {
     if (_isChangingLanguage) return;
     
+    if (!mounted) return;
+    
     setState(() {
       _selectedLanguage = language;
       _isChangingLanguage = true;

@@ -20,7 +20,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   bool _isConnecting = false;
   late PageController _pageController;
   int _currentPage = 0;
@@ -35,12 +35,40 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       keepPage: true,
       viewportFraction: 1.0,
     );
+    
+    // Add lifecycle observer to detect when app becomes visible
+    WidgetsBinding.instance.addObserver(this);
   }
   
   @override
   void dispose() {
+    // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // When screen becomes visible after being in background
+    if (state == AppLifecycleState.resumed) {
+      // Force refresh UI to show current VPN state
+      if (mounted) {
+        setState(() {
+          // This triggers a rebuild with the latest provider state
+        });
+        
+        // Also trigger a VPN status check via provider
+        final provider = Provider.of<V2RayProvider>(context, listen: false);
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            provider.forceCheckVpnStatus();
+          }
+        });
+      }
+    }
   }
 
   Future<void> _handleConnectionToggle() async {
