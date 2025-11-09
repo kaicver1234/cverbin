@@ -73,6 +73,28 @@ android {
         checkReleaseBuilds = false
         abortOnError = false
     }
+    
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/NOTICE",
+                "META-INF/LICENSE",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE.txt"
+            )
+        }
+        jniLibs {
+            // Fix: Handle duplicate libgojni.so from DXcore and libv2ray
+            // Use DXcore's libgojni.so (prioritize DXcore for Tiksar Smart)
+            pickFirsts += setOf(
+                "lib/armeabi-v7a/libgojni.so",
+                "lib/arm64-v8a/libgojni.so",
+                "lib/x86/libgojni.so",
+                "lib/x86_64/libgojni.so"
+            )
+        }
+    }
 }
 
 flutter {
