@@ -143,8 +143,5 @@ dependencies {
     
     // DXcore library for Defyx VPN protocols (XRAY, OUTLINE, PSIPHON, WARP, GOOL, SERVERLESS)
     // Note: DXcore includes Go runtime which conflicts with libv2ray's Go runtime
-    // Set transitive to false to prevent dependency conflicts
-    implementation(files("libs/DXcore.aar")) {
-        isTransitive = false
-    }
+    implementation(files("libs/DXcore.aar"))
 }
