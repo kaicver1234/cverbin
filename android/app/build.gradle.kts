@@ -40,6 +40,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = 4
         versionName = "1.1.1"
+        multiDexEnabled = true
     }
 
     signingConfigs {
@@ -64,8 +65,13 @@ android {
             //     signingConfig = signingConfigs.getByName("release")
             // }
             
-            isMinifyEnabled = false
+            // Enable R8 to handle duplicate Go classes from DXcore and libv2ray
+            isMinifyEnabled = true
             isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     
@@ -82,6 +88,21 @@ android {
                 "META-INF/DEPENDENCIES",
                 "META-INF/LICENSE.txt",
                 "META-INF/NOTICE.txt"
+            )
+            // Pick first for duplicate Go runtime classes from DXcore and libv2ray
+            pickFirsts += setOf(
+                "go/Seq.class",
+                "go/Seq\$GoObject.class",
+                "go/Seq\$GoRef.class",
+                "go/Seq\$GoRefQueue.class",
+                "go/Seq\$GoRefQueue\$1.class",
+                "go/Seq\$Proxy.class",
+                "go/Seq\$Ref.class",
+                "go/Seq\$RefMap.class",
+                "go/Seq\$RefTracker.class",
+                "go/Universe.class",
+                "go/Universe\$proxyerror.class",
+                "go/error.class"
             )
         }
         jniLibs {
@@ -101,10 +122,20 @@ flutter {
     source = "../.."
 }
 
+configurations.all {
+    resolutionStrategy {
+        // Prefer DXcore's Go runtime over libv2ray's
+        preferProjectModules()
+    }
+}
+
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("androidx.multidex:multidex:2.0.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     
     // DXcore library for Defyx VPN protocols (XRAY, OUTLINE, PSIPHON, WARP, GOOL, SERVERLESS)
+    // Note: DXcore includes Go runtime which conflicts with libv2ray's Go runtime
+    // Using packaging.resources.pickFirsts to handle duplicates
     implementation(files("libs/DXcore.aar"))
 }
