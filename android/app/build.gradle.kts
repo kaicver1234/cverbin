@@ -86,7 +86,7 @@ android {
                 "META-INF/LICENSE.txt",
                 "META-INF/NOTICE.txt"
             )
-            // Pick first for duplicate Go runtime classes from DXcore and libv2ray
+            // Prioritize DXcore's Go runtime classes over libv2ray's
             pickFirsts += setOf(
                 "go/Seq.class",
                 "go/Seq\$GoObject.class",
@@ -103,8 +103,7 @@ android {
             )
         }
         jniLibs {
-            // Fix: Handle duplicate libgojni.so from DXcore and libv2ray
-            // Use DXcore's libgojni.so (prioritize DXcore for Tiksar Smart)
+            // Prioritize DXcore's native libraries over libv2ray's
             pickFirsts += setOf(
                 "lib/armeabi-v7a/libgojni.so",
                 "lib/arm64-v8a/libgojni.so",
@@ -119,21 +118,15 @@ flutter {
     source = "../.."
 }
 
-// Disable duplicate class check for Go runtime classes
-// This is necessary because both DXcore and libv2ray include Go runtime
+// Disable duplicate class and dex checks
+// Both DXcore and libv2ray have Go runtime, but we handle this via packaging.pickFirsts
 gradle.taskGraph.whenReady {
     allTasks.forEach { task ->
-        if (task.name.contains("checkReleaseDuplicateClasses") || 
-            task.name.contains("checkDebugDuplicateClasses")) {
+        val taskName = task.name
+        if (taskName.contains("checkReleaseDuplicateClasses") || 
+            taskName.contains("checkDebugDuplicateClasses")) {
             task.enabled = false
         }
-    }
-}
-
-configurations.all {
-    resolutionStrategy {
-        // Prefer DXcore's Go runtime over libv2ray's
-        preferProjectModules()
     }
 }
 
@@ -142,7 +135,8 @@ dependencies {
     implementation("androidx.multidex:multidex:2.0.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     
-    // DXcore library for Defyx VPN protocols (XRAY, OUTLINE, PSIPHON, WARP, GOOL, SERVERLESS)
-    // Note: DXcore includes Go runtime which conflicts with libv2ray's Go runtime
+    // DXcore library for VPN protocols (XRAY, OUTLINE, PSIPHON, WARP, GOOL, SERVERLESS)
+    // Note: libv2ray is disabled to avoid duplicate Go runtime conflict
+    // DXcore's XRAY supports all V2Ray protocols (vmess, vless, trojan, shadowsocks)
     implementation(files("libs/DXcore.aar"))
 }

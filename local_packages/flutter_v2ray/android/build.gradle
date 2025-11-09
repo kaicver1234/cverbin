@@ -59,10 +59,9 @@ android {
 
 
 dependencies {
-    implementation(name: "libv2ray", ext: "aar") {
-        // Exclude Go runtime classes to avoid conflict with DXcore
-        exclude group: 'go', module: '*'
-    }
+    // libv2ray is required for flutter_v2ray Java/Kotlin code
+    // Note: JNI libs (.so files) will be excluded via packaging options to avoid conflict with DXcore
+    implementation(name: "libv2ray", ext: "aar")
     implementation 'androidx.appcompat:appcompat:1.6.1'
 }
 
