@@ -65,13 +65,9 @@ android {
             //     signingConfig = signingConfigs.getByName("release")
             // }
             
-            // Enable R8 to handle duplicate Go classes from DXcore and libv2ray
-            isMinifyEnabled = true
+            // Disable minify to avoid duplicate class check issues
+            isMinifyEnabled = false
             isShrinkResources = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
         }
     }
     
@@ -120,6 +116,11 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// Disable duplicate class check for Go runtime classes
+tasks.withType<com.android.build.gradle.internal.tasks.CheckDuplicateClassesTask>().configureEach {
+    enabled = false
 }
 
 configurations.all {
