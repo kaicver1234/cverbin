@@ -81,7 +81,14 @@ class _ServerSelectionScreenState
     // Test servers in parallel using V2Ray Core (much faster!)
     final futures = servers.map((server) async {
       try {
-        final ping = await _testSingleServerPing(server);
+        // Add timeout for each server test (6 seconds max)
+        final ping = await _testSingleServerPing(server).timeout(
+          const Duration(seconds: 6),
+          onTimeout: () {
+            debugPrint('⚠️ Server ${server.remark} timed out');
+            return 9999;
+          },
+        );
         
         if (mounted) {
           setState(() {
@@ -101,6 +108,7 @@ class _ServerSelectionScreenState
         
         return ping;
       } catch (e) {
+        debugPrint('❌ Error testing ${server.remark}: $e');
         if (mounted) {
           setState(() {
             _serverPings[server.id] = 9999;
@@ -111,8 +119,18 @@ class _ServerSelectionScreenState
       }
     }).toList();
     
-    // Wait for all pings to complete
-    await Future.wait(futures);
+    // Wait for all pings to complete with overall timeout (60 seconds max)
+    try {
+      await Future.wait(futures).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          debugPrint('⚠️ Overall ping test timeout');
+          return [];
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error in Future.wait: $e');
+    }
     
     _pingAnimationController.stop();
     if (!mounted) return;
@@ -206,6 +224,20 @@ class _ServerSelectionScreenState
     );
   }
 
+  // رنگ‌بندی پینگ بر اساس مقدار
+  Color _getPingColor(int ping) {
+    if (ping < 1000) {
+      // 0-999ms: سبز (عالی)
+      return const Color(0xFF10B981); // Green
+    } else if (ping < 2000) {
+      // 1000-1999ms: نارنجی (متوسط)
+      return const Color(0xFFF59E0B); // Orange
+    } else {
+      // 2000+ms: قرمز (ضعیف)
+      return const Color(0xFFEF4444); // Red
+    }
+  }
+
   // Test real delay using V2Ray Core (faster and more accurate!)
   Future<int> _testSingleServerPing(V2RayConfig server) async {
     try {
@@ -291,7 +323,7 @@ class _ServerSelectionScreenState
                 size: 22,
               ),
             ),
-          ).animate().fadeIn().slideX(),
+          ),
           
           const SizedBox(width: 16),
           
@@ -304,7 +336,7 @@ class _ServerSelectionScreenState
                 color: Colors.white,
                 letterSpacing: -0.5,
               ),
-            ).animate().fadeIn().slideX(),
+            ),
           ),
           
           // Refresh Button
@@ -496,7 +528,7 @@ class _ServerSelectionScreenState
           ),
         ],
       ),
-    ).animate().fadeIn().scale();
+    );
   }
 
   Widget _buildServerList(List<V2RayConfig> servers, V2RayProvider provider) {
@@ -505,7 +537,7 @@ class _ServerSelectionScreenState
       builder: (context, child) {
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          physics: const BouncingScrollPhysics(),
+          physics: const ClampingScrollPhysics(),
           itemCount: servers.length,
           itemBuilder: (context, index) {
             final server = servers[index];
@@ -645,60 +677,63 @@ class _ServerSelectionScreenState
                           ),
                         ),
                       ),
-                      // Ping Badge - فقط در حال تست یا بعد از تست نشون بده
-                      if (_isTestingPings || ping != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: isActive 
-                                ? Colors.white.withOpacity(0.2)
-                                : Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Loading indicator وقتی در حال تست
-                              if (_isTestingPings && ping == null)
-                                SizedBox(
-                                  width: 10,
-                                  height: 10,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      isActive 
-                                          ? Colors.white
-                                          : const Color(0xFF6366F1),
-                                    ),
-                                  ),
-                                ),
-                              if (_isTestingPings && ping == null)
-                                const SizedBox(width: 4),
-                              Text(
-                                ping != null 
-                                    ? pingText 
-                                    : 'Testing...',
-                                style: TextStyle(
-                                  color: isActive 
-                                      ? Colors.white
-                                      : Colors.white.withOpacity(0.8),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ],
               ),
             ),
             
-            // Arrow or Active Badge
-            if (isActive)
+            // Ping Badge or Arrow or Active Badge
+            if (_isTestingPings && ping == null)
+              // در حال تست پینگ - نمایش loading
+              Container(
+                padding: const EdgeInsets.all(8),
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      const Color(0xFF6366F1),
+                    ),
+                  ),
+                ),
+              )
+            else if (ping != null)
+              // پینگ موجود - نمایش با رنگ‌بندی
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _getPingColor(ping).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _getPingColor(ping).withOpacity(0.5),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.speed_rounded,
+                      size: 14,
+                      color: _getPingColor(ping),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      pingText,
+                      style: TextStyle(
+                        color: _getPingColor(ping),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (isActive)
+              // سرور فعال
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
@@ -727,6 +762,7 @@ class _ServerSelectionScreenState
                 ),
               )
             else
+              // فلش پیش‌فرض
               Icon(
                 Icons.chevron_right_rounded,
                 color: Colors.white.withOpacity(0.3),

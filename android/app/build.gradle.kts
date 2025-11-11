@@ -55,14 +55,9 @@ android {
 
     buildTypes {
         release {
-            // ✅ Use release key for proper app signing
-            if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
-                signingConfig = signingConfigs.getByName("release")
-            } else {
-                // Fallback to debug if key.properties is missing
-                signingConfig = signingConfigs.getByName("debug")
-                println("⚠️ WARNING: Release build is using debug key! Add key.properties for production.")
-            }
+            // ✅ همیشه از debug key استفاده کن تا update کار کنه
+            // همه build ها باید با یک key sign بشن
+            signingConfig = signingConfigs.getByName("debug")
             
             isMinifyEnabled = false
             isShrinkResources = false

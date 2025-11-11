@@ -467,14 +467,7 @@ class V2RayService extends ChangeNotifier {
       // Check if ping is already in progress for this host or config
       if (_pingInProgress[hostKey] == true ||
           _pingInProgress[configId] == true) {
-        // Wait for existing ping to complete (max 5 seconds)
-        int attempts = 0;
-        while ((_pingInProgress[hostKey] == true ||
-                _pingInProgress[configId] == true) &&
-            attempts < 25) {
-          await Future.delayed(const Duration(milliseconds: 200));
-          attempts++;
-        }
+        // Return cached result immediately if exists, don't wait
         return _pingCache[hostKey]?.delay ?? _pingCache[configId]?.delay;
       }
 
@@ -490,8 +483,9 @@ class V2RayService extends ChangeNotifier {
         final delay = await _flutterV2ray
             .getServerDelay(config: parser.getFullConfiguration())
             .timeout(
-              const Duration(seconds: 10),
+              const Duration(seconds: 5),
               onTimeout: () {
+                debugPrint('⚠️ Ping timeout for ${config.remark}');
                 throw Exception('V2Ray ping timeout');
               },
             );
@@ -514,14 +508,20 @@ class V2RayService extends ChangeNotifier {
           return null;
         }
       } catch (e) {
+        debugPrint('❌ Error testing ${config.remark}: $e');
         _pingInProgress[hostKey] = false;
         _pingInProgress[configId] = false;
         _pingCache.remove(hostKey);
         _pingCache.remove(configId);
         return null;
+      } finally {
+        // Always cleanup progress flags
+        _pingInProgress[hostKey] = false;
+        _pingInProgress[configId] = false;
       }
     } catch (e) {
       // Unexpected error in getServerDelay
+      debugPrint('❌ Unexpected error in getServerDelay: $e');
       // Ensure cleanup even in unexpected errors
       _pingInProgress[hostKey] = false;
       _pingInProgress[configId] = false;

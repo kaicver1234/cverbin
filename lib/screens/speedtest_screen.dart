@@ -501,33 +501,58 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
     final ms = AppLocalizations.of(context).translate('speed_test.ms');
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildMetricCard(
-            icon: Icons.download,
-            label: AppLocalizations.of(context).translate('speed_test.download_label'),
-            value: _downloadSpeed > 0
-                ? '${_downloadSpeed.toStringAsFixed(2)} $mbps'
-                : '-- $mbps',
-            color: AppColors.downloadColor,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withOpacity(0.1),
+              Colors.white.withOpacity(0.05),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          _buildMetricCard(
-            icon: Icons.upload,
-            label: AppLocalizations.of(context).translate('speed_test.upload_label'),
-            value: _uploadSpeed > 0
-                ? '${_uploadSpeed.toStringAsFixed(2)} $mbps'
-                : '-- $mbps',
-            color: AppColors.uploadColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1.5,
           ),
-          _buildMetricCard(
-            icon: Icons.speed,
-            label: AppLocalizations.of(context).translate('speed_test.ping_label'),
-            value: _ping > 0 ? '$_ping $ms' : '-- $ms',
-            color: AppColors.warningColor,
-          ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildMetricCard(
+              icon: Icons.download,
+              label: AppLocalizations.of(context).translate('speed_test.download_label'),
+              value: _downloadSpeed > 0
+                  ? '${_downloadSpeed.toStringAsFixed(2)} $mbps'
+                  : '-- $mbps',
+              color: AppColors.downloadColor,
+            ),
+            _buildMetricCard(
+              icon: Icons.upload,
+              label: AppLocalizations.of(context).translate('speed_test.upload_label'),
+              value: _uploadSpeed > 0
+                  ? '${_uploadSpeed.toStringAsFixed(2)} $mbps'
+                  : '-- $mbps',
+              color: AppColors.uploadColor,
+            ),
+            _buildMetricCard(
+              icon: Icons.speed,
+              label: AppLocalizations.of(context).translate('speed_test.ping_label'),
+              value: _ping > 0 ? '$_ping $ms' : '-- $ms',
+              color: AppColors.warningColor,
+            ),
+          ],
+        ),
       ),
     ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3, end: 0);
   }
@@ -542,132 +567,107 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
     final bool isPingCard = icon == Icons.speed;
     final bool isLivePing = isPingCard && _currentPhase == TestPhase.loading && _currentStatus == SpeedTestStatus.testing;
     
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.2),
-            color.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Icon with pulse animation for live ping
-          if (isLivePing)
-            ScaleTransition(
-              scale: _pulseAnimation,
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      color,
-                      color.withValues(alpha: 0.6),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.5),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-            )
-          else
-            Container(
+    return Column(
+      children: [
+        // Icon with pulse animation for live ping
+        if (isLivePing)
+          ScaleTransition(
+            scale: _pulseAnimation,
+            child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: RadialGradient(
                   colors: [
-                    color.withValues(alpha: 0.4),
-                    color.withValues(alpha: 0.2),
+                    color,
+                    color.withValues(alpha: 0.6),
                   ],
                 ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.5),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
               child: Icon(
                 icon,
-                color: color,
+                color: Colors.white,
                 size: 28,
               ),
             ),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  color.withValues(alpha: 0.4),
+                  color.withValues(alpha: 0.2),
+                ],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 28,
             ),
           ),
-          const SizedBox(height: 6),
-          // Animated value with shimmer effect for live ping
-          if (isLivePing)
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.8, end: 1.0).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: Text(
-                value,
-                key: ValueKey(value),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
-                  shadows: [
-                    Shadow(
-                      color: color.withValues(alpha: 0.5),
-                      blurRadius: 10,
-                    ),
-                  ],
+        const SizedBox(height: 12),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        // Animated value with shimmer effect for live ping
+        if (isLivePing)
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.8, end: 1.0).animate(animation),
+                  child: child,
                 ),
-              ),
-            )
-          else
-            Text(
+              );
+            },
+            child: Text(
               value,
-              style: const TextStyle(
+              key: ValueKey(value),
+              style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 letterSpacing: -0.5,
+                shadows: [
+                  Shadow(
+                    color: color.withValues(alpha: 0.5),
+                    blurRadius: 10,
+                  ),
+                ],
               ),
             ),
-        ],
-      ),
+          )
+        else
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5,
+            ),
+          ),
+      ],
     );
   }
 }

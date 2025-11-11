@@ -46,8 +46,24 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (state == AppLifecycleState.resumed && mounted) {
       // Force rebuild UI when app comes back from background
       debugPrint('🏠 HomeScreen: App resumed, forcing UI rebuild...');
-      setState(() {
-        // Just trigger rebuild - provider will have latest state
+      
+      // Force immediate rebuild
+      setState(() {});
+      
+      // Also force rebuild after a short delay to catch any async updates
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          setState(() {});
+          debugPrint('🏠 HomeScreen: Secondary rebuild completed');
+        }
+      });
+      
+      // Triple check after 1 second
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          setState(() {});
+          debugPrint('🏠 HomeScreen: Final rebuild completed');
+        }
       });
     }
   }
@@ -266,9 +282,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   Expanded(
                     child: PageView(
                       controller: _pageController,
-                      physics: const BouncingScrollPhysics(
-                        parent: AlwaysScrollableScrollPhysics(),
-                      ),
+                      physics: const ClampingScrollPhysics(),
                       onPageChanged: (index) {
                         if (mounted) {
                           setState(() {
@@ -569,42 +583,41 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildToolsTab(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10),
-            
-            // Title
-            Text(
-              AppLocalizations.of(context).translate('navigation.tools'),
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.95),
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
-              ),
-            ).animate().fadeIn().slideX(),
-            
-            const SizedBox(height: 8),
-            
-            Text(
-              AppLocalizations.of(context).translate('home.quick_actions'),
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 14,
-              ),
-            ).animate().fadeIn(delay: 100.ms),
-            
-            const SizedBox(height: 24),
-            
-            // Tools Grid
-            _buildToolsGrid(context),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 10),
+          
+          // Title
+          Text(
+            AppLocalizations.of(context).translate('navigation.tools'),
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.95),
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5,
+            ),
+          ),
+          
+          const SizedBox(height: 8),
+          
+          Text(
+            AppLocalizations.of(context).translate('home.quick_actions'),
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 14,
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Tools Grid
+          Expanded(
+            child: _buildToolsGrid(context),
+          ),
+        ],
       ),
     );
   }
@@ -669,8 +682,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     ];
 
     return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(),
       itemCount: tools.length,
       itemBuilder: (context, index) {
         final tool = tools[index];
@@ -679,7 +691,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           label: tool['label'] as String,
           subtitle: tool['subtitle'] as String,
           onTap: tool['onTap'] as VoidCallback,
-          delay: (index * 100),
         );
       },
     );
@@ -690,7 +701,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     required String label,
     required String subtitle,
     required VoidCallback onTap,
-    required int delay,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -773,9 +783,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           ),
         ),
       ),
-    ).animate()
-      .fadeIn(delay: Duration(milliseconds: delay))
-      .slideX(begin: 0.2, end: 0, duration: 400.ms, curve: Curves.easeOutCubic);
+    );
   }
 
   Widget _buildConnectionButton(V2RayProvider provider) {

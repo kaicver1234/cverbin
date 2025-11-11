@@ -107,7 +107,7 @@ class _AboutScreenState extends State<AboutScreen>
             status: VPNBackgroundStatus.disconnected,
             child: SafeArea(
               child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 child: Column(
                   children: [
                     // App Bar
@@ -161,7 +161,7 @@ class _AboutScreenState extends State<AboutScreen>
                 size: 22,
               ),
             ),
-          ).animate().fadeIn().slideX(),
+          ),
           
           const SizedBox(width: 16),
           
@@ -174,7 +174,7 @@ class _AboutScreenState extends State<AboutScreen>
                 color: Colors.white,
                 letterSpacing: -0.5,
               ),
-            ).animate().fadeIn().slideX(),
+            ),
           ),
         ],
       ),

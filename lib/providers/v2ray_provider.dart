@@ -1325,70 +1325,72 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     
     try {
       debugPrint('🔄 Syncing VPN status on app resume...');
+      debugPrint('🔎 Current activeConfig: ${_v2rayService.activeConfig?.remark ?? "null"}');
+      debugPrint('🔎 Configs with isConnected=true: ${_configs.where((c) => c.isConnected).map((c) => c.remark).join(", ")}');
       
-      // CRITICAL: Immediately restore activeConfig if service lost it
-      if (_v2rayService.activeConfig == null) {
-        debugPrint('🔄 ActiveConfig is null, attempting immediate restore...');
-        await _v2rayService.initialize();
-        
-        // If we have a connected config, notify UI immediately
-        if (_v2rayService.activeConfig != null) {
-          debugPrint('✅ ActiveConfig restored: ${_v2rayService.activeConfig!.remark}');
-          notifyListeners();
-        }
+      // CRITICAL: ALWAYS try to restore from service, even if activeConfig exists
+      // This handles cases where the app was killed and restarted
+      debugPrint('🔄 Force re-initializing service to restore state...');
+      await _v2rayService.initialize();
+      
+      // Wait a moment for service to fully restore
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      // Notify immediately after restore attempt
+      if (_v2rayService.activeConfig != null) {
+        debugPrint('✅ ActiveConfig after restore: ${_v2rayService.activeConfig!.remark}');
+        notifyListeners();
+      } else {
+        debugPrint('⚠️ ActiveConfig still null after restore');
       }
       
       // Check actual VPN connection status from native side
+      debugPrint('🔎 Checking actual VPN connection status...');
       final isActuallyConnected = await _v2rayService.isActuallyConnected()
           .timeout(
-            const Duration(seconds: 3),
+            const Duration(seconds: 5),
             onTimeout: () {
-              debugPrint('⚠️ Status check timeout, using last known state');
+              debugPrint('⚠️ Status check timeout after 5s');
+              // If timeout, check if we have saved state
               return _v2rayService.activeConfig != null;
             },
           );
       
       debugPrint('🔎 VPN actually connected: $isActuallyConnected');
       debugPrint('🔎 Active config: ${_v2rayService.activeConfig?.remark ?? "none"}');
+      debugPrint('🔎 Service running: ${_v2rayService.isRunning}');
       
       bool stateChanged = false;
       
       if (isActuallyConnected) {
-        // VPN is running - ensure UI shows connected state
-        final activeConfig = _v2rayService.activeConfig;
-        if (activeConfig != null) {
-          // Find and mark the connected config
-          for (var config in _configs) {
-            if (config.id == activeConfig.id || 
-                (config.address == activeConfig.address && config.port == activeConfig.port)) {
-              if (!config.isConnected) {
-                config.isConnected = true;
-                stateChanged = true;
-              }
-              _selectedConfig = config;
-            } else if (config.isConnected) {
-              config.isConnected = false;
-              stateChanged = true;
+        debugPrint('✅ VPN is connected! Updating all configs...');
+        
+        final activeRemark = _v2rayService.activeConfig?.remark;
+        
+        // Update all configs - set connected one to true, others to false
+        for (var config in _configs) {
+          final shouldBeConnected = (config.remark == activeRemark);
+          if (config.isConnected != shouldBeConnected) {
+            config.isConnected = shouldBeConnected;
+            if (shouldBeConnected) {
+              config.errorMessage = null;
             }
-          }
-          
-          // Clear any error messages
-          if (_errorMessage.isNotEmpty) {
-            _errorMessage = '';
             stateChanged = true;
+            debugPrint('${shouldBeConnected ? "✅" : "❌"} ${config.remark}: isConnected = $shouldBeConnected');
           }
-          
-          debugPrint('✅ VPN is connected to: ${activeConfig.remark}');
         }
       } else {
-        // VPN is not running - ensure UI shows disconnected state
+        debugPrint('❌ VPN is NOT connected, clearing all connection states');
+        
+        // Clear all connection states
         for (var config in _configs) {
           if (config.isConnected) {
             config.isConnected = false;
+            config.errorMessage = null;
             stateChanged = true;
+            debugPrint('❌ ${config.remark}: isConnected = false');
           }
         }
-        debugPrint('❌ VPN is disconnected');
       }
       
       // Save state if changed
