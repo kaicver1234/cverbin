@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
@@ -13,13 +14,20 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  // No need to call updateAllSubscriptions here
-  // It's already called in V2RayProvider constructor
+  @override
+  void initState() {
+    super.initState();
+    debugPrint('🏠 MainNavigationScreen: initState');
+  }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🏠 MainNavigationScreen: build');
+    
     return Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
+        debugPrint('🏠 Language direction: ${languageProvider.textDirection}');
+        
         return Directionality(
           textDirection: languageProvider.textDirection,
           child: PlatformUtils.isDesktop 

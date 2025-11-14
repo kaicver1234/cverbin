@@ -2,16 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../providers/v2ray_provider.dart';
+import '../providers/desktop_vpn_provider.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
 import '../models/connection_mode.dart';
 import '../services/windows_proxy_service.dart';
-import '../screens/server_selection_screen.dart';
-import '../screens/ip_info_screen.dart';
-import '../screens/speedtest_screen.dart';
-import '../screens/host_checker_screen.dart';
-import '../screens/about_screen.dart';
 
 class DesktopHomeScreen extends StatefulWidget {
   const DesktopHomeScreen({Key? key}) : super(key: key);
@@ -20,77 +15,71 @@ class DesktopHomeScreen extends StatefulWidget {
   State<DesktopHomeScreen> createState() => _DesktopHomeScreenState();
 }
 
-class _DesktopHomeScreenState extends State<DesktopHomeScreen> 
-    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
-  bool _isConnecting = false;
+class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   int _selectedNavIndex = 0;
   ConnectionMode _connectionMode = ConnectionMode.vpn;
   
   @override
-  bool get wantKeepAlive => true;
-  
-  @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-  
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
+    debugPrint('💻 DesktopHomeScreen: initState');
   }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+    debugPrint('💻 DesktopHomeScreen: build');
     
-    return Consumer2<V2RayProvider, LanguageProvider>(
-      builder: (context, v2rayProvider, languageProvider, child) {
-        final localizations = AppLocalizations.of(context);
-        
-        return Scaffold(
-          backgroundColor: const Color(0xFF0A0E1A),
-          body: Row(
-            children: [
-              _buildSidebar(context, localizations),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(context, localizations),
-                      const SizedBox(height: 32),
-                      
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: _buildMainPanel(context, v2rayProvider, localizations),
-                          ),
-                          const SizedBox(width: 24),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              children: [
-                                _buildModeSelector(localizations),
-                                const SizedBox(height: 20),
-                                _buildStatsPanel(context, v2rayProvider, localizations),
-                              ],
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => DesktopVpnProvider()),
+      ],
+      child: Consumer2<DesktopVpnProvider, LanguageProvider>(
+        builder: (context, vpnProvider, languageProvider, child) {
+          final localizations = AppLocalizations.of(context);
+          
+          return Scaffold(
+            backgroundColor: const Color(0xFF0A0E1A),
+            body: Row(
+              children: [
+                _buildSidebar(context, localizations),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(context, localizations),
+                        const SizedBox(height: 32),
+                        
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: _buildMainPanel(context, vpnProvider, localizations),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(width: 24),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                children: [
+                                  _buildModeSelector(localizations),
+                                  const SizedBox(height: 20),
+                                  _buildStatsPanel(context, vpnProvider, localizations),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -151,7 +140,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
             ConnectionMode.vpn,
             Icons.vpn_lock_rounded,
             'VPN Mode',
-            'Full system VPN with TUN interface',
+            'Full system VPN protection',
             const Color(0xFF00FF87),
           ),
           const SizedBox(height: 12),
@@ -159,7 +148,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
             ConnectionMode.proxy,
             Icons.lan_rounded,
             'Proxy Mode',
-            'System-wide HTTP/SOCKS proxy',
+            'System-wide proxy',
             const Color(0xFF667EEA),
           ),
         ],
@@ -192,15 +181,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
           color: isSelected ? accentColor : Colors.white.withOpacity(0.1),
           width: isSelected ? 2 : 1,
         ),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: accentColor.withOpacity(0.3),
-                  blurRadius: 12,
-                  spreadRadius: 2,
-                ),
-              ]
-            : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -344,20 +324,25 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
           const Divider(color: Color(0xFF1E2433), thickness: 1),
           const SizedBox(height: 20),
           
-          _buildNavItem(Icons.home_rounded, localizations.translate('nav.home'), 0),
-          _buildNavItem(Icons.speed_rounded, localizations.translate('nav.speedTest'), 1),
-          _buildNavItem(Icons.info_outline_rounded, localizations.translate('nav.ipInfo'), 2),
-          _buildNavItem(Icons.dns_rounded, localizations.translate('nav.hostChecker'), 3),
-          _buildNavItem(Icons.language_rounded, localizations.translate('nav.servers'), 4),
+          _buildNavItem(Icons.home_rounded, 'Home', 0),
+          _buildNavItem(Icons.dns_rounded, 'Servers', 1),
+          _buildNavItem(Icons.settings_rounded, 'Settings', 2),
+          _buildNavItem(Icons.info_rounded, 'About', 3),
           
           const Spacer(),
           
           const Divider(color: Color(0xFF1E2433), thickness: 1),
           
-          _buildNavItem(Icons.settings_rounded, localizations.translate('nav.settings'), 5),
-          _buildNavItem(Icons.info_rounded, localizations.translate('nav.about'), 6),
-          
-          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'Made with ❤️ in Iran',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.3),
+                fontSize: 12,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -388,7 +373,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _onNavItemTap(index),
+          onTap: () => setState(() => _selectedNavIndex = index),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -417,46 +402,6 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
       ),
     );
   }
-  
-  void _onNavItemTap(int index) {
-    setState(() {
-      _selectedNavIndex = index;
-    });
-    
-    switch (index) {
-      case 0:
-        break;
-      case 1:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SpeedTestScreen()),
-        );
-        break;
-      case 2:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const IpInfoScreen()),
-        );
-        break;
-      case 3:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const HostCheckerScreen()),
-        );
-        break;
-      case 4:
-        _navigateToServerSelection(context);
-        break;
-      case 5:
-        break;
-      case 6:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AboutScreen()),
-        );
-        break;
-    }
-  }
 
   Widget _buildHeader(BuildContext context, AppLocalizations localizations) {
     return Row(
@@ -466,7 +411,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              localizations.translate('home.welcome'),
+              'Welcome to Tiksar VPN',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 32,
@@ -476,7 +421,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              localizations.translate('home.subtitle'),
+              'Fast, Secure, and Free VPN for Windows',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.6),
                 fontSize: 16,
@@ -503,7 +448,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
               ),
               const SizedBox(width: 8),
               Text(
-                'Windows ${Platform.operatingSystemVersion.contains('10') ? '10/11' : ''}',
+                'Windows',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.8),
                   fontSize: 14,
@@ -517,11 +462,12 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
     );
   }
 
-  Widget _buildMainPanel(BuildContext context, V2RayProvider v2rayProvider, AppLocalizations localizations) {
-    final isConnected = v2rayProvider.v2rayService.isConnected;
-    final status = _isConnecting 
-        ? localizations.translate('home.connecting')
-        : (isConnected ? localizations.translate('home.connected') : localizations.translate('home.disconnected'));
+  Widget _buildMainPanel(BuildContext context, DesktopVpnProvider vpnProvider, AppLocalizations localizations) {
+    final isConnected = vpnProvider.isConnected;
+    final isConnecting = vpnProvider.isConnecting;
+    final status = isConnecting 
+        ? 'Connecting...'
+        : (isConnected ? 'Connected' : 'Disconnected');
     
     return Container(
       decoration: BoxDecoration(
@@ -552,21 +498,21 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
       padding: const EdgeInsets.all(40),
       child: Column(
         children: [
-          _buildStatusIndicator(isConnected, status),
+          _buildStatusIndicator(isConnected, isConnecting, status),
           
           const SizedBox(height: 40),
           
-          _buildConnectionButton(context, v2rayProvider, localizations, isConnected),
+          _buildConnectionButton(context, vpnProvider, localizations, isConnected, isConnecting),
           
           const SizedBox(height: 32),
           
-          _buildServerCard(context, v2rayProvider, localizations),
+          _buildServerCard(context, vpnProvider, localizations),
         ],
       ),
     );
   }
 
-  Widget _buildStatusIndicator(bool isConnected, String status) {
+  Widget _buildStatusIndicator(bool isConnected, bool isConnecting, String status) {
     return Column(
       children: [
         Stack(
@@ -619,11 +565,18 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
                   ),
                 ],
               ),
-              child: Icon(
-                isConnected ? Icons.verified_user_rounded : Icons.shield_outlined,
-                color: Colors.white,
-                size: 64,
-              ),
+              child: isConnecting
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      strokeWidth: 3,
+                    ),
+                  )
+                : Icon(
+                    isConnected ? Icons.verified_user_rounded : Icons.shield_outlined,
+                    color: Colors.white,
+                    size: 64,
+                  ),
             ).animate().scale(duration: 400.ms, curve: Curves.elasticOut),
           ],
         ),
@@ -695,12 +648,18 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
     );
   }
 
-  Widget _buildConnectionButton(BuildContext context, V2RayProvider v2rayProvider, AppLocalizations localizations, bool isConnected) {
+  Widget _buildConnectionButton(
+    BuildContext context,
+    DesktopVpnProvider vpnProvider,
+    AppLocalizations localizations,
+    bool isConnected,
+    bool isConnecting,
+  ) {
     return SizedBox(
       width: double.infinity,
       height: 70,
       child: ElevatedButton(
-        onPressed: _isConnecting ? null : () => _handleConnection(v2rayProvider),
+        onPressed: isConnecting ? null : () => _handleConnection(vpnProvider),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           foregroundColor: Colors.white,
@@ -730,54 +689,31 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
           ),
           child: Container(
             alignment: Alignment.center,
-            child: _isConnecting
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      localizations.translate('home.connecting'),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isConnected ? Icons.power_off_rounded : Icons.power_settings_new_rounded,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      isConnected ? localizations.translate('home.disconnect') : localizations.translate('home.connect'),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isConnected ? Icons.power_off_rounded : Icons.power_settings_new_rounded,
+                  size: 24,
                 ),
+                const SizedBox(width: 12),
+                Text(
+                  isConnected ? 'Disconnect' : 'Connect',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     ).animate().scale(duration: 200.ms);
   }
 
-  Widget _buildServerCard(BuildContext context, V2RayProvider v2rayProvider, AppLocalizations localizations) {
+  Widget _buildServerCard(BuildContext context, DesktopVpnProvider vpnProvider, AppLocalizations localizations) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -811,7 +747,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  localizations.translate('home.currentServer'),
+                  'Current Server',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.6),
                     fontSize: 13,
@@ -820,7 +756,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  v2rayProvider.selectedConfig?.remark ?? localizations.translate('home.noServerSelected'),
+                  vpnProvider.selectedServer ?? 'No server selected',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -832,7 +768,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
           ),
           
           IconButton(
-            onPressed: () => _navigateToServerSelection(context),
+            onPressed: () => _showServerDialog(context, vpnProvider),
             icon: const Icon(Icons.chevron_right_rounded),
             color: Colors.white.withOpacity(0.8),
             iconSize: 28,
@@ -842,36 +778,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
     );
   }
 
-  Widget _buildStatsPanel(BuildContext context, V2RayProvider v2rayProvider, AppLocalizations localizations) {
-    return _buildStatCard(
-      'Connection Stats',
-      Icons.analytics_rounded,
-      [
-        _buildStatRow(
-          Icons.upload_rounded,
-          localizations.translate('home.upload'),
-          _formatSpeed(v2rayProvider.currentStatus?.uploadSpeed ?? 0),
-          const Color(0xFF72D9FF),
-        ),
-        const SizedBox(height: 16),
-        _buildStatRow(
-          Icons.download_rounded,
-          localizations.translate('home.download'),
-          _formatSpeed(v2rayProvider.currentStatus?.downloadSpeed ?? 0),
-          const Color(0xFF76F959),
-        ),
-        const SizedBox(height: 16),
-        _buildStatRow(
-          Icons.timer_rounded,
-          localizations.translate('home.duration'),
-          v2rayProvider.currentStatus?.duration ?? '00:00:00',
-          const Color(0xFFFFAA66),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(String title, IconData icon, List<Widget> children) {
+  Widget _buildStatsPanel(BuildContext context, DesktopVpnProvider vpnProvider, AppLocalizations localizations) {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -906,12 +813,12 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: Colors.white, size: 20),
+                child: const Icon(Icons.analytics_rounded, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
-              Text(
-                title,
-                style: const TextStyle(
+              const Text(
+                'Connection Stats',
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -922,7 +829,26 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
           
           const SizedBox(height: 24),
           
-          ...children,
+          _buildStatRow(
+            Icons.upload_rounded,
+            'Upload',
+            _formatSpeed(vpnProvider.uploadSpeed),
+            const Color(0xFF72D9FF),
+          ),
+          const SizedBox(height: 16),
+          _buildStatRow(
+            Icons.download_rounded,
+            'Download',
+            _formatSpeed(vpnProvider.downloadSpeed),
+            const Color(0xFF76F959),
+          ),
+          const SizedBox(height: 16),
+          _buildStatRow(
+            Icons.timer_rounded,
+            'Duration',
+            vpnProvider.duration,
+            const Color(0xFFFFAA66),
+          ),
         ],
       ),
     );
@@ -968,43 +894,26 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
     );
   }
 
-  void _handleConnection(V2RayProvider v2rayProvider) async {
-    if (v2rayProvider.v2rayService.isConnected) {
-      setState(() => _isConnecting = true);
-      
+  void _handleConnection(DesktopVpnProvider vpnProvider) async {
+    if (vpnProvider.isConnected) {
       if (_connectionMode == ConnectionMode.proxy) {
         await WindowsProxyService.disableSystemProxy();
       }
-      
-      await v2rayProvider.disconnect();
-      setState(() => _isConnecting = false);
+      await vpnProvider.disconnect();
     } else {
-      if (v2rayProvider.selectedConfig == null) {
-        _navigateToServerSelection(context);
+      if (vpnProvider.selectedServer == null) {
+        _showServerDialog(context, vpnProvider);
         return;
       }
       
-      setState(() => _isConnecting = true);
-      await v2rayProvider.connectToServer(v2rayProvider.selectedConfig!);
+      await vpnProvider.connect();
       
       if (_connectionMode == ConnectionMode.proxy) {
-        final socksPort = 10808;
-        final success = await WindowsProxyService.enableSystemProxy(
+        await WindowsProxyService.enableSystemProxy(
           host: '127.0.0.1',
-          port: socksPort,
+          port: 10808,
         );
-        
-        if (!success && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to configure system proxy'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
       }
-      
-      setState(() => _isConnecting = false);
     }
   }
   
@@ -1018,10 +927,80 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen>
     }
   }
 
-  void _navigateToServerSelection(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ServerSelectionScreen()),
+  void _showServerDialog(BuildContext context, DesktopVpnProvider vpnProvider) {
+    final servers = [
+      'Germany - Frankfurt',
+      'United States - New York',
+      'United Kingdom - London',
+      'Singapore',
+      'Japan - Tokyo',
+      'France - Paris',
+    ];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1F2E),
+        title: const Text(
+          'Select Server',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: SizedBox(
+          width: 400,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: servers.length,
+            itemBuilder: (context, index) {
+              final server = servers[index];
+              final isSelected = vpnProvider.selectedServer == server;
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF667EEA).withOpacity(0.2)
+                      : Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF667EEA)
+                        : Colors.white.withOpacity(0.1),
+                  ),
+                ),
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.language_rounded,
+                    color: Color(0xFF667EEA),
+                  ),
+                  title: Text(
+                    server,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? const Icon(
+                          Icons.check_circle,
+                          color: Color(0xFF667EEA),
+                        )
+                      : null,
+                  onTap: () {
+                    vpnProvider.selectServer(server);
+                    Navigator.pop(context);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
   }
 }
