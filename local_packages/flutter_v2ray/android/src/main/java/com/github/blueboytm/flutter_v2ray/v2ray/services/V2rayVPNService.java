@@ -1,7 +1,9 @@
 package com.github.blueboytm.flutter_v2ray.v2ray.services;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.net.VpnService;
@@ -18,13 +20,22 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 
 public class V2rayVPNService extends VpnService implements V2rayServicesListener {
+    private static final String TAG = "V2rayVPNService";
+    private static final String PREFS_NAME = "V2rayVPNPrefs";
+    private static final String KEY_V2RAY_CONFIG = "v2ray_config";
+    
     private ParcelFileDescriptor mInterface;
     private Process process;
     private V2rayConfig v2rayConfig;
@@ -36,25 +47,130 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
         V2rayCoreManager.getInstance().setUpListener(this);
     }
 
+    private void saveConfig(V2rayConfig config) {
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream oos = new ObjectOutputStream(baos);
+            oos.writeObject(config);
+            oos.close();
+            String configString;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                configString = Base64.getEncoder().encodeToString(baos.toByteArray());
+            } else {
+                configString = android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.DEFAULT);
+            }
+            prefs.edit().putString(KEY_V2RAY_CONFIG, configString).apply();
+            Log.d(TAG, "Config saved successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save config", e);
+        }
+    }
+
+    private V2rayConfig loadConfig() {
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String configString = prefs.getString(KEY_V2RAY_CONFIG, null);
+            if (configString == null) {
+                Log.d(TAG, "No saved config found");
+                return null;
+            }
+            byte[] bytes;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                bytes = Base64.getDecoder().decode(configString);
+            } else {
+                bytes = android.util.Base64.decode(configString, android.util.Base64.DEFAULT);
+            }
+            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+            ObjectInputStream ois = new ObjectInputStream(bais);
+            V2rayConfig config = (V2rayConfig) ois.readObject();
+            ois.close();
+            Log.d(TAG, "Config loaded successfully");
+            return config;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to load config", e);
+            return null;
+        }
+    }
+
+    private void clearConfig() {
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit().remove(KEY_V2RAY_CONFIG).apply();
+            Log.d(TAG, "Config cleared");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to clear config", e);
+        }
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent == null) {
+            Log.d(TAG, "Intent is null, trying to restore from saved config");
+            v2rayConfig = loadConfig();
+            if (v2rayConfig != null) {
+                Log.d(TAG, "Restored config from preferences, restarting VPN");
+                if (V2rayCoreManager.getInstance().isV2rayCoreRunning()) {
+                    V2rayCoreManager.getInstance().stopCore();
+                }
+                if (V2rayCoreManager.getInstance().startCore(v2rayConfig)) {
+                    Log.d(TAG, "V2ray core started successfully after restore");
+                } else {
+                    Log.e(TAG, "Failed to start V2ray core after restore");
+                    clearConfig();
+                    this.onDestroy();
+                }
+            } else {
+                Log.e(TAG, "No saved config available, stopping service");
+                this.onDestroy();
+            }
+            return START_STICKY;
+        }
+
         AppConfigs.V2RAY_SERVICE_COMMANDS startCommand = (AppConfigs.V2RAY_SERVICE_COMMANDS) intent.getSerializableExtra("COMMAND");
+        if (startCommand == null) {
+            Log.d(TAG, "Command is null, trying to restore from saved config");
+            v2rayConfig = loadConfig();
+            if (v2rayConfig != null) {
+                Log.d(TAG, "Restored config from preferences, restarting VPN");
+                if (V2rayCoreManager.getInstance().isV2rayCoreRunning()) {
+                    V2rayCoreManager.getInstance().stopCore();
+                }
+                if (V2rayCoreManager.getInstance().startCore(v2rayConfig)) {
+                    Log.d(TAG, "V2ray core started successfully after restore");
+                } else {
+                    Log.e(TAG, "Failed to start V2ray core after restore");
+                    clearConfig();
+                    this.onDestroy();
+                }
+            } else {
+                Log.e(TAG, "No saved config available, stopping service");
+                this.onDestroy();
+            }
+            return START_STICKY;
+        }
+
         if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.START_SERVICE)) {
             v2rayConfig = (V2rayConfig) intent.getSerializableExtra("V2RAY_CONFIG");
             if (v2rayConfig == null) {
+                Log.e(TAG, "V2ray config is null");
                 this.onDestroy();
+                return START_STICKY;
             }
+            saveConfig(v2rayConfig);
             if (V2rayCoreManager.getInstance().isV2rayCoreRunning()) {
                 V2rayCoreManager.getInstance().stopCore();
             }
             if (V2rayCoreManager.getInstance().startCore(v2rayConfig)) {
-                Log.e(V2rayProxyOnlyService.class.getSimpleName(), "onStartCommand success => v2ray core started.");
+                Log.d(TAG, "V2ray core started successfully");
             } else {
+                Log.e(TAG, "Failed to start V2ray core");
                 this.onDestroy();
             }
         } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.STOP_SERVICE)) {
             V2rayCoreManager.getInstance().stopCore();
             AppConfigs.V2RAY_CONFIG = null;
+            clearConfig();
         } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.MEASURE_DELAY)) {
             new Thread(() -> {
                 Intent sendB = new Intent("CONNECTED_V2RAY_SERVER_DELAY");
@@ -74,16 +190,16 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
             process.destroy();
         }
         V2rayCoreManager.getInstance().stopCore();
+        clearConfig();
         try {
             stopSelf();
         } catch (Exception e) {
-            //ignore
-            Log.e("CANT_STOP", "SELF");
+            Log.e(TAG, "Failed to stop self", e);
         }
         try {
             mInterface.close();
         } catch (Exception e) {
-            // ignored
+            Log.e(TAG, "Failed to close interface", e);
         }
 
     }

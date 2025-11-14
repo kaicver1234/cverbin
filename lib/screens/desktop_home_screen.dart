@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -6,7 +7,11 @@ import '../providers/desktop_vpn_provider.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
 import '../models/connection_mode.dart';
+import '../models/v2ray_config.dart';
 import '../services/windows_proxy_service.dart';
+import '../services/windows_v2ray_service.dart';
+import '../services/windows_tun_service.dart';
+import '../services/server_service.dart';
 
 class DesktopHomeScreen extends StatefulWidget {
   const DesktopHomeScreen({Key? key}) : super(key: key);
@@ -18,11 +23,70 @@ class DesktopHomeScreen extends StatefulWidget {
 class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   int _selectedNavIndex = 0;
   ConnectionMode _connectionMode = ConnectionMode.vpn;
+  List<V2RayConfig> _servers = [];
+  bool _isLoadingServers = false;
+  Timer? _statsTimer;
+  bool _hasAdminRights = false;
+  bool _hasWinTunDriver = false;
   
   @override
   void initState() {
     super.initState();
     debugPrint('💻 DesktopHomeScreen: initState');
+    _loadServers();
+    _checkVpnCapabilities();
+  }
+  
+  Future<void> _checkVpnCapabilities() async {
+    final capabilities = await WindowsTunService.getVpnCapabilities();
+    setState(() {
+      _hasAdminRights = capabilities['hasAdminRights'] as bool;
+      _hasWinTunDriver = capabilities['hasWinTunDriver'] as bool;
+    });
+  }
+  
+  @override
+  void dispose() {
+    _statsTimer?.cancel();
+    super.dispose();
+  }
+  
+  Future<void> _loadServers() async {
+    setState(() => _isLoadingServers = true);
+    try {
+      final serverService = ServerService();
+      final servers = await serverService.fetchServers(
+        customUrl: ServerService.defaultServerUrl,
+      );
+      setState(() {
+        _servers = servers;
+        _isLoadingServers = false;
+      });
+      debugPrint('✅ Loaded ${servers.length} servers');
+    } catch (e) {
+      debugPrint('❌ Error loading servers: $e');
+      setState(() => _isLoadingServers = false);
+    }
+  }
+  
+  void _startStatsMonitoring(DesktopVpnProvider provider) {
+    _statsTimer?.cancel();
+    _statsTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (WindowsV2rayService.isRunning) {
+        provider.updateStats(
+          WindowsV2rayService.uploadSpeed,
+          WindowsV2rayService.downloadSpeed,
+          _formatDuration(timer.tick),
+        );
+      }
+    });
+  }
+  
+  String _formatDuration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -43,37 +107,13 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
               children: [
                 _buildSidebar(context, localizations),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeader(context, localizations),
-                        const SizedBox(height: 32),
-                        
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: _buildMainPanel(context, vpnProvider, localizations),
-                            ),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                children: [
-                                  _buildModeSelector(localizations),
-                                  const SizedBox(height: 20),
-                                  _buildStatsPanel(context, vpnProvider, localizations),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  child: _selectedNavIndex == 0
+                      ? _buildHomeContent(context, vpnProvider, localizations)
+                      : _selectedNavIndex == 1
+                          ? _buildServersContent(context, vpnProvider, localizations)
+                          : _selectedNavIndex == 2
+                              ? _buildSettingsContent(context, localizations)
+                              : _buildAboutContent(context),
                 ),
               ],
             ),
@@ -82,8 +122,669 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
       ),
     );
   }
+  
+  Widget _buildHomeContent(BuildContext context, DesktopVpnProvider vpnProvider, AppLocalizations localizations) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 1000;
+        
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(constraints.maxWidth * 0.03),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context, localizations),
+              const SizedBox(height: 32),
+              
+              if (isWide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: _buildMainPanel(context, vpnProvider, localizations),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        children: [
+                          _buildModeSelector(localizations, vpnProvider),
+                          const SizedBox(height: 20),
+                          _buildStatsPanel(context, vpnProvider, localizations),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Column(
+                  children: [
+                    _buildMainPanel(context, vpnProvider, localizations),
+                    const SizedBox(height: 24),
+                    _buildModeSelector(localizations, vpnProvider),
+                    const SizedBox(height: 20),
+                    _buildStatsPanel(context, vpnProvider, localizations),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildServersContent(BuildContext context, DesktopVpnProvider vpnProvider, AppLocalizations localizations) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                localizations.translate('desktop.available_servers'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                onPressed: _loadServers,
+                icon: const Icon(Icons.refresh_rounded),
+                color: Colors.white,
+                iconSize: 28,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          
+          if (_isLoadingServers)
+            const Center(
+              child: CircularProgressIndicator(),
+            )
+          else if (_servers.isEmpty)
+            Center(
+              child: Column(
+                children: [
+                  const Icon(Icons.cloud_off, size: 64, color: Colors.white54),
+                  const SizedBox(height: 16),
+                  Text(
+                    localizations.translate('desktop.no_servers_available'),
+                    style: const TextStyle(color: Colors.white54, fontSize: 18),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadServers,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 400,
+                childAspectRatio: 2.5,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: _servers.length,
+              itemBuilder: (context, index) {
+                final server = _servers[index];
+                final isSelected = vpnProvider.selectedServerConfig?.id == server.id;
+                
+                return _buildServerCard(server, isSelected, vpnProvider);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildServerCard(V2RayConfig server, bool isSelected, DesktopVpnProvider vpnProvider) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: isSelected
+            ? const LinearGradient(
+                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+              )
+            : null,
+        color: isSelected ? null : Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? const Color(0xFF667EEA) : Colors.white.withOpacity(0.1),
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => vpnProvider.selectServerConfig(server),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.2)
+                        : const Color(0xFF667EEA).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.dns_rounded,
+                    color: isSelected ? Colors.white : const Color(0xFF667EEA),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        server.remark,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${server.address}:${server.port}',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white70 : Colors.white.withOpacity(0.5),
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSettingsContent(BuildContext context, AppLocalizations localizations) {
+    final languageProvider = Provider.of<LanguageProvider>(context);
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            localizations.translate('common.settings'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 32),
+          
+          // Language Settings
+          _buildSettingCard(
+            localizations.translate('language_settings.title'),
+            Icons.language_rounded,
+            [
+              _buildLanguageSelector(context, languageProvider, localizations),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          _buildSettingCard(
+            localizations.translate('desktop.connection_settings'),
+            Icons.link_rounded,
+            [
+              _buildSettingItem(localizations.translate('desktop.auto_connect_startup'), true, (val) {}),
+              _buildSettingItem(localizations.translate('desktop.auto_reconnect'), true, (val) {}),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          _buildSettingCard(
+            'Network',
+            Icons.network_check_rounded,
+            [
+              _buildSettingItem('Use system DNS', false, (val) {}),
+              _buildSettingItem('Enable IPv6', false, (val) {}),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          _buildSettingCard(
+            'Advanced',
+            Icons.settings_rounded,
+            [
+              _buildSettingItem('Enable logs', true, (val) {}),
+              _buildSettingItem('Start minimized', false, (val) {}),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildLanguageSelector(BuildContext context, LanguageProvider languageProvider, AppLocalizations localizations) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          localizations.translate('language_settings.current_language'),
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.7),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        ...languageProvider.supportedLanguages.map((language) {
+          final isSelected = languageProvider.currentLanguage.code == language.code;
+          
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              gradient: isSelected
+                  ? const LinearGradient(
+                      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                    )
+                  : null,
+              color: isSelected ? null : Colors.white.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF667EEA)
+                    : Colors.white.withOpacity(0.1),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () async {
+                  if (!isSelected) {
+                    await languageProvider.changeLanguage(language);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(localizations.translate('language_settings.language_changed')),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Text(
+                        language.flag,
+                        style: const TextStyle(fontSize: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          language.name,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white.withOpacity(0.8),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+  
+  Widget _buildSettingCard(String title, IconData icon, List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+        ),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...children,
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSettingItem(String title, bool value, Function(bool) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14,
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF667EEA),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildAboutContent(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'About Tiksar VPN',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 32),
+          
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withOpacity(0.5),
+                        blurRadius: 30,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.shield_outlined,
+                    size: 60,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Tiksar VPN',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Version 1.1.1 - Windows Edition',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.6),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.1),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Fast, Secure, and Free VPN',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Tiksar VPN provides secure and private internet access with high-speed servers worldwide.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF6366F1).withOpacity(0.2),
+                        const Color(0xFF8B5CF6).withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF6366F1).withOpacity(0.3),
+                    ),
+                  ),
+                  child: const Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Developed with',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Icon(
+                            Icons.favorite,
+                            color: Colors.red,
+                            size: 24,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'in Iran',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Abol Jahany',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Connect with us:',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _buildSocialButton(
+                      icon: Icons.telegram,
+                      label: 'Telegram',
+                      gradient: const [Color(0xFF0088CC), Color(0xFF00A0E3)],
+                      onTap: () => _launchUrl('https://t.me/tiksar_vpn'),
+                    ),
+                    _buildSocialButton(
+                      icon: Icons.camera_alt,
+                      label: 'Instagram',
+                      gradient: const [Color(0xFFE1306C), Color(0xFFF56040)],
+                      onTap: () => _launchUrl('https://instagram.com/aboljahany'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  '© 2024 Tiksar VPN. All rights reserved.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSocialButton({
+    required IconData icon,
+    required String label,
+    required List<Color> gradient,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: gradient),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: gradient[0].withOpacity(0.4),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _launchUrl(String url) async {
+    // For Windows, we can use Process.run to open URLs
+    try {
+      await Process.run('cmd', ['/c', 'start', url]);
+    } catch (e) {
+      debugPrint('Error launching URL: $e');
+    }
+  }
 
-  Widget _buildModeSelector(AppLocalizations localizations) {
+  Widget _buildModeSelector(AppLocalizations localizations, DesktopVpnProvider vpnProvider) {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -140,16 +841,24 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
             ConnectionMode.vpn,
             Icons.vpn_lock_rounded,
             'VPN Mode',
-            'Full system VPN protection',
+            _hasAdminRights && _hasWinTunDriver
+                ? 'Full system VPN protection'
+                : _hasAdminRights
+                    ? 'Requires WinTun driver'
+                    : 'Requires Administrator rights',
             const Color(0xFF00FF87),
+            vpnProvider,
+            requiresAdmin: !_hasAdminRights || !_hasWinTunDriver,
           ),
           const SizedBox(height: 12),
           _buildModeOption(
             ConnectionMode.proxy,
             Icons.lan_rounded,
             'Proxy Mode',
-            'System-wide proxy',
+            'System-wide proxy (Recommended)',
             const Color(0xFF667EEA),
+            vpnProvider,
+            requiresAdmin: false,
           ),
         ],
       ),
@@ -162,8 +871,11 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     String title,
     String description,
     Color accentColor,
-  ) {
+    DesktopVpnProvider vpnProvider, {
+    bool requiresAdmin = false,
+  }) {
     final isSelected = _connectionMode == mode;
+    final isDisabled = vpnProvider.isConnected;
     
     return Container(
       decoration: BoxDecoration(
@@ -185,7 +897,10 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => setState(() => _connectionMode = mode),
+          onTap: isDisabled ? null : () {
+            setState(() => _connectionMode = mode);
+            vpnProvider.setConnectionMode(mode);
+          },
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -210,25 +925,12 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white.withOpacity(0.8),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                          
                 if (isSelected)
                   Icon(
                     Icons.check_circle_rounded,
@@ -244,8 +946,11 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   }
 
   Widget _buildSidebar(BuildContext context, AppLocalizations localizations) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final sidebarWidth = screenWidth < 1200 ? 240.0 : 280.0;
+    
     return Container(
-      width: 280,
+      width: sidebarWidth,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
@@ -324,10 +1029,10 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           const Divider(color: Color(0xFF1E2433), thickness: 1),
           const SizedBox(height: 20),
           
-          _buildNavItem(Icons.home_rounded, 'Home', 0),
-          _buildNavItem(Icons.dns_rounded, 'Servers', 1),
-          _buildNavItem(Icons.settings_rounded, 'Settings', 2),
-          _buildNavItem(Icons.info_rounded, 'About', 3),
+          _buildNavItem(Icons.home_rounded, localizations.translate('nav.home'), 0),
+          _buildNavItem(Icons.dns_rounded, localizations.translate('nav.servers'), 1),
+          _buildNavItem(Icons.settings_rounded, localizations.translate('nav.settings'), 2),
+          _buildNavItem(Icons.info_rounded, localizations.translate('nav.about'), 3),
           
           const Spacer(),
           
@@ -506,7 +1211,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           
           const SizedBox(height: 32),
           
-          _buildServerCard(context, vpnProvider, localizations),
+          _buildCurrentServerCard(context, vpnProvider, localizations),
         ],
       ),
     );
@@ -713,7 +1418,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     ).animate().scale(duration: 200.ms);
   }
 
-  Widget _buildServerCard(BuildContext context, DesktopVpnProvider vpnProvider, AppLocalizations localizations) {
+  Widget _buildCurrentServerCard(BuildContext context, DesktopVpnProvider vpnProvider, AppLocalizations localizations) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -756,19 +1461,21 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  vpnProvider.selectedServer ?? 'No server selected',
+                  vpnProvider.selectedServerConfig?.remark ?? 'No server selected',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           
           IconButton(
-            onPressed: () => _showServerDialog(context, vpnProvider),
+            onPressed: () => setState(() => _selectedNavIndex = 1),
             icon: const Icon(Icons.chevron_right_rounded),
             color: Colors.white.withOpacity(0.8),
             iconSize: 28,
@@ -896,25 +1603,260 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
 
   void _handleConnection(DesktopVpnProvider vpnProvider) async {
     if (vpnProvider.isConnected) {
+      _statsTimer?.cancel();
+      
       if (_connectionMode == ConnectionMode.proxy) {
         await WindowsProxyService.disableSystemProxy();
+      } else if (_connectionMode == ConnectionMode.vpn) {
+        await WindowsTunService.disableVpnRouting();
       }
+      
+      await WindowsV2rayService.stopV2ray();
       await vpnProvider.disconnect();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Disconnected successfully'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     } else {
-      if (vpnProvider.selectedServer == null) {
-        _showServerDialog(context, vpnProvider);
+      // Check VPN mode requirements
+      if (_connectionMode == ConnectionMode.vpn) {
+        if (!_hasAdminRights) {
+          if (mounted) {
+            _showAdminRequiredDialog();
+          }
+          return;
+        }
+        
+        if (!_hasWinTunDriver) {
+          if (mounted) {
+            _showWinTunRequiredDialog();
+          }
+          return;
+        }
+      }
+      
+      if (vpnProvider.selectedServerConfig == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select a server first'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => _selectedNavIndex = 1);
         return;
       }
       
-      await vpnProvider.connect();
+      vpnProvider.setConnecting(true);
       
-      if (_connectionMode == ConnectionMode.proxy) {
-        await WindowsProxyService.enableSystemProxy(
-          host: '127.0.0.1',
-          port: 10808,
-        );
+      try {
+        final config = vpnProvider.selectedServerConfig!.fullConfig;
+        final success = await WindowsV2rayService.startV2ray(config);
+        
+        if (success) {
+          await vpnProvider.connect();
+          _startStatsMonitoring(vpnProvider);
+          
+          if (_connectionMode == ConnectionMode.proxy) {
+            await WindowsProxyService.enableSystemProxy(
+              host: '127.0.0.1',
+              port: 10808,
+            );
+          } else if (_connectionMode == ConnectionMode.vpn) {
+            await WindowsTunService.enableVpnRouting(
+              proxyHost: '127.0.0.1',
+              proxyPort: 10808,
+            );
+          }
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  _connectionMode == ConnectionMode.vpn
+                      ? 'Connected in VPN Mode'
+                      : 'Connected in Proxy Mode'
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          vpnProvider.setConnecting(false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to start V2Ray service'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        vpnProvider.setConnecting(false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Connection error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
+  }
+  
+  void _showAdminRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1F2E),
+        title: Row(
+          children: [
+            const Icon(Icons.admin_panel_settings, color: Colors.orange, size: 32),
+            const SizedBox(width: 12),
+            const Text(
+              'Administrator Rights Required',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'VPN Mode requires administrator privileges to configure system routing.',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Options:',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '1. Restart the app as Administrator\n2. Use Proxy Mode instead (no admin required)',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _connectionMode = ConnectionMode.proxy);
+            },
+            child: const Text('Use Proxy Mode'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await WindowsTunService.requestAdminRights();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('Restart as Admin'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showWinTunRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1F2E),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_rounded, color: Colors.orange, size: 32),
+            const SizedBox(width: 12),
+            const Text(
+              'WinTun Driver Required',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'VPN Mode requires the WinTun driver for creating a virtual network interface.',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Note:',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'For now, please use Proxy Mode which works without additional drivers.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _connectionMode = ConnectionMode.proxy);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF667EEA),
+            ),
+            child: const Text('Use Proxy Mode'),
+          ),
+        ],
+      ),
+    );
   }
   
   String _formatSpeed(int bytesPerSecond) {
@@ -925,82 +1867,5 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     } else {
       return '${(bytesPerSecond / (1024 * 1024)).toStringAsFixed(2)} MB/s';
     }
-  }
-
-  void _showServerDialog(BuildContext context, DesktopVpnProvider vpnProvider) {
-    final servers = [
-      'Germany - Frankfurt',
-      'United States - New York',
-      'United Kingdom - London',
-      'Singapore',
-      'Japan - Tokyo',
-      'France - Paris',
-    ];
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1F2E),
-        title: const Text(
-          'Select Server',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: SizedBox(
-          width: 400,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: servers.length,
-            itemBuilder: (context, index) {
-              final server = servers[index];
-              final isSelected = vpnProvider.selectedServer == server;
-              
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF667EEA).withOpacity(0.2)
-                      : Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF667EEA)
-                        : Colors.white.withOpacity(0.1),
-                  ),
-                ),
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.language_rounded,
-                    color: Color(0xFF667EEA),
-                  ),
-                  title: Text(
-                    server,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  trailing: isSelected
-                      ? const Icon(
-                          Icons.check_circle,
-                          color: Color(0xFF667EEA),
-                        )
-                      : null,
-                  onTap: () {
-                    vpnProvider.selectServer(server);
-                    Navigator.pop(context);
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
   }
 }

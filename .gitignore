@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# V2Ray Core binaries (too large for git)
+assets/v2ray-core/*.exe
+assets/v2ray-core/*.dat
+assets/v2ray-core/*.json
+!assets/v2ray-core/README.md
