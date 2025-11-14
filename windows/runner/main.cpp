@@ -37,7 +37,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   );
   Win32Window::Size size(window_width, window_height);
   
-  if (!window.Create(L"Tiksar VPN - نسخه ویندوز", origin, size)) {
+  if (!window.Create(L"Tiksar VPN", origin, size)) {
+    ::MessageBox(nullptr, 
+                L"Failed to create application window.\n\nPlease try:\n"
+                L"1. Running as Administrator\n"
+                L"2. Updating graphics drivers\n"
+                L"3. Reinstalling the application",
+                L"Tiksar VPN - Error", 
+                MB_OK | MB_ICONERROR);
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

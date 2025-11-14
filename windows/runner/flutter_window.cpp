@@ -11,6 +11,11 @@ FlutterWindow::~FlutterWindow() {}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
+    ::MessageBox(nullptr,
+                L"Failed to initialize window base.\n\n"
+                L"Please contact support.",
+                L"Tiksar VPN - Initialization Error",
+                MB_OK | MB_ICONERROR);
     return false;
   }
 
@@ -22,14 +27,21 @@ bool FlutterWindow::OnCreate() {
       frame.right - frame.left, frame.bottom - frame.top, project_);
   // Ensure that basic setup of the controller was successful.
   if (!flutter_controller_->engine() || !flutter_controller_->view()) {
+    ::MessageBox(nullptr,
+                L"Failed to initialize Flutter engine.\n\n"
+                L"Please try:\n"
+                L"1. Reinstalling the application\n"
+                L"2. Updating Windows to latest version\n"
+                L"3. Installing Visual C++ Redistributables",
+                L"Tiksar VPN - Engine Error",
+                MB_OK | MB_ICONERROR);
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
-  });
+  // Show window immediately instead of waiting for first frame
+  this->Show();
 
   // Flutter can complete the first frame before the "show window" callback is
   // registered. The following call ensures a frame is pending to ensure the

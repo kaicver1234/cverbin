@@ -18,51 +18,111 @@ import 'theme/app_theme.dart';
 
 void main() async {
   runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    
-    debugPrint('🚀 Starting Tiksar VPN...');
-    debugPrint('📱 Platform: ${Platform.operatingSystem}');
-    
-    // Skip Firebase for desktop
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
-        debugPrint('📲 Initializing Firebase for mobile...');
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-        
-        final analytics = FirebaseAnalytics.instance;
-        await analytics.setAnalyticsCollectionEnabled(true);
-        await NotificationService().initialize();
-        await analytics.logAppOpen();
-        
-        debugPrint('✅ Firebase initialized successfully');
-      } else {
-        debugPrint('💻 Desktop platform - skipping Firebase');
+      WidgetsFlutterBinding.ensureInitialized();
+      
+      debugPrint('🚀 Starting Tiksar VPN...');
+      debugPrint('📱 Platform: ${Platform.operatingSystem}');
+      
+      // Skip Firebase for desktop
+      try {
+        if (Platform.isAndroid || Platform.isIOS) {
+          debugPrint('📲 Initializing Firebase for mobile...');
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+          
+          final analytics = FirebaseAnalytics.instance;
+          await analytics.setAnalyticsCollectionEnabled(true);
+          await NotificationService().initialize();
+          await analytics.logAppOpen();
+          
+          debugPrint('✅ Firebase initialized successfully');
+        } else {
+          debugPrint('💻 Desktop platform - skipping Firebase');
+        }
+      } catch (e, stackTrace) {
+        debugPrint('❌ Firebase error (safe to ignore on desktop): $e');
       }
+      
+      debugPrint('🌐 Initializing language provider...');
+      final languageProvider = LanguageProvider();
+      await languageProvider.initialize();
+      debugPrint('✅ Language provider initialized');
+
+      debugPrint('💾 Loading preferences...');
+      final prefs = await SharedPreferences.getInstance();
+      final bool languageSelected = prefs.getBool('language_selected') ?? false;
+      final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
+      debugPrint('✅ Preferences: lang=$languageSelected, privacy=$privacyAccepted');
+
+      debugPrint('🎨 Launching app...');
+      runApp(
+        MyApp(
+          languageSelected: languageSelected,
+          privacyAccepted: privacyAccepted, 
+          languageProvider: languageProvider
+        ),
+      );
     } catch (e, stackTrace) {
-      debugPrint('❌ Firebase error (safe to ignore on desktop): $e');
+      debugPrint('💥 INITIALIZATION ERROR: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
+      // Try to show error screen even if initialization failed
+      runApp(
+        MaterialApp(
+          home: Scaffold(
+            backgroundColor: const Color(0xFF0A0E1A),
+            body: Center(
+              child: Container(
+                padding: const EdgeInsets.all(40),
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: Colors.red,
+                      size: 80,
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Initialization Error',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Failed to start Tiksar VPN\n\n$e',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton(
+                      onPressed: () => exit(0),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                      ),
+                      child: const Text('Exit'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
     }
-    
-    debugPrint('🌐 Initializing language provider...');
-    final languageProvider = LanguageProvider();
-    await languageProvider.initialize();
-    debugPrint('✅ Language provider initialized');
-
-    debugPrint('💾 Loading preferences...');
-    final prefs = await SharedPreferences.getInstance();
-    final bool languageSelected = prefs.getBool('language_selected') ?? false;
-    final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
-    debugPrint('✅ Preferences: lang=$languageSelected, privacy=$privacyAccepted');
-
-    debugPrint('🎨 Launching app...');
-    runApp(
-      MyApp(
-        languageSelected: languageSelected,
-        privacyAccepted: privacyAccepted, 
-        languageProvider: languageProvider
-      ),
-    );
   }, (error, stackTrace) {
     debugPrint('💥 FATAL ERROR: $error');
     debugPrint('Stack trace: $stackTrace');

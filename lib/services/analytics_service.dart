@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -7,17 +8,32 @@ class AnalyticsService {
   factory AnalyticsService() => _instance;
   AnalyticsService._internal();
 
-  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  FirebaseAnalytics? _analytics;
   bool _isInitialized = false;
+  bool _isSupported = false;
 
-  FirebaseAnalytics get analytics => _analytics;
+  FirebaseAnalytics? get analytics => _analytics;
+
+  /// Check if analytics is supported on this platform
+  bool get isSupported => _isSupported;
 
   /// Initialize Analytics with app info
   Future<void> initialize() async {
     if (_isInitialized) return;
     
+    // Skip analytics on desktop platforms
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      debugPrint('💻 Analytics: Skipped on desktop platform');
+      _isSupported = false;
+      _isInitialized = true;
+      return;
+    }
+    
     try {
-      await _analytics.setAnalyticsCollectionEnabled(true);
+      _analytics = FirebaseAnalytics.instance;
+      _isSupported = true;
+      
+      await _analytics!.setAnalyticsCollectionEnabled(true);
       
       // Set app version as user property
       final packageInfo = await PackageInfo.fromPlatform();
@@ -34,6 +50,7 @@ class AnalyticsService {
       debugPrint('✅ Analytics initialized successfully');
     } catch (e) {
       debugPrint('❌ Analytics initialization failed: $e');
+      _isSupported = false;
     }
   }
 
@@ -45,8 +62,10 @@ class AnalyticsService {
     String? country,
     String? protocol,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'vpn_connect',
         parameters: {
           'server_name': serverName,
@@ -68,8 +87,10 @@ class AnalyticsService {
   Future<void> logAutoConnect({
     required String serverName,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'vpn_auto_connect',
         parameters: {
           'server_name': serverName,
@@ -90,8 +111,10 @@ class AnalyticsService {
     required int downloadBytes,
     String? disconnectReason,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'vpn_disconnect',
         parameters: {
           'server_name': serverName,
@@ -114,8 +137,10 @@ class AnalyticsService {
     required String serverName,
     required String errorMessage,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'vpn_connection_failure',
         parameters: {
           'server_name': serverName,
@@ -135,8 +160,10 @@ class AnalyticsService {
     required int serverCount,
     required String subscriptionType,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'subscription_added',
         parameters: {
           'subscription_name': subscriptionName,
@@ -156,8 +183,10 @@ class AnalyticsService {
     required String subscriptionName,
     required int newServerCount,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'subscription_updated',
         parameters: {
           'subscription_name': subscriptionName,
@@ -175,8 +204,10 @@ class AnalyticsService {
     required String latestVersion,
     required bool updateAvailable,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'update_check',
         parameters: {
           'current_version': currentVersion,
@@ -194,8 +225,10 @@ class AnalyticsService {
     required String fromLanguage,
     required String toLanguage,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'language_change',
         parameters: {
           'from_language': fromLanguage,
@@ -212,8 +245,10 @@ class AnalyticsService {
     required String screenName,
     String? screenClass,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logScreenView(
+      await _analytics!.logScreenView(
         screenName: screenName,
         screenClass: screenClass ?? screenName,
       );
@@ -228,8 +263,10 @@ class AnalyticsService {
     required String errorMessage,
     String? serverName,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'connection_error',
         parameters: {
           'error_type': errorType,
@@ -250,8 +287,10 @@ class AnalyticsService {
     required int pingMs,
     required bool success,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'server_ping_test',
         parameters: {
           'server_name': serverName,
@@ -270,8 +309,10 @@ class AnalyticsService {
     required String serverName,
     required String selectionMethod,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'server_selection',
         parameters: {
           'server_name': serverName,
@@ -290,8 +331,10 @@ class AnalyticsService {
     required String featureName,
     Map<String, dynamic>? additionalParams,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'feature_usage',
         parameters: {
           'feature_name': featureName,
@@ -307,8 +350,10 @@ class AnalyticsService {
 
   /// Log user session
   Future<void> logAppOpen() async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logAppOpen();
+      await _analytics!.logAppOpen();
       debugPrint('📊 Analytics: App Opened');
     } catch (e) {
       debugPrint('⚠️ Analytics error: $e');
@@ -320,8 +365,10 @@ class AnalyticsService {
     required String settingName,
     required String newValue,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.logEvent(
+      await _analytics!.logEvent(
         name: 'settings_change',
         parameters: {
           'setting_name': settingName,
@@ -340,8 +387,10 @@ class AnalyticsService {
     required String name,
     required String value,
   }) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.setUserProperty(
+      await _analytics!.setUserProperty(
         name: name,
         value: value,
       );
@@ -352,8 +401,10 @@ class AnalyticsService {
 
   /// Set user ID (optional, for tracking specific users)
   Future<void> setUserId(String userId) async {
+    if (!_isSupported || _analytics == null) return;
+    
     try {
-      await _analytics.setUserId(id: userId);
+      await _analytics!.setUserId(id: userId);
     } catch (e) {
       // Silently fail
     }

@@ -8,13 +8,15 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  FirebaseMessaging? _firebaseMessaging;
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   Future<void> initialize() async {
     try {
       // Only initialize Firebase messaging on mobile platforms
       if (Platform.isAndroid || Platform.isIOS) {
+        _firebaseMessaging = FirebaseMessaging.instance;
+        
         // Request notification permissions
         await _requestPermissions();
         
@@ -22,7 +24,7 @@ class NotificationService {
         await _initializeLocalNotifications();
         
         // Subscribe to all_users topic to receive notifications for all users
-        await _firebaseMessaging.subscribeToTopic('all_users');
+        await _firebaseMessaging!.subscribeToTopic('all_users');
         
         // Handle foreground messages
         FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -41,7 +43,9 @@ class NotificationService {
   }
 
   Future<void> _requestPermissions() async {
-    await _firebaseMessaging.requestPermission(
+    if (_firebaseMessaging == null) return;
+    
+    await _firebaseMessaging!.requestPermission(
       alert: true,
       announcement: false,
       badge: true,
