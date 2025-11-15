@@ -995,6 +995,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               ),
             ),
             const SizedBox(width: 16),
+            // Country Flag
+            if (selectedConfig?.countryCode != null) ...[
+              Text(
+                selectedConfig!.countryFlag,
+                style: const TextStyle(fontSize: 36),
+              ),
+              const SizedBox(width: 12),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1015,6 +1023,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  if (selectedConfig?.countryCode != null)
+                    Text(
+                      selectedConfig!.countryName,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1100,17 +1116,34 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   Expanded(
                     child: StreamBuilder<int?>(
                       stream: Stream.periodic(
-                        const Duration(seconds: 10),
+                        const Duration(seconds: 5),
                         (_) => v2rayService.getCurrentPing(),
                       ).asyncMap((future) => future),
                       builder: (context, snapshot) {
+                        String latencyValue = '-- ms';
+                        Color latencyColor = Colors.purple;
+                        
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          latencyValue = 'Testing...';
+                        } else if (snapshot.hasData && snapshot.data != null) {
+                          final ping = snapshot.data!;
+                          latencyValue = '${ping} ms';
+                          
+                          // Color based on ping quality
+                          if (ping < 100) {
+                            latencyColor = Colors.green;
+                          } else if (ping < 300) {
+                            latencyColor = Colors.orange;
+                          } else {
+                            latencyColor = Colors.red;
+                          }
+                        }
+                        
                         return _buildStatItem(
                           icon: Icons.speed,
                           label: 'Latency',
-                          value: snapshot.hasData && snapshot.data != null
-                              ? '${snapshot.data} ms'
-                              : '-- ms',
-                          color: Colors.purple,
+                          value: latencyValue,
+                          color: latencyColor,
                         );
                       },
                     ),

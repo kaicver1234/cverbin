@@ -24,25 +24,45 @@ void main() async {
       debugPrint('🚀 Starting Tiksar VPN...');
       debugPrint('📱 Platform: ${Platform.operatingSystem}');
       
-      // Skip Firebase for desktop
+      // Initialize Firebase (optional - app works without it)
       try {
         if (Platform.isAndroid || Platform.isIOS) {
           debugPrint('📲 Initializing Firebase for mobile...');
+          
+          // Set timeout for Firebase initialization
           await Firebase.initializeApp(
             options: DefaultFirebaseOptions.currentPlatform,
+          ).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              debugPrint('⏱️ Firebase initialization timeout - continuing without Firebase');
+              throw TimeoutException('Firebase timeout');
+            },
           );
           
           final analytics = FirebaseAnalytics.instance;
-          await analytics.setAnalyticsCollectionEnabled(true);
-          await NotificationService().initialize();
-          await analytics.logAppOpen();
+          await analytics.setAnalyticsCollectionEnabled(true).timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => debugPrint('⏱️ Analytics timeout'),
+          );
+          
+          await NotificationService().initialize().timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => debugPrint('⏱️ Notification service timeout'),
+          );
+          
+          await analytics.logAppOpen().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => debugPrint('⏱️ Log app open timeout'),
+          );
           
           debugPrint('✅ Firebase initialized successfully');
         } else {
           debugPrint('💻 Desktop platform - skipping Firebase');
         }
-      } catch (e, stackTrace) {
-        debugPrint('❌ Firebase error (safe to ignore on desktop): $e');
+      } catch (e) {
+        debugPrint('⚠️ Firebase initialization failed (app continues normally): $e');
+        // App continues to work without Firebase
       }
       
       debugPrint('🌐 Initializing language provider...');

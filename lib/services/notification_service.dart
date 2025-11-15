@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -17,14 +19,23 @@ class NotificationService {
       if (Platform.isAndroid || Platform.isIOS) {
         _firebaseMessaging = FirebaseMessaging.instance;
         
-        // Request notification permissions
-        await _requestPermissions();
+        // Request notification permissions (with timeout)
+        await _requestPermissions().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => debugPrint('⏱️ Notification permission timeout'),
+        );
         
         // Initialize local notifications for showing notifications in foreground
-        await _initializeLocalNotifications();
+        await _initializeLocalNotifications().timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => debugPrint('⏱️ Local notifications timeout'),
+        );
         
-        // Subscribe to all_users topic to receive notifications for all users
-        await _firebaseMessaging!.subscribeToTopic('all_users');
+        // Subscribe to all_users topic to receive notifications for all users (with timeout)
+        await _firebaseMessaging!.subscribeToTopic('all_users').timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => debugPrint('⏱️ Topic subscription timeout'),
+        );
         
         // Handle foreground messages
         FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -32,13 +43,11 @@ class NotificationService {
         // Handle background messages
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       }
-      // Notification service initialized
+      debugPrint('✅ Notification service initialized');
       
     } catch (e) {
-      // Error initializing notifications - skip for desktop
-      if (Platform.isAndroid || Platform.isIOS) {
-        rethrow;
-      }
+      debugPrint('⚠️ Notification service error (app continues): $e');
+      // App continues to work without notifications
     }
   }
 

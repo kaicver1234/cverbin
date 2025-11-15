@@ -111,6 +111,15 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
               _ping = (result.reduce((a, b) => a + b) / result.length).round();
               _livePings.addAll(result);
             }
+            // Don't cancel timer here - let it continue until download starts
+          }
+          
+          // When download phase starts, ensure final ping is shown
+          if (phase == TestPhase.download && progress == 0.0) {
+            final result = _speedTestService.latencies;
+            if (result.isNotEmpty && _ping == 0) {
+              _ping = (result.reduce((a, b) => a + b) / result.length).round();
+            }
             _pingDisplayTimer?.cancel();
           }
         });
@@ -153,8 +162,9 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   
   void _startLivePingMonitoring() {
     _pingDisplayTimer?.cancel();
-    _pingDisplayTimer = Timer.periodic(const Duration(milliseconds: 800), (timer) {
-      if (_currentPhase != TestPhase.loading || !mounted) {
+    _pingDisplayTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      // Keep showing ping until download phase starts
+      if (_currentPhase == TestPhase.download || _currentPhase == TestPhase.upload || !mounted) {
         timer.cancel();
         return;
       }
@@ -548,7 +558,9 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
             _buildMetricCard(
               icon: Icons.speed,
               label: AppLocalizations.of(context).translate('speed_test.ping_label'),
-              value: _ping > 0 ? '$_ping $ms' : '-- $ms',
+              value: _currentPhase == TestPhase.loading && _currentStatus == SpeedTestStatus.testing
+                  ? (_ping > 0 ? '$_ping $ms' : 'Testing...')
+                  : (_ping > 0 ? '$_ping $ms' : '-- $ms'),
               color: AppColors.warningColor,
             ),
           ],

@@ -55,15 +55,30 @@ android {
 
     buildTypes {
         release {
-            // ✅ همیشه از debug key استفاده کن تا update کار کنه
-            // همه build ها باید با یک key sign بشن
-            signingConfig = signingConfigs.getByName("debug")
+            // ✅ Use release signing config for production builds
+            // This prevents Google Play Protect warnings
+            signingConfig = if (keystorePropertiesFile.exists() && keystoreProperties.isNotEmpty()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+
+            isMinifyEnabled = true
+            isShrinkResources = true
             
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             isShrinkResources = false
         }
     }
-    
+
     lint {
         checkReleaseBuilds = false
         abortOnError = false
@@ -73,7 +88,7 @@ android {
             "MissingApplicationIcon"
         )
     }
-    
+
     packagingOptions {
         resources {
             excludes += listOf(

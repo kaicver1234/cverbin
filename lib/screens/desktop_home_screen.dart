@@ -26,23 +26,31 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
   List<V2RayConfig> _servers = [];
   bool _isLoadingServers = false;
   Timer? _statsTimer;
-  bool _hasAdminRights = false;
-  bool _hasWinTunDriver = false;
   
   @override
   void initState() {
     super.initState();
     debugPrint('💻 DesktopHomeScreen: initState');
     _loadServers();
-    _checkVpnCapabilities();
+    _checkAdminRights();
   }
   
-  Future<void> _checkVpnCapabilities() async {
-    final capabilities = await WindowsTunService.getVpnCapabilities();
-    setState(() {
-      _hasAdminRights = capabilities['hasAdminRights'] as bool;
-      _hasWinTunDriver = capabilities['hasWinTunDriver'] as bool;
-    });
+  Future<void> _checkAdminRights() async {
+    final hasAdmin = await WindowsTunService.checkAdminRights();
+    if (!hasAdmin && mounted) {
+      // Show warning that VPN mode requires admin
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Run as Administrator for true VPN mode'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      });
+    }
   }
   
   @override
@@ -113,7 +121,7 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
                           ? _buildServersContent(context, vpnProvider, localizations)
                           : _selectedNavIndex == 2
                               ? _buildSettingsContent(context, localizations)
-                              : _buildAboutContent(context),
+                              : _buildAboutContent(context, localizations),
                 ),
               ],
             ),
@@ -345,45 +353,12 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           ),
           const SizedBox(height: 32),
           
-          // Language Settings
+          // Language Settings - Only essential setting
           _buildSettingCard(
             localizations.translate('language_settings.title'),
             Icons.language_rounded,
             [
               _buildLanguageSelector(context, languageProvider, localizations),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          _buildSettingCard(
-            localizations.translate('desktop.connection_settings'),
-            Icons.link_rounded,
-            [
-              _buildSettingItem(localizations.translate('desktop.auto_connect_startup'), true, (val) {}),
-              _buildSettingItem(localizations.translate('desktop.auto_reconnect'), true, (val) {}),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          _buildSettingCard(
-            'Network',
-            Icons.network_check_rounded,
-            [
-              _buildSettingItem('Use system DNS', false, (val) {}),
-              _buildSettingItem('Enable IPv6', false, (val) {}),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          _buildSettingCard(
-            'Advanced',
-            Icons.settings_rounded,
-            [
-              _buildSettingItem('Enable logs', true, (val) {}),
-              _buildSettingItem('Start minimized', false, (val) {}),
             ],
           ),
         ],
@@ -521,38 +496,17 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     );
   }
   
-  Widget _buildSettingItem(String title, bool value, Function(bool) onChanged) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 14,
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: const Color(0xFF667EEA),
-          ),
-        ],
-      ),
-    );
-  }
+
   
-  Widget _buildAboutContent(BuildContext context) {
+  Widget _buildAboutContent(BuildContext context, AppLocalizations localizations) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'About Tiksar VPN',
-            style: TextStyle(
+          Text(
+            localizations.translate('desktop.about_tiksar'),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -1329,37 +1283,50 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           ),
         ),
         
-        if (_connectionMode == ConnectionMode.proxy && isConnected)
+        if (isConnected)
           Container(
             margin: const EdgeInsets.only(top: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF667EEA).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+              color: _connectionMode == ConnectionMode.vpn
+                  ? const Color(0xFF00FF87).withOpacity(0.15)
+                  : const Color(0xFF667EEA).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: const Color(0xFF667EEA).withOpacity(0.4),
+                color: _connectionMode == ConnectionMode.vpn
+                    ? const Color(0xFF00FF87).withOpacity(0.3)
+                    : const Color(0xFF667EEA).withOpacity(0.3),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.lan_rounded,
-                  color: Color(0xFF667EEA),
-                  size: 18,
+                Icon(
+                  _connectionMode == ConnectionMode.vpn
+                      ? Icons.vpn_lock_rounded
+                      : Icons.lan_rounded,
+                  color: _connectionMode == ConnectionMode.vpn
+                      ? const Color(0xFF00FF87)
+                      : const Color(0xFF667EEA),
+                  size: 16,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Proxy Mode Active',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    _connectionMode == ConnectionMode.vpn
+                        ? 'True VPN - All system traffic routed'
+                        : 'HTTP Proxy - Browsers only',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+
       ],
     );
   }
@@ -1618,10 +1585,14 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
     if (vpnProvider.isConnected) {
       _statsTimer?.cancel();
       
-      if (_connectionMode == ConnectionMode.proxy) {
+      // Stop based on mode
+      if (_connectionMode == ConnectionMode.vpn) {
+        // Stop TUN mode
+        await WindowsTunService.stopTunMode();
+        await WindowsTunService.disableSystemRouting();
+      } else {
+        // Stop proxy mode
         await WindowsProxyService.disableSystemProxy();
-      } else if (_connectionMode == ConnectionMode.vpn) {
-        await WindowsTunService.disableVpnRouting();
       }
       
       await WindowsV2rayService.stopV2ray();
@@ -1630,21 +1601,20 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Disconnected successfully'),
+            content: Text('Disconnected'),
             backgroundColor: Colors.orange,
+            duration: Duration(seconds: 1),
           ),
         );
       }
     } else {
-      // No special requirements needed anymore!
-      // Both VPN and Proxy modes work without admin rights or WinTun
-      
       if (vpnProvider.selectedServerConfig == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Please select a server first'),
               backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
             ),
           );
         }
@@ -1652,42 +1622,76 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
         return;
       }
       
+      // Check admin rights for VPN mode
+      if (_connectionMode == ConnectionMode.vpn) {
+        final hasAdmin = await WindowsTunService.checkAdminRights();
+        if (!hasAdmin) {
+          vpnProvider.setConnecting(false);
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Administrator Rights Required'),
+                content: const Text(
+                  'True VPN mode requires administrator privileges to route all system traffic.\n\n'
+                  'Please:\n'
+                  '1. Close this app\n'
+                  '2. Right-click on the app\n'
+                  '3. Select "Run as administrator"\n\n'
+                  'Or use Proxy mode which works without admin rights.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+          return;
+        }
+      }
+      
       vpnProvider.setConnecting(true);
       
       try {
         final config = vpnProvider.selectedServerConfig!.fullConfig;
-        final success = await WindowsV2rayService.startV2ray(config);
         
-        if (success) {
-          await vpnProvider.connect();
-          _startStatsMonitoring(vpnProvider);
-          
-          if (_connectionMode == ConnectionMode.proxy) {
-            // Use HTTP proxy (port 10809) for better compatibility
+        bool success = false;
+        
+        if (_connectionMode == ConnectionMode.vpn) {
+          // True VPN Mode: Routes ALL system traffic
+          success = await WindowsTunService.startTunMode(config);
+          if (success) {
+            await WindowsTunService.enableSystemRouting();
+          }
+        } else {
+          // Proxy Mode: Only browsers and apps that respect proxy
+          success = await WindowsV2rayService.startV2ray(config);
+          if (success) {
             await WindowsProxyService.enableSystemProxy(
               host: '127.0.0.1',
               port: 10809,
               isSocks: false,
             );
-          } else if (_connectionMode == ConnectionMode.vpn) {
-            // VPN Mode: Use SOCKS5 proxy with system-wide routing
-            // This works without WinTun driver - acts like global proxy
-            await WindowsProxyService.enableSystemProxy(
-              host: '127.0.0.1',
-              port: 10808,
-              isSocks: true,
-            );
           }
+        }
+        
+        if (success) {
+          await vpnProvider.connect();
+          _startStatsMonitoring(vpnProvider);
           
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   _connectionMode == ConnectionMode.vpn
-                      ? 'Connected in VPN Mode'
-                      : 'Connected in Proxy Mode'
+                      ? 'Connected - True VPN Mode (All traffic)'
+                      : 'Connected - Proxy Mode (Browsers only)'
                 ),
                 backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
               ),
             );
           }
@@ -1696,8 +1700,9 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Failed to start V2Ray service'),
+                content: Text('Connection failed'),
                 backgroundColor: Colors.red,
+                duration: Duration(seconds: 2),
               ),
             );
           }
@@ -1707,160 +1712,14 @@ class _DesktopHomeScreenState extends State<DesktopHomeScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Connection error: $e'),
+              content: Text('Error: ${e.toString().substring(0, 50)}'),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
             ),
           );
         }
       }
     }
-  }
-  
-  void _showAdminRequiredDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1F2E),
-        title: Row(
-          children: [
-            const Icon(Icons.admin_panel_settings, color: Colors.orange, size: 32),
-            const SizedBox(width: 12),
-            const Text(
-              'Administrator Rights Required',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'VPN Mode requires administrator privileges to configure system routing.',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Options:',
-                    style: TextStyle(
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '1. Restart the app as Administrator\n2. Use Proxy Mode instead (no admin required)',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => _connectionMode = ConnectionMode.proxy);
-            },
-            child: const Text('Use Proxy Mode'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await WindowsTunService.requestAdminRights();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-            ),
-            child: const Text('Restart as Admin'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  void _showWinTunRequiredDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1F2E),
-        title: Row(
-          children: [
-            const Icon(Icons.warning_rounded, color: Colors.orange, size: 32),
-            const SizedBox(width: 12),
-            const Text(
-              'WinTun Driver Required',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'VPN Mode requires the WinTun driver for creating a virtual network interface.',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Note:',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'For now, please use Proxy Mode which works without additional drivers.',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => _connectionMode = ConnectionMode.proxy);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF667EEA),
-            ),
-            child: const Text('Use Proxy Mode'),
-          ),
-        ],
-      ),
-    );
   }
   
   String _formatSpeed(int bytesPerSecond) {

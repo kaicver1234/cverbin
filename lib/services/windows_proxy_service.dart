@@ -1,6 +1,4 @@
-import 'dart:ffi';
 import 'dart:io';
-import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
 class WindowsProxyService {

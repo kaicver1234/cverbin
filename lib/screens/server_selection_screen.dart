@@ -72,18 +72,21 @@ class _ServerSelectionScreenState
     final provider = Provider.of<V2RayProvider>(context, listen: false);
     final servers = _getFilteredServers(provider);
     
+    // Clear any stuck ping progress flags before starting
+    provider.v2rayService.clearPingProgress();
+    
     _showSnackBar('Testing ${servers.length} servers with V2Ray Core...', Colors.blue, duration: 2);
     
     int successCount = 0;
     
-    // Test servers in batches of 3 to avoid overwhelming V2Ray Core
-    for (int i = 0; i < servers.length; i += 3) {
-      final batch = servers.skip(i).take(3).toList();
+    // Test servers in batches of 2 for better reliability
+    for (int i = 0; i < servers.length; i += 2) {
+      final batch = servers.skip(i).take(2).toList();
       final futures = batch.map((server) async {
       try {
-        // Add timeout for each server test (6 seconds max)
+        // Add timeout for each server test (10 seconds max to allow for waiting)
         final ping = await _testSingleServerPing(server).timeout(
-          const Duration(seconds: 6),
+          const Duration(seconds: 10),
           onTimeout: () {
             debugPrint('⚠️ Server ${server.remark} timed out');
             return 9999;
@@ -112,9 +115,9 @@ class _ServerSelectionScreenState
       // Wait for this batch to complete
       try {
         await Future.wait(futures).timeout(
-          const Duration(seconds: 10),
+          const Duration(seconds: 15),
           onTimeout: () {
-            debugPrint('⚠️ Batch timeout');
+            debugPrint('⚠️ Batch timeout after 15s');
             return [];
           },
         );
@@ -122,8 +125,8 @@ class _ServerSelectionScreenState
         debugPrint('❌ Error in batch: $e');
       }
       
-      // Delay between batches to avoid overwhelming V2Ray Core
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Small delay between batches
+      await Future.delayed(const Duration(milliseconds: 200));
     }
     
     _pingAnimationController.stop();

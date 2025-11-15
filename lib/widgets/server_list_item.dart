@@ -64,6 +64,14 @@ class _ServerListItemState extends State<ServerListItem> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Country Flag
+                  if (widget.config.countryCode != null) ...[
+                    Text(
+                      widget.config.countryFlag,
+                      style: const TextStyle(fontSize: 32),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,7 +87,14 @@ class _ServerListItemState extends State<ServerListItem> {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        // Removed delay display as requested
+                        if (widget.config.countryCode != null)
+                          Text(
+                            widget.config.countryName,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
                       ],
                     ),
                   ),

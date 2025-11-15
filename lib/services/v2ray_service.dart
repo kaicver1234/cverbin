@@ -112,11 +112,19 @@ class V2RayService extends ChangeNotifier {
   void clearPingCache({String? configId}) {
     if (configId != null) {
       _pingCache.remove(configId);
+      _pingInProgress.remove(configId);
     } else {
       _pingCache.clear();
+      _pingInProgress.clear();
     }
     // Also clear native ping service cache
     NativePingService.clearCache();
+  }
+  
+  // Force clear all ping progress flags (useful if pings get stuck)
+  void clearPingProgress() {
+    _pingInProgress.clear();
+    debugPrint('🧹 Cleared all ping progress flags');
   }
 
   // Singleton pattern
@@ -467,7 +475,21 @@ class V2RayService extends ChangeNotifier {
       // Check if ping is already in progress for this host or config
       if (_pingInProgress[hostKey] == true ||
           _pingInProgress[configId] == true) {
-        // Return cached result immediately if exists, don't wait
+        // Wait for the ongoing ping to complete (max 6 seconds)
+        int attempts = 0;
+        while ((_pingInProgress[hostKey] == true || _pingInProgress[configId] == true) && attempts < 60) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          attempts++;
+          
+          // Check if result is now available in cache
+          if (_pingCache.containsKey(hostKey)) {
+            return _pingCache[hostKey]!.delay;
+          } else if (_pingCache.containsKey(configId)) {
+            return _pingCache[configId]!.delay;
+          }
+        }
+        
+        // If still in progress after waiting, return cached or null
         return _pingCache[hostKey]?.delay ?? _pingCache[configId]?.delay;
       }
 
@@ -483,7 +505,7 @@ class V2RayService extends ChangeNotifier {
         final delay = await _flutterV2ray
             .getServerDelay(config: parser.getFullConfiguration())
             .timeout(
-              const Duration(seconds: 5),
+              const Duration(seconds: 8),
               onTimeout: () {
                 debugPrint('⚠️ Ping timeout for ${config.remark}');
                 throw Exception('V2Ray ping timeout');
@@ -572,18 +594,31 @@ class V2RayService extends ChangeNotifier {
         if (line.isEmpty) continue;
 
         try {
-          if (line.startsWith('vmess://') ||
-              line.startsWith('vless://') ||
-              line.startsWith('ss://')) {
-            V2RayURL parser = FlutterV2ray.parseFromURL(line);
+          // Extract country code if present: [CC] config
+          String? countryCode;
+          String configLine = line;
+          
+          final countryCodeMatch = RegExp(r'^\[([A-Z]{2})\]\s+(.+)$').firstMatch(line);
+          if (countryCodeMatch != null) {
+            countryCode = countryCodeMatch.group(1);
+            configLine = countryCodeMatch.group(2)!;
+          }
+          
+          if (configLine.startsWith('vmess://') ||
+              configLine.startsWith('vless://') ||
+              configLine.startsWith('ss://') ||
+              configLine.startsWith('trojan://')) {
+            V2RayURL parser = FlutterV2ray.parseFromURL(configLine);
             String configType = '';
 
-            if (line.startsWith('vmess://')) {
+            if (configLine.startsWith('vmess://')) {
               configType = 'vmess';
-            } else if (line.startsWith('vless://')) {
+            } else if (configLine.startsWith('vless://')) {
               configType = 'vless';
-            } else if (line.startsWith('ss://')) {
+            } else if (configLine.startsWith('ss://')) {
               configType = 'shadowsocks';
+            } else if (configLine.startsWith('trojan://')) {
+              configType = 'trojan';
             }
 
             // Use the parsed address and port from the V2RayURL parser
@@ -596,6 +631,7 @@ class V2RayService extends ChangeNotifier {
                     DateTime.now().millisecondsSinceEpoch.toString() +
                     configs.length.toString(),
                 remark: parser.remark,
+                countryCode: countryCode,
                 address: address,
                 port: port,
                 configType: configType,
@@ -984,17 +1020,29 @@ class V2RayService extends ChangeNotifier {
 
   Future<V2RayConfig?> parseSubscriptionConfig(String configText) async {
     try {
+      // Extract country code if present: [CC] config
+      String? countryCode;
+      String configLine = configText.trim();
+      
+      final countryCodeMatch = RegExp(r'^\[([A-Z]{2})\]\s+(.+)$').firstMatch(configLine);
+      if (countryCodeMatch != null) {
+        countryCode = countryCodeMatch.group(1);
+        configLine = countryCodeMatch.group(2)!;
+      }
+      
       // Try to parse as a V2Ray URL
-      final parser = FlutterV2ray.parseFromURL(configText);
+      final parser = FlutterV2ray.parseFromURL(configLine);
 
       // Determine the protocol type from the URL prefix
       String configType = '';
-      if (configText.startsWith('vmess://')) {
+      if (configLine.startsWith('vmess://')) {
         configType = 'vmess';
-      } else if (configText.startsWith('vless://')) {
+      } else if (configLine.startsWith('vless://')) {
         configType = 'vless';
-      } else if (configText.startsWith('ss://')) {
+      } else if (configLine.startsWith('ss://')) {
         configType = 'shadowsocks';
+      } else if (configLine.startsWith('trojan://')) {
+        configType = 'trojan';
       } else {
         throw Exception('Unsupported protocol');
       }
@@ -1010,7 +1058,8 @@ class V2RayService extends ChangeNotifier {
         address: address,
         port: port,
         configType: configType,
-        fullConfig: configText,
+        fullConfig: configLine,
+        countryCode: countryCode,
         isConnected: false,
       );
     } catch (e) {
@@ -1176,11 +1225,19 @@ class V2RayService extends ChangeNotifier {
     if (_activeConfig == null) return null;
     
     try {
-      // Try to get ping from V2Ray
-      final delay = await _flutterV2ray.getServerDelay(config: _activeConfig!.fullConfig);
-      return delay;
-    } catch (e) {
-      // If V2Ray ping fails, try regular TCP ping
+      // Method 1: Try to get connected server delay (most accurate for active connection)
+      try {
+        final connectedDelay = await _flutterV2ray.getConnectedServerDelay()
+            .timeout(const Duration(seconds: 3));
+        
+        if (connectedDelay >= 0 && connectedDelay < 10000) {
+          return connectedDelay;
+        }
+      } catch (e) {
+        debugPrint('⚠️ getConnectedServerDelay failed: $e');
+      }
+      
+      // Method 2: Try regular TCP ping to server
       try {
         final stopwatch = Stopwatch()..start();
         final socket = await Socket.connect(
@@ -1190,10 +1247,28 @@ class V2RayService extends ChangeNotifier {
         );
         stopwatch.stop();
         await socket.close();
-        return stopwatch.elapsedMilliseconds;
+        
+        final ping = stopwatch.elapsedMilliseconds;
+        if (ping > 0 && ping < 5000) {
+          return ping;
+        }
       } catch (e) {
-        return null;
+        debugPrint('⚠️ TCP ping failed: $e');
       }
+      
+      // Method 3: Use cached ping if available
+      final hostKey = '${_activeConfig!.address}:${_activeConfig!.port}';
+      if (_pingCache.containsKey(hostKey)) {
+        final cached = _pingCache[hostKey];
+        if (cached != null && cached.delay != null && cached.delay! > 0) {
+          return cached.delay;
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('❌ Error getting current ping: $e');
+      return null;
     }
   }
 
