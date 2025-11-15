@@ -8,8 +8,8 @@ import 'providers/language_provider.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/privacy_welcome_screen.dart';
 import 'screens/language_selection_screen.dart';
-import 'screens/windows_setup_screen.dart';
 import 'screens/update_check_wrapper.dart';
+import 'screens/splash_loading_screen.dart';
 import 'services/notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -18,72 +18,13 @@ import 'theme/app_theme.dart';
 
 void main() async {
   runZonedGuarded(() async {
-    try {
-      WidgetsFlutterBinding.ensureInitialized();
-      
-      debugPrint('🚀 Starting Tiksar VPN...');
-      debugPrint('📱 Platform: ${Platform.operatingSystem}');
-      
-      // Initialize Firebase (optional - app works without it)
-      try {
-        if (Platform.isAndroid || Platform.isIOS) {
-          debugPrint('📲 Initializing Firebase for mobile...');
-          
-          // Set timeout for Firebase initialization
-          await Firebase.initializeApp(
-            options: DefaultFirebaseOptions.currentPlatform,
-          ).timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              debugPrint('⏱️ Firebase initialization timeout - continuing without Firebase');
-              throw TimeoutException('Firebase timeout');
-            },
-          );
-          
-          final analytics = FirebaseAnalytics.instance;
-          await analytics.setAnalyticsCollectionEnabled(true).timeout(
-            const Duration(seconds: 2),
-            onTimeout: () => debugPrint('⏱️ Analytics timeout'),
-          );
-          
-          await NotificationService().initialize().timeout(
-            const Duration(seconds: 3),
-            onTimeout: () => debugPrint('⏱️ Notification service timeout'),
-          );
-          
-          await analytics.logAppOpen().timeout(
-            const Duration(seconds: 2),
-            onTimeout: () => debugPrint('⏱️ Log app open timeout'),
-          );
-          
-          debugPrint('✅ Firebase initialized successfully');
-        } else {
-          debugPrint('💻 Desktop platform - skipping Firebase');
-        }
-      } catch (e) {
-        debugPrint('⚠️ Firebase initialization failed (app continues normally): $e');
-        // App continues to work without Firebase
-      }
-      
-      debugPrint('🌐 Initializing language provider...');
-      final languageProvider = LanguageProvider();
-      await languageProvider.initialize();
-      debugPrint('✅ Language provider initialized');
-
-      debugPrint('💾 Loading preferences...');
-      final prefs = await SharedPreferences.getInstance();
-      final bool languageSelected = prefs.getBool('language_selected') ?? false;
-      final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
-      debugPrint('✅ Preferences: lang=$languageSelected, privacy=$privacyAccepted');
-
-      debugPrint('🎨 Launching app...');
-      runApp(
-        MyApp(
-          languageSelected: languageSelected,
-          privacyAccepted: privacyAccepted, 
-          languageProvider: languageProvider
-        ),
-      );
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    debugPrint('🚀 Starting Tiksar VPN...');
+    debugPrint('📱 Platform: ${Platform.operatingSystem}');
+    
+    // Show splash screen immediately
+    runApp(const SplashApp());
     } catch (e, stackTrace) {
       debugPrint('💥 INITIALIZATION ERROR: $e');
       debugPrint('Stack trace: $stackTrace');
@@ -165,19 +106,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     debugPrint('🏗️ Building MyApp...');
     
-    final bool isDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
-    final bool needsSetup = !languageSelected || !privacyAccepted;
-    
-    debugPrint('🎯 isDesktop=$isDesktop, needsSetup=$needsSetup');
+    debugPrint('🎯 languageSelected=$languageSelected, privacyAccepted=$privacyAccepted');
     
     List<NavigatorObserver> observers = [];
-    if (!isDesktop) {
-      try {
-        final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
-        observers.add(FirebaseAnalyticsObserver(analytics: analytics));
-      } catch (e) {
-        debugPrint('⚠️ Analytics error (safe to ignore): $e');
-      }
+    try {
+      final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+      observers.add(FirebaseAnalyticsObserver(analytics: analytics));
+    } catch (e) {
+      debugPrint('⚠️ Analytics error (safe to ignore): $e');
     }
     
     return ChangeNotifierProvider.value(
@@ -189,10 +125,7 @@ class MyApp extends StatelessWidget {
           Widget homeScreen;
           
           try {
-            if (isDesktop && needsSetup) {
-              debugPrint('📺 → WindowsSetupScreen');
-              homeScreen = const WindowsSetupScreen();
-            } else if (!languageSelected) {
+            if (!languageSelected) {
               debugPrint('🌐 → LanguageSelectionScreen');
               homeScreen = const LanguageSelectionScreen();
             } else if (!privacyAccepted) {
@@ -225,7 +158,7 @@ class MyApp extends StatelessWidget {
               Locale('en'),
               Locale('fa'),
             ],
-            home: isDesktop ? homeScreen : UpdateCheckWrapper(child: homeScreen),
+            home: UpdateCheckWrapper(child: homeScreen),
           );
         },
       ),
@@ -282,6 +215,81 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+// Splash App - Shows loading screen first
+class SplashApp extends StatelessWidget {
+  const SplashApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Tiksar VPN',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(),
+      home: SplashLoadingScreen(
+        onInitialize: () async {
+          // Initialize Firebase
+          debugPrint('📲 Initializing Firebase...');
+          try {
+            await Firebase.initializeApp(
+              options: DefaultFirebaseOptions.currentPlatform,
+            ).timeout(const Duration(seconds: 5));
+            
+            debugPrint('✅ Firebase initialized');
+            
+            // Analytics
+            try {
+              final analytics = FirebaseAnalytics.instance;
+              await analytics.setAnalyticsCollectionEnabled(true)
+                  .timeout(const Duration(seconds: 2));
+              await analytics.logAppOpen()
+                  .timeout(const Duration(seconds: 2));
+              debugPrint('✅ Analytics enabled');
+            } catch (e) {
+              debugPrint('⚠️ Analytics skipped: $e');
+            }
+            
+            // Notifications
+            try {
+              await NotificationService().initialize()
+                  .timeout(const Duration(seconds: 3));
+              debugPrint('✅ Notifications enabled');
+            } catch (e) {
+              debugPrint('⚠️ Notifications skipped: $e');
+            }
+          } catch (e) {
+            debugPrint('⚠️ Firebase skipped: $e');
+          }
+        },
+        onComplete: () async {
+          // Load preferences and navigate to main app
+          debugPrint('🌐 Loading language provider...');
+          final languageProvider = LanguageProvider();
+          await languageProvider.initialize();
+          
+          debugPrint('💾 Loading preferences...');
+          final prefs = await SharedPreferences.getInstance();
+          final bool languageSelected = prefs.getBool('language_selected') ?? false;
+          final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
+          
+          debugPrint('🎨 Launching main app...');
+          
+          // Navigate to main app
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => MyApp(
+                languageSelected: languageSelected,
+                privacyAccepted: privacyAccepted,
+                languageProvider: languageProvider,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
