@@ -162,9 +162,137 @@ class MyApp extends StatelessWidget {
 }
 
 
-// Splash App - Shows loading screen first
-class SplashApp extends StatelessWidget {
+// Splash App - Shows loading screen or goes directly to app
+class SplashApp extends StatefulWidget {
   const SplashApp({Key? key}) : super(key: key);
+
+  @override
+  State<SplashApp> createState() => _SplashAppState();
+}
+
+class _SplashAppState extends State<SplashApp> {
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstLaunch();
+  }
+
+  Future<void> _checkFirstLaunch() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bool isFirstLaunch = prefs.getBool('is_first_launch') ?? true;
+      
+      if (isFirstLaunch) {
+        // First launch - go directly to welcome screen
+        debugPrint('🎉 First launch detected - skipping loading screen');
+        await prefs.setBool('is_first_launch', false);
+        _navigateToApp(showLoading: false);
+      } else {
+        // Not first launch - show loading screen
+        debugPrint('🔄 Returning user - showing loading screen');
+        _navigateToApp(showLoading: true);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error checking first launch: $e');
+      _navigateToApp(showLoading: false);
+    }
+  }
+
+  void _navigateToApp({required bool showLoading}) {
+    if (!mounted) return;
+    
+    if (showLoading) {
+      // Show loading screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => MaterialApp(
+            title: 'Tiksar VPN',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData.dark(),
+            home: SplashLoadingScreen(
+              onInitialize: _initializeApp,
+              onComplete: _launchMainApp,
+            ),
+          ),
+        ),
+      );
+    } else {
+      // Skip loading, initialize in background
+      _initializeApp().then((_) {
+        if (mounted) {
+          _launchMainApp();
+        }
+      });
+    }
+  }
+
+  Future<void> _initializeApp() async {
+    // Initialize Firebase
+    debugPrint('📲 Initializing Firebase...');
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      ).timeout(const Duration(seconds: 5));
+      
+      debugPrint('✅ Firebase initialized');
+      
+      // Analytics
+      try {
+        final analytics = FirebaseAnalytics.instance;
+        await analytics.setAnalyticsCollectionEnabled(true)
+            .timeout(const Duration(seconds: 2));
+        await analytics.logAppOpen()
+            .timeout(const Duration(seconds: 2));
+        debugPrint('✅ Analytics enabled');
+      } catch (e) {
+        debugPrint('⚠️ Analytics skipped: $e');
+      }
+      
+      // Notifications
+      try {
+        await NotificationService().initialize()
+            .timeout(const Duration(seconds: 3));
+        debugPrint('✅ Notifications enabled');
+      } catch (e) {
+        debugPrint('⚠️ Notifications skipped: $e');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Firebase skipped: $e');
+    }
+  }
+
+  void _launchMainApp() async {
+    if (!mounted) return;
+    
+    try {
+      // Load preferences and navigate to main app
+      debugPrint('🌐 Loading language provider...');
+      final languageProvider = LanguageProvider();
+      await languageProvider.initialize();
+      
+      debugPrint('💾 Loading preferences...');
+      final prefs = await SharedPreferences.getInstance();
+      final bool languageSelected = prefs.getBool('language_selected') ?? false;
+      final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
+      
+      debugPrint('🎨 Launching main app...');
+      
+      if (!mounted) return;
+      
+      // Navigate to main app
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => MyApp(
+            languageSelected: languageSelected,
+            privacyAccepted: privacyAccepted,
+            languageProvider: languageProvider,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ Error launching main app: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -172,65 +300,13 @@ class SplashApp extends StatelessWidget {
       title: 'Tiksar VPN',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(),
-      home: SplashLoadingScreen(
-        onInitialize: () async {
-          // Initialize Firebase
-          debugPrint('📲 Initializing Firebase...');
-          try {
-            await Firebase.initializeApp(
-              options: DefaultFirebaseOptions.currentPlatform,
-            ).timeout(const Duration(seconds: 5));
-            
-            debugPrint('✅ Firebase initialized');
-            
-            // Analytics
-            try {
-              final analytics = FirebaseAnalytics.instance;
-              await analytics.setAnalyticsCollectionEnabled(true)
-                  .timeout(const Duration(seconds: 2));
-              await analytics.logAppOpen()
-                  .timeout(const Duration(seconds: 2));
-              debugPrint('✅ Analytics enabled');
-            } catch (e) {
-              debugPrint('⚠️ Analytics skipped: $e');
-            }
-            
-            // Notifications
-            try {
-              await NotificationService().initialize()
-                  .timeout(const Duration(seconds: 3));
-              debugPrint('✅ Notifications enabled');
-            } catch (e) {
-              debugPrint('⚠️ Notifications skipped: $e');
-            }
-          } catch (e) {
-            debugPrint('⚠️ Firebase skipped: $e');
-          }
-        },
-        onComplete: () async {
-          // Load preferences and navigate to main app
-          debugPrint('🌐 Loading language provider...');
-          final languageProvider = LanguageProvider();
-          await languageProvider.initialize();
-          
-          debugPrint('💾 Loading preferences...');
-          final prefs = await SharedPreferences.getInstance();
-          final bool languageSelected = prefs.getBool('language_selected') ?? false;
-          final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
-          
-          debugPrint('🎨 Launching main app...');
-          
-          // Navigate to main app
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => MyApp(
-                languageSelected: languageSelected,
-                privacyAccepted: privacyAccepted,
-                languageProvider: languageProvider,
-              ),
-            ),
-          );
-        },
+      home: const Scaffold(
+        backgroundColor: Color(0xFF0A0E1A),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF667EEA),
+          ),
+        ),
       ),
     );
   }

@@ -111,12 +111,24 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
       await Future.delayed(const Duration(milliseconds: 200));
 
       if (mounted) {
-        widget.onComplete();
+        debugPrint('✅ Initialization complete, calling onComplete');
+        try {
+          widget.onComplete();
+        } catch (e) {
+          debugPrint('❌ Error in onComplete: $e');
+        }
       }
     } catch (e) {
+      debugPrint('❌ Initialization error: $e');
       if (!mounted) return;
       _statusMessage = _t('Initialization failed', 'راه‌اندازی ناموفق بود');
       setState(() {});
+      
+      // Retry after 2 seconds
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        _retry();
+      }
     }
   }
 
