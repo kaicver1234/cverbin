@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -102,29 +101,15 @@ class MyApp extends StatelessWidget {
           
           Widget homeScreen;
           
-          try {
-            if (!languageSelected) {
-              debugPrint('🌐 → LanguageSelectionScreen');
-              homeScreen = const LanguageSelectionScreen();
-            } else if (!privacyAccepted) {
-              debugPrint('🔒 → PrivacyWelcomeScreen');
-              homeScreen = const PrivacyWelcomeScreen();
-            } else {
-              debugPrint('🏠 → MainNavigationScreen');
-              homeScreen = const MainNavigationScreen();
-            }
-          } catch (e, stackTrace) {
-            debugPrint('❌ Screen error: $e');
-            debugPrint('Stack: $stackTrace');
-            homeScreen = Scaffold(
-              backgroundColor: const Color(0xFF0A0E1A),
-              body: Center(
-                child: Text(
-                  'Error: $e',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            );
+          if (!languageSelected) {
+            debugPrint('🌐 → LanguageSelectionScreen');
+            homeScreen = const LanguageSelectionScreen();
+          } else if (!privacyAccepted) {
+            debugPrint('🔒 → PrivacyWelcomeScreen');
+            homeScreen = const PrivacyWelcomeScreen();
+          } else {
+            debugPrint('🏠 → MainNavigationScreen');
+            homeScreen = const MainNavigationScreen();
           }
           
           debugPrint('✅ Building MaterialApp with ${homeScreen.runtimeType}');
@@ -145,8 +130,7 @@ class MyApp extends StatelessWidget {
               Locale('fa'),
             ],
             builder: (context, child) {
-              // Wrap with UpdateCheckWrapper
-              return UpdateCheckWrapper(child: homeScreen);
+              return UpdateCheckWrapper(child: child ?? homeScreen);
             },
             home: homeScreen,
           );
@@ -154,151 +138,7 @@ class MyApp extends StatelessWidget {
       ),
     );
   }
-  
-  Widget _buildErrorScreen(String error) {
-    return MaterialApp(
-      home: Scaffold(
-        backgroundColor: const Color(0xFF0A0E1A),
-        body: Center(
-          child: Container(
-            padding: const EdgeInsets.all(40),
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline_rounded,
-                  color: Colors.red,
-                  size: 80,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Application Error',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  error,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: () => exit(0),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                  child: const Text('Exit'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 
-// Splash App - Initialize and navigate directly to main app
-class SplashApp extends StatefulWidget {
-  const SplashApp({Key? key}) : super(key: key);
 
-  @override
-  State<SplashApp> createState() => _SplashAppState();
-}
-
-class _SplashAppState extends State<SplashApp> {
-  @override
-  void initState() {
-    super.initState();
-    _initializeAndNavigate();
-  }
-
-  Future<void> _initializeAndNavigate() async {
-    try {
-      // Initialize Firebase in background
-      debugPrint('📲 Initializing Firebase...');
-      try {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        ).timeout(const Duration(seconds: 5));
-        
-        debugPrint('✅ Firebase initialized');
-        
-        // Analytics
-        try {
-          final analytics = FirebaseAnalytics.instance;
-          await analytics.setAnalyticsCollectionEnabled(true)
-              .timeout(const Duration(seconds: 2));
-          await analytics.logAppOpen()
-              .timeout(const Duration(seconds: 2));
-          debugPrint('✅ Analytics enabled');
-        } catch (e) {
-          debugPrint('⚠️ Analytics skipped: $e');
-        }
-        
-        // Notifications
-        try {
-          await NotificationService().initialize()
-              .timeout(const Duration(seconds: 3));
-          debugPrint('✅ Notifications enabled');
-        } catch (e) {
-          debugPrint('⚠️ Notifications skipped: $e');
-        }
-      } catch (e) {
-        debugPrint('⚠️ Firebase skipped: $e');
-      }
-
-      // Load preferences and navigate to main app
-      debugPrint('🌐 Loading language provider...');
-      final languageProvider = LanguageProvider();
-      await languageProvider.initialize();
-      
-      debugPrint('💾 Loading preferences...');
-      final prefs = await SharedPreferences.getInstance();
-      final bool languageSelected = prefs.getBool('language_selected') ?? false;
-      final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
-      
-      debugPrint('🎨 Launching main app...');
-      
-      if (!mounted) return;
-      
-      // Navigate to main app
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => MyApp(
-            languageSelected: languageSelected,
-            privacyAccepted: privacyAccepted,
-            languageProvider: languageProvider,
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint('❌ Error launching app: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Tiksar VPN',
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: Color(0xFF0A0E1A),
-        body: SizedBox.shrink(),
-      ),
-    );
-  }
-}

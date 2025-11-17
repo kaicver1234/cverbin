@@ -47,24 +47,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       // Force rebuild UI when app comes back from background
       debugPrint('🏠 HomeScreen: App resumed, forcing UI rebuild...');
       
-      // Force immediate rebuild
-      setState(() {});
-      
-      // Also force rebuild after a short delay to catch any async updates
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          setState(() {});
-          debugPrint('🏠 HomeScreen: Secondary rebuild completed');
-        }
-      });
-      
-      // Triple check after 1 second
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          setState(() {});
-          debugPrint('🏠 HomeScreen: Final rebuild completed');
-        }
-      });
+      // Single rebuild is enough - Consumer2 will handle the rest
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
   
@@ -189,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       direction: lang['code'] == 'fa' || lang['code'] == 'ar' ? 'rtl' : 'ltr',
                     );
                     await languageProvider.changeLanguage(newLanguage);
+                    if (!context.mounted) return;
                     Navigator.pop(context);
                     _showSnackBar(AppLocalizations.of(context).translate('language_settings.language_changed'), Colors.green);
                   },

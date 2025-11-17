@@ -549,6 +549,7 @@ class _ServerSelectionScreenState
               index: index,
               onTap: () async {
                 await provider.selectConfig(server);
+                if (!mounted) return;
                 Navigator.pop(context, server);
                 _showSnackBar('Server selected: ${server.remark}', Colors.blue);
               },

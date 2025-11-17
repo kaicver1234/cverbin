@@ -443,11 +443,33 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Success Icon with Glassmorphism
-          const Icon(
-            Icons.check_circle_outline,
-            size: 70,
-            color: Colors.white,
+          // Success Icon with beautiful circle
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF10B981),
+                  Color(0xFF059669),
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF10B981).withOpacity(0.4),
+                  blurRadius: 30,
+                  spreadRadius: 5,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.check_circle_outline,
+              size: 60,
+              color: Colors.white,
+            ),
           ).animate()
               .scale(duration: 1000.ms, curve: Curves.elasticOut)
               .fadeIn(duration: 600.ms),
@@ -789,7 +811,7 @@ class _FloatingParticle extends StatefulWidget {
 class _FloatingParticleState extends State<_FloatingParticle>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _animation;
+  Animation<double>? _animation;
   
   @override
   void initState() {
@@ -797,19 +819,28 @@ class _FloatingParticleState extends State<_FloatingParticle>
     _controller = AnimationController(
       vsync: this,
       duration: Duration(seconds: 10 + (widget.delay.inMilliseconds % 5)),
-    )..repeat();
-    
-    _animation = Tween<double>(
-      begin: MediaQuery.of(context).size.height + 50,
-      end: -50,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.linear,
-    ));
+    );
     
     Future.delayed(widget.delay, () {
-      if (mounted) _controller.forward();
+      if (mounted) {
+        _controller.repeat();
+      }
     });
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize animation here where context is available
+    if (_animation == null) {
+      _animation = Tween<double>(
+        begin: MediaQuery.of(context).size.height + 50,
+        end: -50,
+      ).animate(CurvedAnimation(
+        parent: _controller,
+        curve: Curves.linear,
+      ));
+    }
   }
   
   @override
@@ -820,11 +851,15 @@ class _FloatingParticleState extends State<_FloatingParticle>
   
   @override
   Widget build(BuildContext context) {
+    if (_animation == null) {
+      return const SizedBox.shrink();
+    }
+    
     return AnimatedBuilder(
-      animation: _animation,
+      animation: _animation!,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, _animation.value),
+          offset: Offset(0, _animation!.value),
           child: Container(
             width: 4,
             height: 4,
