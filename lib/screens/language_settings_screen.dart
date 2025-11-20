@@ -89,10 +89,10 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
                           child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.white.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                               ),
                             ),
                             child: const Icon(
@@ -350,14 +350,14 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
             child: Card(
               color: isSelected
                   ? AppTheme.primaryGreen.withValues(alpha: 0.1)
-                  : Colors.white.withOpacity(0.05),
+                  : Colors.white.withValues(alpha: 0.05),
               elevation: isSelected ? 8 : 2,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
                   color: isSelected
                       ? AppTheme.primaryGreen.withValues(alpha: 0.5)
-                      : Colors.white.withOpacity(0.1),
+                      : Colors.white.withValues(alpha: 0.1),
                   width: 2,
                 ),
               ),
@@ -375,7 +375,7 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppTheme.primaryGreen.withValues(alpha: 0.2)
-                              : Colors.white.withOpacity(0.1),
+                              : Colors.white.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(

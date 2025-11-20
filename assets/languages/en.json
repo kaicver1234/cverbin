@@ -116,7 +116,7 @@
     "server_selection": {
         "title": "Select Server",
         "smart_connect": "Smart Connect",
-        "smart_connect_description": "Automatically find and connect to the fastest server",
+        "smart_connect_description": "Automatically selects the fastest server for optimal performance",
         "finding_best_server": "Finding best server...",
         "select_server": "Select a server",
         "no_servers_available": "No servers available for {filter}",

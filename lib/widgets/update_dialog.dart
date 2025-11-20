@@ -6,9 +6,9 @@ class UpdateDialog extends StatefulWidget {
   final AppUpdateInfo updateInfo;
 
   const UpdateDialog({
-    Key? key,
+    super.key,
     required this.updateInfo,
-  }) : super(key: key);
+  });
 
   @override
   State<UpdateDialog> createState() => _UpdateDialogState();
@@ -91,12 +91,12 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
             ),
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: const Color(0xFF6366F1).withOpacity(0.3),
+              color: const Color(0xFF6366F1).withValues(alpha: 0.3),
               width: 2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6366F1).withOpacity(0.3),
+                color: const Color(0xFF6366F1).withValues(alpha: 0.3),
                 blurRadius: 40,
                 spreadRadius: 0,
               ),
@@ -130,8 +130,8 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF6366F1).withOpacity(0.15),
-            const Color(0xFF8B5CF6).withOpacity(0.1),
+            const Color(0xFF6366F1).withValues(alpha: 0.15),
+            const Color(0xFF8B5CF6).withValues(alpha: 0.1),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -152,7 +152,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.5),
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                   blurRadius: 30,
                   spreadRadius: 5,
                 ),
@@ -205,7 +205,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.4),
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                   blurRadius: 16,
                 ),
               ],
@@ -242,10 +242,10 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -257,7 +257,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withOpacity(0.2),
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -281,7 +281,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
             Text(
               widget.updateInfo.message,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.85),
+                color: Colors.white.withValues(alpha: 0.85),
                 fontSize: 15,
                 height: 1.7,
                 letterSpacing: 0.2,
@@ -343,7 +343,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.5),
+            color: const Color(0xFF6366F1).withValues(alpha: 0.5),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -387,10 +387,10 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           width: 1.5,
         ),
       ),
@@ -404,14 +404,14 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
             children: [
               Icon(
                 icon,
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 size: 22,
               ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -430,13 +430,13 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.orange.withOpacity(0.15),
-            Colors.deepOrange.withOpacity(0.1),
+            Colors.orange.withValues(alpha: 0.15),
+            Colors.deepOrange.withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.orange.withOpacity(0.4),
+          color: Colors.orange.withValues(alpha: 0.4),
           width: 1.5,
         ),
       ),
@@ -445,7 +445,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.2),
+              color: Colors.orange.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -491,14 +491,5 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
     }
   }
 
-  static Future<void> show(
-    BuildContext context,
-    AppUpdateInfo updateInfo,
-  ) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: !updateInfo.isForced,
-      builder: (context) => UpdateDialog(updateInfo: updateInfo),
-    );
-  }
+
 }

@@ -8,7 +8,7 @@ import '../utils/app_localizations.dart';
 class ServerListItem extends StatefulWidget {
   final V2RayConfig config;
 
-  const ServerListItem({Key? key, required this.config}) : super(key: key);
+  const ServerListItem({super.key, required this.config});
 
   @override
   State<ServerListItem> createState() => _ServerListItemState();
@@ -75,12 +75,12 @@ class _ServerListItemState extends State<ServerListItem> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
+                              color: Colors.grey.withValues(alpha: 0.3),
                               width: 1,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -10,7 +9,7 @@ import '../widgets/vpn_gradient_background.dart';
 import '../utils/app_localizations.dart';
 
 class ServerSelectionScreen extends StatefulWidget {
-  const ServerSelectionScreen({Key? key}) : super(key: key);
+  const ServerSelectionScreen({super.key});
 
   @override
   State<ServerSelectionScreen> createState() =>
@@ -22,7 +21,7 @@ class _ServerSelectionScreenState
     with TickerProviderStateMixin {
   bool _isTestingPings = false;
   bool _isRefreshing = false;
-  Map<String, int> _serverPings = {}; // Map of server ID to ping
+  final Map<String, int> _serverPings = {}; // Map of server ID to ping
   
   late AnimationController _pingAnimationController;
   late AnimationController _refreshAnimationController;
@@ -256,12 +255,15 @@ class _ServerSelectionScreenState
       await provider.selectConfig(server);
       await provider.connectToServer(server);
       
+      if (!mounted) return;
+      
       final serverName = server.isSmartConnect 
           ? AppLocalizations.of(context).translate('server_selection.smart_connect')
           : server.remark;
       _showSnackBar('Connected to fastest server: $serverName ($lowestPing ms)', Colors.green);
       Navigator.pop(context, server);
     } else {
+      if (!mounted) return;
       _showSnackBar('No fast server found', Colors.red);
     }
   }
@@ -328,24 +330,6 @@ class _ServerSelectionScreenState
     }
   }
 
-  // Test real delay using V2Ray Core (faster and more accurate!)
-  Future<int> _testSingleServerPing(V2RayConfig server) async {
-    try {
-      final provider = Provider.of<V2RayProvider>(context, listen: false);
-      
-      // Use V2Ray Core's built-in ping (much faster and accurate)
-      final delay = await provider.v2rayService.getServerDelay(server);
-      
-      if (delay != null && delay >= 0 && delay < 10000) {
-        return delay;
-      } else {
-        return 9999;
-      }
-    } catch (e) {
-      debugPrint('❌ Ping failed for ${server.remark}: $e');
-      return 9999;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -401,10 +385,10 @@ class _ServerSelectionScreenState
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
               child: const Icon(
@@ -437,13 +421,13 @@ class _ServerSelectionScreenState
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: _isRefreshing 
-                    ? Colors.blue.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.1),
+                    ? Colors.blue.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: _isRefreshing
-                      ? Colors.blue.withOpacity(0.4)
-                      : Colors.white.withOpacity(0.2),
+                      ? Colors.blue.withValues(alpha: 0.4)
+                      : Colors.white.withValues(alpha: 0.2),
                   width: _isRefreshing ? 2 : 1,
                 ),
               ),
@@ -478,8 +462,8 @@ class _ServerSelectionScreenState
           end: Alignment.bottomCenter,
           colors: [
             Colors.transparent,
-            Colors.black.withOpacity(0.3),
-            Colors.black.withOpacity(0.5),
+            Colors.black.withValues(alpha: 0.3),
+            Colors.black.withValues(alpha: 0.5),
           ],
         ),
       ),
@@ -540,7 +524,7 @@ class _ServerSelectionScreenState
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -588,13 +572,13 @@ class _ServerSelectionScreenState
           Icon(
             Icons.dns_outlined,
             size: 80,
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 16),
           Text(
             'No servers found',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 18,
               fontWeight: FontWeight.w500,
             ),
@@ -603,7 +587,7 @@ class _ServerSelectionScreenState
           Text(
             'Try refreshing or changing filters',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               fontSize: 14,
             ),
           ),
@@ -665,18 +649,18 @@ class _ServerSelectionScreenState
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF1E293B).withOpacity(0.9)
-              : const Color(0xFF1E293B).withOpacity(0.5),
+              ? const Color(0xFF1E293B).withValues(alpha: 0.9)
+              : const Color(0xFF1E293B).withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isActive
-                ? Colors.white.withOpacity(0.3)
-                : Colors.white.withOpacity(0.1),
+                ? Colors.white.withValues(alpha: 0.3)
+                : Colors.white.withValues(alpha: 0.1),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -694,46 +678,46 @@ class _ServerSelectionScreenState
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF334155).withOpacity(0.8),
+                      color: const Color(0xFF334155).withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         width: 1.5,
                       ),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8.5),
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: server.isSmartConnect
-                            ? Image.asset(
+                      child: server.isSmartConnect
+                          ? Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: Image.asset(
                                 'assets/images/apk.png',
                                 width: 28,
                                 height: 28,
                                 fit: BoxFit.contain,
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: server.countryFlagUrl,
-                                width: 28,
-                                height: 28,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => Center(
-                                  child: SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white.withOpacity(0.5),
-                                      ),
+                              ),
+                            )
+                          : CachedNetworkImage(
+                              imageUrl: server.countryFlagUrl,
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Center(
+                                child: SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white.withValues(alpha: 0.5),
                                     ),
                                   ),
                                 ),
-                                errorWidget: (context, url, error) => Center(
-                                  child: Text(
-                                    server.countryFlag,
-                                    style: const TextStyle(fontSize: 18),
-                                  ),
+                              ),
+                              errorWidget: (context, url, error) => Center(
+                                child: Text(
+                                  server.countryFlag,
+                                  style: const TextStyle(fontSize: 18),
                                 ),
                               ),
                             ),
@@ -763,28 +747,21 @@ class _ServerSelectionScreenState
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 3),
-                      // Protocol Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF475569).withOpacity(0.8),
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
-                            width: 1,
+                      // Smart Connect Description
+                      if (server.isSmartConnect) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          AppLocalizations.of(context).translate('server_selection.smart_connect_description'),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: -0.2,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        child: Text(
-                          server.configType.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -799,10 +776,10 @@ class _ServerSelectionScreenState
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.9),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 1.5,
                     ),
                   ),
@@ -837,7 +814,7 @@ class _ServerSelectionScreenState
                 child: Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF475569).withOpacity(0.8),
+                    color: const Color(0xFF475569).withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const SizedBox(
@@ -864,10 +841,10 @@ class _ServerSelectionScreenState
                       ? Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _getPingColor(ping).withOpacity(0.2),
+                            color: _getPingColor(ping).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: _getPingColor(ping).withOpacity(0.5),
+                              color: _getPingColor(ping).withValues(alpha: 0.5),
                               width: 1.5,
                             ),
                           ),
@@ -893,7 +870,7 @@ class _ServerSelectionScreenState
                         )
                       : Icon(
                           Icons.arrow_forward_ios_rounded,
-                          color: Colors.white.withOpacity(0.4),
+                          color: Colors.white.withValues(alpha: 0.4),
                           size: 12,
                         ),
                 ),
@@ -907,7 +884,7 @@ class _ServerSelectionScreenState
                 child: Center(
                   child: Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withValues(alpha: 0.4),
                     size: 12,
                   ),
                 ),

@@ -8,7 +8,7 @@ import '../models/app_language.dart';
 import 'privacy_welcome_screen.dart';
 
 class LanguageSelectionScreen extends StatefulWidget {
-  const LanguageSelectionScreen({Key? key}) : super(key: key);
+  const LanguageSelectionScreen({super.key});
 
   @override
   State<LanguageSelectionScreen> createState() => _LanguageSelectionScreenState();
@@ -150,7 +150,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF6366F1).withOpacity(0.5),
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                             blurRadius: 30,
                             spreadRadius: 5,
                           ),
@@ -185,7 +185,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                       'Select your preferred language',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                       ),
                     ).animate()
                         .fadeIn(delay: 300.ms)
@@ -209,19 +209,19 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                                 : null,
                             color: isSelected
                                 ? null
-                                : Colors.white.withOpacity(0.05),
+                                : Colors.white.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isSelected
                                   ? Colors.transparent
-                                  : Colors.white.withOpacity(0.1),
+                                  : Colors.white.withValues(alpha: 0.1),
                               width: 2,
                             ),
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
                                       color: (lang['gradient'] as List<Color>)[0]
-                                          .withOpacity(0.4),
+                                          .withValues(alpha: 0.4),
                                       blurRadius: 20,
                                       offset: const Offset(0, 10),
                                     ),
@@ -257,7 +257,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                                     Text(
                                       lang['nativeName'],
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(0.7),
+                                        color: Colors.white.withValues(alpha: 0.7),
                                         fontSize: 14,
                                       ),
                                     ),
@@ -268,7 +268,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: Colors.white.withValues(alpha: 0.2),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -284,7 +284,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                       ).animate()
                           .fadeIn(delay: Duration(milliseconds: 400 + index * 100))
                           .slideX(begin: 0.3, end: 0);
-                    }).toList(),
+                    }),
                     
                     const SizedBox(height: 40),
                     
@@ -305,7 +305,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                             borderRadius: BorderRadius.circular(30),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF6366F1).withOpacity(0.4),
+                                color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
@@ -406,9 +406,9 @@ class _FloatingOrbState extends State<_FloatingOrb>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  widget.color.withOpacity(0.3),
-                  widget.color.withOpacity(0.1),
-                  widget.color.withOpacity(0.0),
+                  widget.color.withValues(alpha: 0.3),
+                  widget.color.withValues(alpha: 0.1),
+                  widget.color.withValues(alpha: 0.0),
                 ],
               ),
             ),

@@ -8,7 +8,7 @@ import '../providers/language_provider.dart';
 import '../widgets/vpn_gradient_background.dart';
 
 class IpInfoScreen extends StatefulWidget {
-  const IpInfoScreen({Key? key}) : super(key: key);
+  const IpInfoScreen({super.key});
 
   @override
   State<IpInfoScreen> createState() => _IpInfoScreenState();
@@ -133,10 +133,10 @@ class _IpInfoScreenState extends State<IpInfoScreen>
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
               child: const Icon(
@@ -200,7 +200,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.5),
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                   blurRadius: 30,
                   spreadRadius: 5,
                 ),
@@ -221,7 +221,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           Text(
             'Fetching IP Information...',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 16,
             ),
           ).animate()
@@ -240,10 +240,10 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           Container(
             padding: const EdgeInsets.all(30),
             decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
+              color: Colors.red.withValues(alpha: 0.1),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.red.withOpacity(0.3),
+                color: Colors.red.withValues(alpha: 0.3),
                 width: 2,
               ),
             ),
@@ -275,7 +275,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
               _errorMessage ?? 'Unknown error',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
             ),
@@ -294,7 +294,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withOpacity(0.4),
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -651,10 +651,10 @@ class _FloatingParticleState extends State<_FloatingParticle>
             height: 6,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: widget.color.withOpacity(0.3),
+              color: widget.color.withValues(alpha: 0.3),
               boxShadow: [
                 BoxShadow(
-                  color: widget.color.withOpacity(0.4),
+                  color: widget.color.withValues(alpha: 0.4),
                   blurRadius: 10,
                   spreadRadius: 2,
                 ),

@@ -1,8 +1,10 @@
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../widgets/vpn_gradient_background.dart';
@@ -15,7 +17,7 @@ import '../screens/host_checker_screen.dart';
 import '../screens/about_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -26,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   late PageController _pageController;
   int _currentPage = 0;
   BoxDecoration? _statsDecoration; // Cache decoration for performance
+  String _currentIp = 'Loading...';
   
   @override
   bool get wantKeepAlive => true;
@@ -39,6 +42,31 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
     // Listen to app lifecycle to force rebuild when resumed
     WidgetsBinding.instance.addObserver(this);
+  }
+  
+  Future<void> _fetchCurrentIp() async {
+    setState(() {
+      _currentIp = 'Loading...';
+    });
+    
+    try {
+      final response = await http.get(
+        Uri.parse('https://api.ipify.org?format=json'),
+      ).timeout(const Duration(seconds: 5));
+      
+      if (response.statusCode == 200 && mounted) {
+        final data = json.decode(response.body);
+        setState(() {
+          _currentIp = data['ip'] ?? 'Unknown';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _currentIp = 'Unknown';
+        });
+      }
+    }
   }
   
   @override
@@ -163,6 +191,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         setState(() {
           _isConnecting = false;
         });
+        
+        // Reset IP when disconnected, fetch when connected
+        final provider = Provider.of<V2RayProvider>(context, listen: false);
+        if (provider.activeConfig != null) {
+          _fetchCurrentIp();
+        } else {
+          setState(() {
+            _currentIp = 'Loading...';
+          });
+        }
       }
     }
   }
@@ -211,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               letterSpacing: -0.5,
             ),
           ),
-          content: Container(
+          content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
@@ -414,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     AppLocalizations.of(context).translate('home.secure_connection'),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                     ),
                   ).animate().fadeIn(delay: 100.ms),
                 ],
@@ -455,10 +493,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
           ),
         ),
         child: Icon(
@@ -635,7 +673,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           Text(
             AppLocalizations.of(context).translate('navigation.tools'),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.95),
+              color: Colors.white.withValues(alpha: 0.95),
               fontSize: 24,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
@@ -647,7 +685,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           Text(
             AppLocalizations.of(context).translate('home.quick_actions'),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 14,
             ),
           ),
@@ -746,7 +784,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 15,
                   offset: const Offset(0, 5),
                 ),
@@ -832,7 +870,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               gradient: RadialGradient(
                 colors: isConnected
                     ? [
-                        const Color(0xFF10B981).withOpacity(0.9),
+                        const Color(0xFF10B981).withValues(alpha: 0.9),
                         const Color(0xFF059669),
                         const Color(0xFF047857),
                       ]
@@ -846,8 +884,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               boxShadow: [
                 BoxShadow(
                   color: isConnected
-                      ? const Color(0xFF10B981).withOpacity(0.5)
-                      : Colors.black.withOpacity(0.4),
+                      ? const Color(0xFF10B981).withValues(alpha: 0.5)
+                      : Colors.black.withValues(alpha: 0.4),
                   blurRadius: isConnected ? 40 : 20,
                   spreadRadius: isConnected ? 5 : 0,
                 ),
@@ -873,7 +911,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                             gradient: SweepGradient(
                               colors: [
                                 Colors.transparent,
-                                Colors.white.withOpacity(0.3),
+                                Colors.white.withValues(alpha: 0.3),
                                 Colors.transparent,
                               ],
                             ),
@@ -960,7 +998,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 content: Text(
                   AppLocalizations.of(context).translate('server_selector.disconnect_first'),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 15,
                   ),
                 ),
@@ -993,10 +1031,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
           ),
         ),
         child: Row(
@@ -1018,33 +1056,41 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 )
               else
                 // Country Flag (same size as Smart Connect)
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.white.withOpacity(0.1),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: CachedNetworkImage(
-                      imageUrl: selectedConfig.countryFlagUrl,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: selectedConfig.countryFlagUrl,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
                       width: 48,
                       height: 48,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Center(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                      child: Center(
                         child: SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white.withOpacity(0.5),
+                              Colors.white.withValues(alpha: 0.5),
                             ),
                           ),
                         ),
                       ),
-                      errorWidget: (context, url, error) => Center(
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                      child: Center(
                         child: Text(
                           selectedConfig.countryFlag,
                           style: const TextStyle(fontSize: 32),
@@ -1062,7 +1108,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   Text(
                     AppLocalizations.of(context).translate('home.server_location_label'),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,
                     ),
                   ),
@@ -1084,7 +1130,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ),
             Icon(
               Icons.arrow_forward_ios,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               size: 18,
             ),
           ],
@@ -1095,6 +1141,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
   Widget _buildStatsGrid(V2RayProvider provider) {
     final v2rayService = provider.v2rayService;
+    
+    // Fetch IP when stats grid is first displayed
+    if (_currentIp == 'Loading...') {
+      _fetchCurrentIp();
+    }
     
     // بهینه‌سازی: هر 2 ثانیه به جای 1 ثانیه (کاهش 50% rebuild)
     return RepaintBoundary(
@@ -1135,7 +1186,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       icon: Icons.timer,
                       label: 'Duration',
                       value: v2rayService.getFormattedConnectedTime(),
-                      color: Colors.blue,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -1144,7 +1195,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       icon: Icons.upload,
                       label: 'Upload',
                       value: v2rayService.getFormattedUpload(),
-                      color: Colors.green,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -1157,43 +1208,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       icon: Icons.download,
                       label: 'Download',
                       value: v2rayService.getFormattedDownload(),
-                      color: Colors.orange,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: StreamBuilder<int?>(
-                      stream: Stream.periodic(
-                        const Duration(seconds: 5),
-                        (_) => v2rayService.getCurrentPing(),
-                      ).asyncMap((future) => future),
-                      builder: (context, snapshot) {
-                        String latencyValue = '-- ms';
-                        Color latencyColor = Colors.purple;
-                        
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          latencyValue = 'Testing...';
-                        } else if (snapshot.hasData && snapshot.data != null) {
-                          final ping = snapshot.data!;
-                          latencyValue = '${ping} ms';
-                          
-                          // Color based on ping quality
-                          if (ping < 100) {
-                            latencyColor = Colors.green;
-                          } else if (ping < 300) {
-                            latencyColor = Colors.orange;
-                          } else {
-                            latencyColor = Colors.red;
-                          }
-                        }
-                        
-                        return _buildStatItem(
-                          icon: Icons.speed,
-                          label: 'Latency',
-                          value: latencyValue,
-                          color: latencyColor,
-                        );
-                      },
+                    child: _buildStatItem(
+                      icon: Icons.public,
+                      label: 'IP Address',
+                      value: _currentIp,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -1213,47 +1237,33 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withOpacity(0.15),
-            color.withOpacity(0.08),
-          ],
-        ),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: Colors.white.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 18,
-            ),
+          Icon(
+            icon,
+            color: Colors.white.withValues(alpha: 0.8),
+            size: 20,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 10,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(

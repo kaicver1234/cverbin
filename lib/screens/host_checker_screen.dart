@@ -8,7 +8,7 @@ import '../widgets/vpn_gradient_background.dart';
 import '../utils/app_localizations.dart';
 
 class HostCheckerScreen extends StatefulWidget {
-  const HostCheckerScreen({Key? key}) : super(key: key);
+  const HostCheckerScreen({super.key});
 
   @override
   State<HostCheckerScreen> createState() => _HostCheckerScreenState();
@@ -138,10 +138,11 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
         );
       }
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isChecking = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isChecking = false;
+        });
+      }
     }
   }
 
@@ -199,10 +200,10 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
               child: const Icon(
@@ -238,10 +239,10 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.2),
+                  color: Colors.red.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.red.withOpacity(0.4),
+                    color: Colors.red.withValues(alpha: 0.4),
                   ),
                 ),
                 child: const Icon(
@@ -263,10 +264,10 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
         children: [
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
             child: Row(
@@ -277,7 +278,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: AppLocalizations.of(context).translate('host_checker.enter_host'),
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -285,7 +286,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                       ),
                       prefixIcon: Icon(
                         Icons.dns,
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                       ),
                     ),
                     onSubmitted: (value) => _checkHost(value),
@@ -310,7 +311,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.4),
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                           blurRadius: 15,
                           offset: const Offset(0, 5),
                         ),
@@ -358,8 +359,8 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF6366F1).withOpacity(0.3),
-                          const Color(0xFF8B5CF6).withOpacity(0.3),
+                          const Color(0xFF6366F1).withValues(alpha: 0.3),
+                          const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                         ],
                       ),
                     ),
@@ -385,7 +386,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
             Text(
               AppLocalizations.of(context).translate('host_checker.start_checking'),
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
             ),
@@ -412,19 +413,19 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
         gradient: LinearGradient(
           colors: result.isSuccess
               ? [
-                  const Color(0xFF10B981).withOpacity(0.2),
-                  const Color(0xFF059669).withOpacity(0.1),
+                  const Color(0xFF10B981).withValues(alpha: 0.2),
+                  const Color(0xFF059669).withValues(alpha: 0.1),
                 ]
               : [
-                  const Color(0xFFEF4444).withOpacity(0.2),
-                  const Color(0xFFDC2626).withOpacity(0.1),
+                  const Color(0xFFEF4444).withValues(alpha: 0.2),
+                  const Color(0xFFDC2626).withValues(alpha: 0.1),
                 ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: result.isSuccess
-              ? const Color(0xFF10B981).withOpacity(0.3)
-              : const Color(0xFFEF4444).withOpacity(0.3),
+              ? const Color(0xFF10B981).withValues(alpha: 0.3)
+              : const Color(0xFFEF4444).withValues(alpha: 0.3),
         ),
       ),
       child: Padding(
@@ -436,8 +437,8 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
               height: 50,
               decoration: BoxDecoration(
                 color: result.isSuccess
-                    ? const Color(0xFF10B981).withOpacity(0.2)
-                    : const Color(0xFFEF4444).withOpacity(0.2),
+                    ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                    : const Color(0xFFEF4444).withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -471,8 +472,8 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                         ),
                         decoration: BoxDecoration(
                           color: result.isSuccess
-                              ? Colors.green.withOpacity(0.2)
-                              : Colors.red.withOpacity(0.2),
+                              ? Colors.green.withValues(alpha: 0.2)
+                              : Colors.red.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -489,7 +490,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                         Text(
                           'Code: ${result.statusCode}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: Colors.white.withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -499,7 +500,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                         Text(
                           '${result.responseTime}ms',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: Colors.white.withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -511,7 +512,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                     Text(
                       result.error!,
                       style: TextStyle(
-                        color: Colors.red.withOpacity(0.8),
+                        color: Colors.red.withValues(alpha: 0.8),
                         fontSize: 12,
                       ),
                     ),
@@ -531,7 +532,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                 Text(
                   _formatTime(result.timestamp),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withValues(alpha: 0.4),
                     fontSize: 10,
                   ),
                 ),

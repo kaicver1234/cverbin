@@ -116,7 +116,7 @@
     "server_selection": {
         "title": "انتخاب سرور",
         "smart_connect": "اتصال هوشمند",
-        "smart_connect_description": "یافتن و اتصال خودکار به سریع‌ترین سرور",
+        "smart_connect_description": "به صورت خودکار سریع‌ترین سرور را برای عملکرد بهینه انتخاب می‌کند",
         "finding_best_server": "در حال یافتن بهترین سرور...",
         "select_server": "انتخاب یک سرور",
         "no_servers_available": "هیچ سروری برای {filter} موجود نیست",

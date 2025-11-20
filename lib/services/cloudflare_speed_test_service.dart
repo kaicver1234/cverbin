@@ -330,7 +330,7 @@ class CloudflareSpeedTestService {
       DateTime? lastUpdateTime;
       int lastSent = 0;
       
-      final response = await _dio.post(
+      await _dio.post(
         '/__up',
         data: Stream.fromIterable([data]),
         queryParameters: {
