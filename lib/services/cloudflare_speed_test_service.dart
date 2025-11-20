@@ -316,6 +316,8 @@ class CloudflareSpeedTestService {
     if (_isCancelled) return 0.0;
     
     try {
+      debugPrint('      🔧 Generating ${(bytes / 1000000).toStringAsFixed(1)}MB upload data...');
+      
       // Generate random data more efficiently
       final data = Uint8List(bytes);
       final random = Random();
@@ -323,11 +325,12 @@ class CloudflareSpeedTestService {
         data[i] = random.nextInt(256);
       }
       
+      debugPrint('      🚀 Starting upload to Cloudflare...');
       final startTime = DateTime.now();
       DateTime? lastUpdateTime;
       int lastSent = 0;
       
-      await _dio.post(
+      final response = await _dio.post(
         '/__up',
         data: Stream.fromIterable([data]),
         queryParameters: {
@@ -340,6 +343,7 @@ class CloudflareSpeedTestService {
             'Content-Length': bytes,
           },
           sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
         ),
         onSendProgress: (sent, total) {
           if (_isCancelled) return;
@@ -355,6 +359,7 @@ class CloudflareSpeedTestService {
               onSpeedUpdate(speedMbps);
               lastUpdateTime = now;
               lastSent = sent;
+              debugPrint('         📊 Upload progress: ${(sent / bytes * 100).toStringAsFixed(0)}% - ${speedMbps.toStringAsFixed(2)} Mbps');
             }
           }
         },
@@ -365,13 +370,20 @@ class CloudflareSpeedTestService {
       final duration = DateTime.now().difference(startTime);
       final durationSeconds = duration.inMilliseconds / 1000.0;
       
-      if (durationSeconds < 0.01) return 0.0;
+      debugPrint('      ✅ Upload completed in ${durationSeconds.toStringAsFixed(2)}s');
+      
+      if (durationSeconds < 0.01) {
+        debugPrint('      ⚠️ Upload too fast, duration: $durationSeconds');
+        return 0.0;
+      }
       
       final mbps = (bytes * 8) / (durationSeconds * 1000000);
+      debugPrint('      📈 Final upload speed: ${mbps.toStringAsFixed(2)} Mbps');
       
       return mbps;
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('   ❌ Upload error: $e');
+      debugPrint('   📋 Stack trace: $stackTrace');
       throw Exception('Upload failed: $e');
     }
   }

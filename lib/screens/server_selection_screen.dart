@@ -21,22 +21,22 @@ class _ServerSelectionScreenState
     extends State<ServerSelectionScreen>
     with TickerProviderStateMixin {
   bool _isTestingPings = false;
+  bool _isRefreshing = false;
   Map<String, int> _serverPings = {}; // Map of server ID to ping
   
-  late AnimationController _listAnimationController;
   late AnimationController _pingAnimationController;
+  late AnimationController _refreshAnimationController;
 
   @override
   void initState() {
     super.initState();
-    _listAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    )..forward();
-    
     _pingAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
+    );
+    _refreshAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
     );
     
     _loadData();
@@ -44,8 +44,8 @@ class _ServerSelectionScreenState
 
   @override
   void dispose() {
-    _listAnimationController.dispose();
     _pingAnimationController.dispose();
+    _refreshAnimationController.dispose();
     super.dispose();
   }
 
@@ -55,6 +55,66 @@ class _ServerSelectionScreenState
     if (provider.configs.isNotEmpty) {
       if (mounted) {
         setState(() {});
+      }
+    }
+  }
+
+  Future<void> _refreshServers() async {
+    if (_isRefreshing) return;
+    
+    if (!mounted) return;
+    
+    setState(() {
+      _isRefreshing = true;
+    });
+    
+    // Start rotation animation
+    _refreshAnimationController.repeat();
+    
+    try {
+      final provider = Provider.of<V2RayProvider>(context, listen: false);
+      
+      // Clear old ping results before refreshing
+      if (mounted) {
+        setState(() {
+          _serverPings.clear();
+        });
+      }
+      
+      // Show loading message
+      _showSnackBar('🔄 Refreshing servers...', Colors.blue, duration: 2);
+      
+      // Update all subscriptions to get fresh server list
+      await provider.updateAllSubscriptions();
+      
+      if (!mounted) return;
+      
+      if (provider.errorMessage.isEmpty) {
+        // Success
+        _showSnackBar('✅ Servers updated successfully!', Colors.green, duration: 2);
+        
+        // Optional: Auto-test pings after refresh
+        // Uncomment if you want automatic ping test
+        // await Future.delayed(const Duration(milliseconds: 500));
+        // await _testAllServersPing();
+      } else {
+        // Error
+        _showSnackBar('❌ ${provider.errorMessage}', Colors.red, duration: 3);
+        provider.clearError();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('❌ Error: $e', Colors.red, duration: 3);
+      }
+    } finally {
+      // Stop animation
+      _refreshAnimationController.stop();
+      _refreshAnimationController.reset();
+      
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
       }
     }
   }
@@ -80,31 +140,63 @@ class _ServerSelectionScreenState
     // Clear any stuck ping progress flags before starting
     provider.v2rayService.clearPingProgress();
     
-    _showSnackBar('Testing ${servers.length} servers with V2Ray Core...', Colors.blue, duration: 2);
+    _showSnackBar('🔍 Testing ${servers.length} servers...', Colors.blue, duration: 2);
+    
+    int successCount = 0;
+    int totalPing = 0;
     
     try {
-      // IMPROVED: Use batch testing for much faster and more reliable results
-      // Tests 5 servers simultaneously with independent timeouts
-      final results = await provider.v2rayService.batchTestServerDelays(
-        servers,
-        batchSize: 5, // Test 5 servers at a time for optimal performance
-        useCache: false, // Don't use cache for manual testing
-      );
-      
-      // Update UI with results
-      if (mounted) {
-        setState(() {
-          _serverPings = results;
-        });
+      // Test servers one by one (sequential)
+      for (int i = 0; i < servers.length; i++) {
+        if (!mounted || !_isTestingPings) break;
+        
+        final server = servers[i];
+        
+        debugPrint('🏓 Testing server ${i + 1}/${servers.length}: ${server.remark}');
+        
+        try {
+          // Test single server with timeout
+          final delay = await provider.v2rayService.getServerDelay(server).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => 9999,
+          );
+          
+          if (!mounted) break;
+          
+          // Handle nullable delay value
+          final pingValue = delay ?? 9999;
+          
+          // Update UI immediately with this server's result
+          setState(() {
+            _serverPings[server.id] = pingValue;
+          });
+          
+          if (pingValue < 9999) {
+            successCount++;
+            totalPing += pingValue;
+            debugPrint('   ✅ ${server.remark}: ${pingValue}ms');
+          } else {
+            debugPrint('   ❌ ${server.remark}: Timeout');
+          }
+          
+        } catch (e) {
+          debugPrint('   ⚠️ ${server.remark}: Error - $e');
+          // Set timeout for failed servers
+          if (mounted) {
+            setState(() {
+              _serverPings[server.id] = 9999;
+            });
+          }
+        }
+        
+        // Small delay between tests to prevent overwhelming the system
+        if (i < servers.length - 1) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
       }
       
       // Calculate statistics
-      final successCount = results.values.where((p) => p < 9999).length;
-      final avgPing = successCount > 0
-          ? results.values
-              .where((p) => p < 9999)
-              .reduce((a, b) => a + b) ~/ successCount
-          : 0;
+      final avgPing = successCount > 0 ? totalPing ~/ successCount : 0;
       
       String message;
       if (successCount == 0) {
@@ -115,11 +207,15 @@ class _ServerSelectionScreenState
         message = '✅ $successCount/${servers.length} servers online (Avg: ${avgPing}ms)';
       }
       
-      _showSnackBar(message, successCount > 0 ? Colors.green : Colors.red, duration: 2);
+      if (mounted) {
+        _showSnackBar(message, successCount > 0 ? Colors.green : Colors.red, duration: 3);
+      }
       
     } catch (e) {
-      debugPrint('❌ Error during batch ping test: $e');
-      _showSnackBar('Error testing servers: $e', Colors.red, duration: 2);
+      debugPrint('❌ Error during ping test: $e');
+      if (mounted) {
+        _showSnackBar('❌ Error testing servers: $e', Colors.red, duration: 3);
+      }
     } finally {
       _pingAnimationController.stop();
       if (mounted) {
@@ -335,47 +431,38 @@ class _ServerSelectionScreenState
           
           // Refresh Button
           GestureDetector(
-            onTap: () async {
-              final provider = Provider.of<V2RayProvider>(context, listen: false);
-              _showSnackBar('Refreshing servers...', Colors.blue);
-              
-              // Clear old ping results before refreshing
-              if (mounted) {
-                setState(() {
-                  _serverPings.clear();
-                });
-              }
-              
-              // Update all subscriptions to get fresh server list
-              await provider.updateAllSubscriptions();
-              
-              if (provider.errorMessage.isEmpty) {
-                _showSnackBar('Servers updated successfully!', Colors.green);
-                
-                // Optionally auto-test pings after refresh
-                // Uncomment the line below if you want automatic ping test after refresh
-                // await _testAllServersPing();
-              } else {
-                _showSnackBar(provider.errorMessage, Colors.red);
-                provider.clearError();
-              }
-            },
-            child: Container(
+            onTap: _isRefreshing ? null : _refreshServers,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: _isRefreshing 
+                    ? Colors.blue.withOpacity(0.2)
+                    : Colors.white.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: _isRefreshing
+                      ? Colors.blue.withOpacity(0.4)
+                      : Colors.white.withOpacity(0.2),
+                  width: _isRefreshing ? 2 : 1,
                 ),
               ),
-              child: const Icon(
-                Icons.refresh,
-                color: Colors.white,
-                size: 22,
-              ),
+              child: _isRefreshing
+                  ? RotationTransition(
+                      turns: Tween(begin: 0.0, end: 1.0).animate(_refreshAnimationController),
+                      child: const Icon(
+                        Icons.refresh,
+                        color: Colors.blue,
+                        size: 22,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.refresh,
+                      color: Colors.white,
+                      size: 22,
+                    ),
             ),
-          ).animate().fadeIn().scale(delay: 200.ms),
+          ),
         ],
       ),
     );
@@ -526,33 +613,28 @@ class _ServerSelectionScreenState
   }
 
   Widget _buildServerList(List<V2RayConfig> servers, V2RayProvider provider) {
-    return AnimatedBuilder(
-      animation: _listAnimationController,
-      builder: (context, child) {
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          physics: const ClampingScrollPhysics(),
-          itemCount: servers.length,
-          itemBuilder: (context, index) {
-            final server = servers[index];
-            final isActive = provider.activeConfig?.remark == server.remark;
-            final ping = _serverPings[server.id];
-            
-            return _buildServerItem(
-              server: server,
-              isActive: isActive,
-              ping: ping,
-              index: index,
-              onTap: () async {
-                await provider.selectConfig(server);
-                if (!mounted) return;
-                Navigator.pop(context, server);
-                final serverName = server.isSmartConnect 
-                    ? AppLocalizations.of(context).translate('server_selection.smart_connect')
-                    : server.remark;
-                _showSnackBar('Server selected: $serverName', Colors.blue);
-              },
-            );
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      physics: const ClampingScrollPhysics(),
+      itemCount: servers.length,
+      itemBuilder: (context, index) {
+        final server = servers[index];
+        final isActive = provider.activeConfig?.remark == server.remark;
+        final ping = _serverPings[server.id];
+        
+        return _buildServerItem(
+          server: server,
+          isActive: isActive,
+          ping: ping,
+          index: index,
+          onTap: () async {
+            await provider.selectConfig(server);
+            if (!mounted) return;
+            Navigator.pop(context, server);
+            final serverName = server.isSmartConnect 
+                ? AppLocalizations.of(context).translate('server_selection.smart_connect')
+                : server.remark;
+            _showSnackBar('Server selected: $serverName', Colors.blue);
           },
         );
       },
@@ -579,13 +661,13 @@ class _ServerSelectionScreenState
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: isActive
               ? const Color(0xFF1E293B).withOpacity(0.9)
               : const Color(0xFF1E293B).withOpacity(0.5),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isActive
                 ? Colors.white.withOpacity(0.3)
@@ -594,9 +676,9 @@ class _ServerSelectionScreenState
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -609,53 +691,57 @@ class _ServerSelectionScreenState
                 Hero(
                   tag: 'server_${server.id}',
                   child: Container(
-                    width: 60,
-                    height: 60,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: const Color(0xFF334155).withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.2),
-                        width: 2,
+                        width: 1.5,
                       ),
                     ),
-                    child: server.isSmartConnect
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Image.asset(
-                              'assets/images/apk.png',
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: CachedNetworkImage(
-                              imageUrl: server.countryFlagUrl,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white.withOpacity(0.5),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8.5),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: server.isSmartConnect
+                            ? Image.asset(
+                                'assets/images/apk.png',
+                                width: 28,
+                                height: 28,
+                                fit: BoxFit.contain,
+                              )
+                            : CachedNetworkImage(
+                                imageUrl: server.countryFlagUrl,
+                                width: 28,
+                                height: 28,
+                                fit: BoxFit.contain,
+                                placeholder: (context, url) => Center(
+                                  child: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white.withOpacity(0.5),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              errorWidget: (context, url, error) => Center(
-                                child: Text(
-                                  server.countryFlag,
-                                  style: const TextStyle(fontSize: 36),
+                                errorWidget: (context, url, error) => Center(
+                                  child: Text(
+                                    server.countryFlag,
+                                    style: const TextStyle(fontSize: 18),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                    ),
                   ),
                 ),
                 
-                const SizedBox(width: 16),
+                const SizedBox(width: 10),
                 
                 // Server Info
                 Expanded(
@@ -670,73 +756,34 @@ class _ServerSelectionScreenState
                             : server.remark,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.3,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 8),
-                      // Badges Row
-                      Row(
-                        children: [
-                          // Protocol Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF475569).withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              server.configType.toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
+                      const SizedBox(height: 3),
+                      // Protocol Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF475569).withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
                           ),
-                          // Ping Badge
-                          if (ping != null) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: _getPingColor(ping).withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: _getPingColor(ping).withOpacity(0.5),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.speed_rounded,
-                                    size: 12,
-                                    color: _getPingColor(ping),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    pingText,
-                                    style: TextStyle(
-                                      color: _getPingColor(ping),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                        ),
+                        child: Text(
+                          server.configType.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -747,13 +794,13 @@ class _ServerSelectionScreenState
             // Active Badge
             if (isActive)
               Positioned(
-                top: 8,
-                right: 8,
+                top: 4,
+                right: 4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981).withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: Colors.white.withOpacity(0.3),
                       width: 1.5,
@@ -764,15 +811,15 @@ class _ServerSelectionScreenState
                     children: const [
                       Icon(
                         Icons.check_circle_rounded,
-                        size: 14,
+                        size: 10,
                         color: Colors.white,
                       ),
-                      SizedBox(width: 4),
+                      SizedBox(width: 2),
                       Text(
                         'ACTIVE',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.8,
                         ),
@@ -785,17 +832,17 @@ class _ServerSelectionScreenState
             // Loading Indicator
             if (_isTestingPings && ping == null && !isActive)
               Positioned(
-                top: 8,
-                right: 8,
+                top: 4,
+                right: 4,
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
                     color: const Color(0xFF475569).withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 12,
+                    height: 12,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
@@ -806,26 +853,69 @@ class _ServerSelectionScreenState
                 ),
               ),
             
-            // Arrow Icon
-            if (!isActive && !(_isTestingPings && ping == null))
+            // Ping Display (replaces arrow icon)
+            if (!isActive && !(_isTestingPings && ping == null) && !server.isSmartConnect)
               Positioned(
                 top: 0,
                 bottom: 0,
-                right: 16,
+                right: 8,
+                child: Center(
+                  child: ping != null
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getPingColor(ping).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: _getPingColor(ping).withOpacity(0.5),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.speed_rounded,
+                                size: 10,
+                                color: _getPingColor(ping),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                pingText,
+                                style: TextStyle(
+                                  color: _getPingColor(ping),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Colors.white.withOpacity(0.4),
+                          size: 12,
+                        ),
+                ),
+              ),
+            // Arrow Icon for Smart Connect (no ping test)
+            if (!isActive && !(_isTestingPings && ping == null) && server.isSmartConnect)
+              Positioned(
+                top: 0,
+                bottom: 0,
+                right: 8,
                 child: Center(
                   child: Icon(
                     Icons.arrow_forward_ios_rounded,
                     color: Colors.white.withOpacity(0.4),
-                    size: 16,
+                    size: 12,
                   ),
                 ),
               ),
           ],
         ),
       ),
-    ).animate()
-        .fadeIn(delay: Duration(milliseconds: 50 * index))
-        .slideX(begin: 0.2, end: 0);
+    );
   }
 
 }
