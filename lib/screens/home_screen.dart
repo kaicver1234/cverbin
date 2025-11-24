@@ -17,7 +17,7 @@ import '../screens/host_checker_screen.dart';
 import '../screens/about_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -43,10 +43,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     // Listen to app lifecycle to force rebuild when resumed
     WidgetsBinding.instance.addObserver(this);
     
+<<<<<<< HEAD
     // Check VPN status when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final provider = Provider.of<V2RayProvider>(context, listen: false);
+=======
+    // چک کردن وضعیت اتصال فقط یک بار وقتی صفحه باز می‌شه
+    // این کار باتری رو خالی نمی‌کنه چون فقط یک بار اجرا می‌شه
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<V2RayProvider>(context, listen: false);
+      // فقط اگه برنامه initialize شده باشه
+      if (!provider.isInitializing) {
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
         provider.forceCheckVpnStatus();
       }
     });
@@ -84,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       // Force rebuild UI when app comes back from background
       debugPrint('🏠 HomeScreen: App resumed, checking VPN status...');
       
+<<<<<<< HEAD
       // Force check actual VPN status from service
       final provider = Provider.of<V2RayProvider>(context, listen: false);
       provider.forceCheckVpnStatus().then((_) {
@@ -91,6 +101,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           setState(() {});
         }
       });
+=======
+      // CRITICAL: Force check VPN status when app resumes
+      final provider = Provider.of<V2RayProvider>(context, listen: false);
+      provider.forceCheckVpnStatus();
+      
+      // Single rebuild is enough - Consumer2 will handle the rest
+      if (mounted) {
+        setState(() {});
+      }
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
     }
   }
   
@@ -260,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               letterSpacing: -0.5,
             ),
           ),
-          content: Container(
+          content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
               shrinkWrap: true,
@@ -463,7 +483,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     AppLocalizations.of(context).translate('home.secure_connection'),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                     ),
                   ).animate().fadeIn(delay: 100.ms),
                 ],
@@ -504,10 +524,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
           ),
         ),
         child: Icon(
@@ -684,7 +704,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           Text(
             AppLocalizations.of(context).translate('navigation.tools'),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.95),
+              color: Colors.white.withValues(alpha: 0.95),
               fontSize: 24,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
@@ -696,7 +716,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           Text(
             AppLocalizations.of(context).translate('home.quick_actions'),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 14,
             ),
           ),
@@ -795,7 +815,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 15,
                   offset: const Offset(0, 5),
                 ),
@@ -881,7 +901,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               gradient: RadialGradient(
                 colors: isConnected
                     ? [
-                        const Color(0xFF10B981).withOpacity(0.9),
+                        const Color(0xFF10B981).withValues(alpha: 0.9),
                         const Color(0xFF059669),
                         const Color(0xFF047857),
                       ]
@@ -895,8 +915,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               boxShadow: [
                 BoxShadow(
                   color: isConnected
-                      ? const Color(0xFF10B981).withOpacity(0.5)
-                      : Colors.black.withOpacity(0.4),
+                      ? const Color(0xFF10B981).withValues(alpha: 0.5)
+                      : Colors.black.withValues(alpha: 0.4),
                   blurRadius: isConnected ? 40 : 20,
                   spreadRadius: isConnected ? 5 : 0,
                 ),
@@ -922,7 +942,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                             gradient: SweepGradient(
                               colors: [
                                 Colors.transparent,
-                                Colors.white.withOpacity(0.3),
+                                Colors.white.withValues(alpha: 0.3),
                                 Colors.transparent,
                               ],
                             ),
@@ -1009,7 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 content: Text(
                   AppLocalizations.of(context).translate('server_selector.disconnect_first'),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 15,
                   ),
                 ),
@@ -1042,10 +1062,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
           ),
         ),
         child: Row(
@@ -1079,7 +1099,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       height: 48,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
+<<<<<<< HEAD
                         color: Colors.white.withOpacity(0.1),
+=======
+                        color: Colors.white.withValues(alpha: 0.1),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                       ),
                       child: Center(
                         child: SizedBox(
@@ -1088,7 +1112,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white.withOpacity(0.5),
+                              Colors.white.withValues(alpha: 0.5),
                             ),
                           ),
                         ),
@@ -1099,12 +1123,28 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       height: 48,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
+<<<<<<< HEAD
                         color: Colors.white.withOpacity(0.1),
                       ),
                       child: Center(
                         child: Text(
                           selectedConfig.countryFlag,
                           style: const TextStyle(fontSize: 32),
+=======
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Center(
+                          child: Text(
+                            selectedConfig.countryFlag,
+                            style: const TextStyle(
+                              fontSize: 32,
+                              height: 1.0,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                         ),
                       ),
                     ),
@@ -1119,7 +1159,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   Text(
                     AppLocalizations.of(context).translate('home.server_location_label'),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,
                     ),
                   ),
@@ -1141,7 +1181,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ),
             Icon(
               Icons.arrow_forward_ios,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               size: 18,
             ),
           ],
@@ -1250,10 +1290,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
+<<<<<<< HEAD
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: Colors.white.withOpacity(0.1),
+=======
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
           width: 1,
         ),
       ),
@@ -1262,14 +1309,22 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         children: [
           Icon(
             icon,
+<<<<<<< HEAD
             color: Colors.white.withOpacity(0.8),
+=======
+            color: Colors.white.withValues(alpha: 0.8),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
             size: 20,
           ),
           const SizedBox(height: 8),
           Text(
             label,
             style: TextStyle(
+<<<<<<< HEAD
               color: Colors.white.withOpacity(0.6),
+=======
+              color: Colors.white.withValues(alpha: 0.6),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
               fontSize: 10,
               fontWeight: FontWeight.w500,
             ),

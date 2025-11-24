@@ -10,7 +10,7 @@ import '../utils/app_localizations.dart';
 import 'dart:ui';
 
 class PrivacyWelcomeScreen extends StatefulWidget {
-  const PrivacyWelcomeScreen({Key? key}) : super(key: key);
+  const PrivacyWelcomeScreen({super.key});
 
   @override
   State<PrivacyWelcomeScreen> createState() => _PrivacyWelcomeScreenState();
@@ -127,7 +127,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                             child: Text(
                               AppLocalizations.of(context).translate('privacy_welcome.skip'),
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1,
                               ),
@@ -184,18 +184,18 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF6366F1).withOpacity(0.8),
-                  const Color(0xFF8B5CF6).withOpacity(0.6),
+                  const Color(0xFF6366F1).withValues(alpha: 0.8),
+                  const Color(0xFF8B5CF6).withValues(alpha: 0.6),
                 ],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.4),
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                   blurRadius: 40,
                   spreadRadius: 10,
                 ),
                 BoxShadow(
-                  color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                   blurRadius: 60,
                   spreadRadius: 5,
                   offset: const Offset(0, 20),
@@ -209,7 +209,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       width: 2,
                     ),
                   ),
@@ -225,7 +225,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
               .scale(duration: 1000.ms, curve: Curves.elasticOut)
               .fadeIn(duration: 600.ms)
               .then()
-              .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.3)),
+              .shimmer(duration: 2000.ms, color: Colors.white.withValues(alpha: 0.3)),
           
           const SizedBox(height: 50),
           
@@ -257,7 +257,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 17,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               height: 1.6,
               letterSpacing: 0.3,
             ),
@@ -351,18 +351,18 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withOpacity(0.12),
-                        Colors.white.withOpacity(0.05),
+                        Colors.white.withValues(alpha: 0.12),
+                        Colors.white.withValues(alpha: 0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: (feature['color'] as Color).withOpacity(0.1),
+                        color: (feature['color'] as Color).withValues(alpha: 0.1),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -378,14 +378,14 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              (feature['color'] as Color).withOpacity(0.8),
-                              (feature['color'] as Color).withOpacity(0.5),
+                              (feature['color'] as Color).withValues(alpha: 0.8),
+                              (feature['color'] as Color).withValues(alpha: 0.5),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: (feature['color'] as Color).withOpacity(0.4),
+                              color: (feature['color'] as Color).withValues(alpha: 0.4),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -415,7 +415,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                             Text(
                               feature['desc'] as String,
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 14,
                                 height: 1.4,
                               ),
@@ -431,7 +431,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                 .fadeIn(delay: Duration(milliseconds: 200 + index * 120), duration: 500.ms)
                 .slideX(begin: 0.2, end: 0, curve: Curves.easeOutCubic)
                 .scale(begin: const Offset(0.95, 0.95), delay: Duration(milliseconds: 200 + index * 120));
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -459,7 +459,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF10B981).withOpacity(0.4),
+                  color: const Color(0xFF10B981).withValues(alpha: 0.4),
                   blurRadius: 30,
                   spreadRadius: 5,
                 ),
@@ -504,7 +504,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 17,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               height: 1.6,
               letterSpacing: 0.3,
             ),
@@ -528,23 +528,23 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        const Color(0xFF6366F1).withOpacity(0.9),
-                        const Color(0xFF8B5CF6).withOpacity(0.8),
+                        const Color(0xFF6366F1).withValues(alpha: 0.9),
+                        const Color(0xFF8B5CF6).withValues(alpha: 0.8),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(35),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6366F1).withOpacity(0.5),
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                         blurRadius: 30,
                         offset: const Offset(0, 15),
                       ),
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                         blurRadius: 40,
                         offset: const Offset(0, 20),
                       ),
@@ -577,17 +577,17 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
               .fadeIn(delay: 700.ms, duration: 600.ms)
               .scale(delay: 700.ms, begin: const Offset(0.9, 0.9), curve: Curves.easeOutBack)
               .then(delay: 500.ms)
-              .shimmer(duration: 2000.ms, color: Colors.white.withOpacity(0.3)),
+              .shimmer(duration: 2000.ms, color: Colors.white.withValues(alpha: 0.3)),
           
           const SizedBox(height: 40),
           
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.15),
               ),
             ),
             child: Row(
@@ -602,7 +602,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                 Text(
                   AppLocalizations.of(context).translate('privacy_welcome.no_registration'),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -632,18 +632,18 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withOpacity(0.15),
-                    Colors.white.withOpacity(0.05),
+                    Colors.white.withValues(alpha: 0.15),
+                    Colors.white.withValues(alpha: 0.05),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -661,7 +661,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
             fontSize: 13,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
@@ -696,13 +696,13 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withOpacity(0.15),
-                          Colors.white.withOpacity(0.08),
+                          Colors.white.withValues(alpha: 0.15),
+                          Colors.white.withValues(alpha: 0.08),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
+                        color: Colors.white.withValues(alpha: 0.3),
                         width: 1.5,
                       ),
                     ),
@@ -733,12 +733,12 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                           colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
                         )
                       : null,
-                  color: isActive ? null : Colors.white.withOpacity(0.3),
+                  color: isActive ? null : Colors.white.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(5),
                   boxShadow: isActive
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF6366F1).withOpacity(0.5),
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -772,12 +772,12 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                       ),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
+                        color: Colors.white.withValues(alpha: 0.3),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.4),
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.4),
                           blurRadius: 15,
                           offset: const Offset(0, 6),
                         ),
@@ -832,15 +832,13 @@ class _FloatingParticleState extends State<_FloatingParticle>
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Initialize animation here where context is available
-    if (_animation == null) {
-      _animation = Tween<double>(
-        begin: MediaQuery.of(context).size.height + 50,
-        end: -50,
-      ).animate(CurvedAnimation(
-        parent: _controller,
-        curve: Curves.linear,
-      ));
-    }
+    _animation ??= Tween<double>(
+      begin: MediaQuery.of(context).size.height + 50,
+      end: -50,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.linear,
+    ));
   }
   
   @override
@@ -865,10 +863,10 @@ class _FloatingParticleState extends State<_FloatingParticle>
             height: 4,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   blurRadius: 8,
                 ),
               ],

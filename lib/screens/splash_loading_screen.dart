@@ -9,10 +9,10 @@ class SplashLoadingScreen extends StatefulWidget {
   final VoidCallback onComplete;
 
   const SplashLoadingScreen({
-    Key? key,
+    super.key,
     required this.onInitialize,
     required this.onComplete,
-  }) : super(key: key);
+  });
 
   @override
   State<SplashLoadingScreen> createState() => _SplashLoadingScreenState();
@@ -192,7 +192,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
                             color: (_hasInternet
                                     ? const Color(0xFF667EEA)
                                     : Colors.orange)
-                                .withOpacity(0.5),
+                                .withValues(alpha: 0.5),
                             blurRadius: 30,
                             spreadRadius: 5,
                           ),
@@ -236,7 +236,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
                 Container(
                   height: 6,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: ClipRRect(
@@ -260,7 +260,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
                 Text(
                   _statusMessage,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -273,10 +273,10 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.orange.withOpacity(0.3),
+                      color: Colors.orange.withValues(alpha: 0.3),
                       width: 2,
                     ),
                   ),
@@ -305,7 +305,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
                         ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 14,
                         ),
                       ),
@@ -381,7 +381,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
               Text(
                 _t('Made with ❤️', 'ساخته شده با ❤️'),
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   fontSize: 12,
                 ),
               ).animate().fadeIn(delay: 500.ms, duration: 500.ms),

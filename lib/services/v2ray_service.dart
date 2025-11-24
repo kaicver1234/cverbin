@@ -854,14 +854,42 @@ class V2RayService extends ChangeNotifier {
   // Getter to access the active config
   V2RayConfig? get activeConfig => _activeConfig;
 
-  // Public method to force check connection status
+  Future<String?> getVpnStatus() async {
+    try {
+      final currentState = _currentStatus?.state.toLowerCase() ?? '';
+      
+      if (currentState.contains('connect') || currentState == 'connected') {
+        return 'connected';
+      } else if (currentState.contains('disconnect') || 
+                 currentState.contains('stop') || 
+                 currentState == 'disconnected') {
+        return 'disconnected';
+      }
+      
+      return 'unknown';
+    } catch (e) {
+      debugPrint('❌ Error getting VPN status: $e');
+      return null;
+    }
+  }
+  
+  Future<bool> isTunnelRunning() async {
+    try {
+      final delay = await _flutterV2ray.getConnectedServerDelay()
+          .timeout(const Duration(seconds: 2));
+      
+      return delay >= 0 && delay < 10000;
+    } catch (e) {
+      return _activeConfig != null;
+    }
+  }
+  
   Future<bool> isActuallyConnected() async {
     try {
-      debugPrint('🔎 Checking if VPN is actually connected...');
+      debugPrint('🔎 Checking VPN connection...');
       
-      // Method 1: Check V2Ray core status
       final currentState = _currentStatus?.state.toLowerCase() ?? '';
-      debugPrint('🔎 Current V2Ray state: $currentState');
+      debugPrint('🔎 State: $currentState');
       
       // If status explicitly says connected, verify it
       if (currentState.contains('connect') || currentState == 'connected') {

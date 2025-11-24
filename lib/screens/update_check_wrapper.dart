@@ -7,9 +7,9 @@ class UpdateCheckWrapper extends StatefulWidget {
   final Widget child;
   
   const UpdateCheckWrapper({
-    Key? key,
+    super.key,
     required this.child,
-  }) : super(key: key);
+  });
 
   @override
   State<UpdateCheckWrapper> createState() => _UpdateCheckWrapperState();

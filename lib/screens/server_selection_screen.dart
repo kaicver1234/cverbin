@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -10,7 +9,7 @@ import '../widgets/vpn_gradient_background.dart';
 import '../utils/app_localizations.dart';
 
 class ServerSelectionScreen extends StatefulWidget {
-  const ServerSelectionScreen({Key? key}) : super(key: key);
+  const ServerSelectionScreen({super.key});
 
   @override
   State<ServerSelectionScreen> createState() =>
@@ -22,7 +21,7 @@ class _ServerSelectionScreenState
     with TickerProviderStateMixin {
   bool _isTestingPings = false;
   bool _isRefreshing = false;
-  Map<String, int> _serverPings = {}; // Map of server ID to ping
+  final Map<String, int> _serverPings = {}; // Map of server ID to ping
   
   late AnimationController _pingAnimationController;
   late AnimationController _refreshAnimationController;
@@ -236,6 +235,7 @@ class _ServerSelectionScreenState
     
     if (fastestServerId != null) {
       final provider = Provider.of<V2RayProvider>(context, listen: false);
+<<<<<<< HEAD
       try {
         final server = provider.configs.firstWhere(
           (s) => s.id == fastestServerId,
@@ -255,7 +255,24 @@ class _ServerSelectionScreenState
         debugPrint('❌ Error finding fastest server: $e');
         _showSnackBar('Server not found', Colors.red);
       }
+=======
+      final server = provider.configs.firstWhere(
+        (s) => s.id == fastestServerId,
+      );
+      
+      await provider.selectConfig(server);
+      await provider.connectToServer(server);
+      
+      if (!mounted) return;
+      
+      final serverName = server.isSmartConnect 
+          ? AppLocalizations.of(context).translate('server_selection.smart_connect')
+          : server.remark;
+      _showSnackBar('Connected to fastest server: $serverName ($lowestPing ms)', Colors.green);
+      Navigator.pop(context, server);
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
     } else {
+      if (!mounted) return;
       _showSnackBar('No fast server found', Colors.red);
     }
   }
@@ -322,24 +339,6 @@ class _ServerSelectionScreenState
     }
   }
 
-  // Test real delay using V2Ray Core (faster and more accurate!)
-  Future<int> _testSingleServerPing(V2RayConfig server) async {
-    try {
-      final provider = Provider.of<V2RayProvider>(context, listen: false);
-      
-      // Use V2Ray Core's built-in ping (much faster and accurate)
-      final delay = await provider.v2rayService.getServerDelay(server);
-      
-      if (delay != null && delay >= 0 && delay < 10000) {
-        return delay;
-      } else {
-        return 9999;
-      }
-    } catch (e) {
-      debugPrint('❌ Ping failed for ${server.remark}: $e');
-      return 9999;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -395,10 +394,10 @@ class _ServerSelectionScreenState
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
               child: const Icon(
@@ -431,13 +430,13 @@ class _ServerSelectionScreenState
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: _isRefreshing 
-                    ? Colors.blue.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.1),
+                    ? Colors.blue.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: _isRefreshing
-                      ? Colors.blue.withOpacity(0.4)
-                      : Colors.white.withOpacity(0.2),
+                      ? Colors.blue.withValues(alpha: 0.4)
+                      : Colors.white.withValues(alpha: 0.2),
                   width: _isRefreshing ? 2 : 1,
                 ),
               ),
@@ -472,8 +471,8 @@ class _ServerSelectionScreenState
           end: Alignment.bottomCenter,
           colors: [
             Colors.transparent,
-            Colors.black.withOpacity(0.3),
-            Colors.black.withOpacity(0.5),
+            Colors.black.withValues(alpha: 0.3),
+            Colors.black.withValues(alpha: 0.5),
           ],
         ),
       ),
@@ -534,7 +533,7 @@ class _ServerSelectionScreenState
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -582,13 +581,13 @@ class _ServerSelectionScreenState
           Icon(
             Icons.dns_outlined,
             size: 80,
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 16),
           Text(
             'No servers found',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 18,
               fontWeight: FontWeight.w500,
             ),
@@ -597,7 +596,7 @@ class _ServerSelectionScreenState
           Text(
             'Try refreshing or changing filters',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               fontSize: 14,
             ),
           ),
@@ -659,6 +658,7 @@ class _ServerSelectionScreenState
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
+<<<<<<< HEAD
               ? const Color(0xFF1E293B).withOpacity(0.9)
               : const Color(0xFF1E293B).withOpacity(0.5),
           borderRadius: BorderRadius.circular(10),
@@ -673,6 +673,22 @@ class _ServerSelectionScreenState
               color: Colors.black.withOpacity(0.1),
               blurRadius: 4,
               offset: const Offset(0, 1),
+=======
+              ? const Color(0xFF1E293B).withValues(alpha: 0.9)
+              : const Color(0xFF1E293B).withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive
+                ? Colors.white.withValues(alpha: 0.3)
+                : Colors.white.withValues(alpha: 0.1),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
             ),
           ],
         ),
@@ -688,6 +704,7 @@ class _ServerSelectionScreenState
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
+<<<<<<< HEAD
                       color: const Color(0xFF334155).withOpacity(0.8),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
@@ -700,6 +717,20 @@ class _ServerSelectionScreenState
                       child: server.isSmartConnect
                           ? Padding(
                               padding: const EdgeInsets.all(5),
+=======
+                      color: const Color(0xFF334155).withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8.5),
+                      child: server.isSmartConnect
+                          ? Padding(
+                              padding: const EdgeInsets.all(6),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                               child: Image.asset(
                                 'assets/images/apk.png',
                                 width: 22,
@@ -709,6 +740,7 @@ class _ServerSelectionScreenState
                             )
                           : CachedNetworkImage(
                               imageUrl: server.countryFlagUrl,
+<<<<<<< HEAD
                               width: 32,
                               height: 32,
                               fit: BoxFit.fill,
@@ -720,6 +752,19 @@ class _ServerSelectionScreenState
                                     strokeWidth: 1.5,
                                     valueColor: AlwaysStoppedAnimation<Color>(
                                       Colors.white.withOpacity(0.5),
+=======
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Center(
+                                child: SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white.withValues(alpha: 0.5),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                                     ),
                                   ),
                                 ),
@@ -727,7 +772,15 @@ class _ServerSelectionScreenState
                               errorWidget: (context, url, error) => Center(
                                 child: Text(
                                   server.countryFlag,
+<<<<<<< HEAD
                                   style: const TextStyle(fontSize: 16),
+=======
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    height: 1.0,
+                                  ),
+                                  textAlign: TextAlign.center,
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                                 ),
                               ),
                             ),
@@ -759,6 +812,7 @@ class _ServerSelectionScreenState
                       ),
                       // Smart Connect Description
                       if (server.isSmartConnect) ...[
+<<<<<<< HEAD
                         const SizedBox(height: 2),
                         Text(
                           AppLocalizations.of(context).translate('server_selection.smart_connect_description'),
@@ -767,6 +821,16 @@ class _ServerSelectionScreenState
                             fontSize: 9,
                             fontWeight: FontWeight.w400,
                             letterSpacing: -0.1,
+=======
+                        const SizedBox(height: 3),
+                        Text(
+                          AppLocalizations.of(context).translate('server_selection.smart_connect_description'),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: -0.2,
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -786,11 +850,19 @@ class _ServerSelectionScreenState
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
+<<<<<<< HEAD
                     color: const Color(0xFF10B981).withOpacity(0.9),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: Colors.white.withOpacity(0.3),
                       width: 1,
+=======
+                    color: const Color(0xFF10B981).withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 1.5,
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                     ),
                   ),
                   child: Row(
@@ -824,8 +896,13 @@ class _ServerSelectionScreenState
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
+<<<<<<< HEAD
                     color: const Color(0xFF475569).withOpacity(0.8),
                     borderRadius: BorderRadius.circular(6),
+=======
+                    color: const Color(0xFF475569).withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(8),
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                   ),
                   child: const SizedBox(
                     width: 10,
@@ -851,11 +928,19 @@ class _ServerSelectionScreenState
                       ? Container(
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
                           decoration: BoxDecoration(
+<<<<<<< HEAD
                             color: _getPingColor(ping).withOpacity(0.2),
                             borderRadius: BorderRadius.circular(5),
                             border: Border.all(
                               color: _getPingColor(ping).withOpacity(0.5),
                               width: 1,
+=======
+                            color: _getPingColor(ping).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: _getPingColor(ping).withValues(alpha: 0.5),
+                              width: 1.5,
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                             ),
                           ),
                           child: Row(
@@ -880,8 +965,13 @@ class _ServerSelectionScreenState
                         )
                       : Icon(
                           Icons.arrow_forward_ios_rounded,
+<<<<<<< HEAD
                           color: Colors.white.withOpacity(0.4),
                           size: 10,
+=======
+                          color: Colors.white.withValues(alpha: 0.4),
+                          size: 12,
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                         ),
                 ),
               ),
@@ -894,8 +984,13 @@ class _ServerSelectionScreenState
                 child: Center(
                   child: Icon(
                     Icons.arrow_forward_ios_rounded,
+<<<<<<< HEAD
                     color: Colors.white.withOpacity(0.4),
                     size: 10,
+=======
+                    color: Colors.white.withValues(alpha: 0.4),
+                    size: 12,
+>>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
                   ),
                 ),
               ),

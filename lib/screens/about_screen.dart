@@ -7,7 +7,7 @@ import '../widgets/vpn_gradient_background.dart';
 import '../utils/app_localizations.dart';
 
 class AboutScreen extends StatefulWidget {
-  const AboutScreen({Key? key}) : super(key: key);
+  const AboutScreen({super.key});
 
   @override
   State<AboutScreen> createState() => _AboutScreenState();
@@ -149,10 +149,10 @@ class _AboutScreenState extends State<AboutScreen>
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
               child: const Icon(
@@ -201,7 +201,7 @@ class _AboutScreenState extends State<AboutScreen>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6366F1).withOpacity(0.5),
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.5),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -236,7 +236,7 @@ class _AboutScreenState extends State<AboutScreen>
                   'Version 1.1.1',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     letterSpacing: 1,
                   ),
                 ).animate()
@@ -254,10 +254,10 @@ class _AboutScreenState extends State<AboutScreen>
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
@@ -275,7 +275,7 @@ class _AboutScreenState extends State<AboutScreen>
             AppLocalizations.of(context).translate('about.about_description'),
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 14,
               height: 1.5,
             ),
@@ -292,13 +292,13 @@ class _AboutScreenState extends State<AboutScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF6366F1).withOpacity(0.2),
-            const Color(0xFF8B5CF6).withOpacity(0.1),
+            const Color(0xFF6366F1).withValues(alpha: 0.2),
+            const Color(0xFF8B5CF6).withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFF6366F1).withOpacity(0.3),
+          color: const Color(0xFF6366F1).withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -417,7 +417,7 @@ class _AboutScreenState extends State<AboutScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: gradient[0].withOpacity(0.4),
+              color: gradient[0].withValues(alpha: 0.4),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -464,7 +464,7 @@ class _AboutScreenState extends State<AboutScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: gradient[0].withOpacity(0.4),
+              color: gradient[0].withValues(alpha: 0.4),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -506,7 +506,7 @@ class _AboutScreenState extends State<AboutScreen>
             width: 40,
             height: 2,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(1),
             ),
           ),
@@ -514,7 +514,7 @@ class _AboutScreenState extends State<AboutScreen>
           Text(
             AppLocalizations.of(context).translate('about.copyright'),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 12,
             ),
           ),
