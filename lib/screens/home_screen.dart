@@ -10,7 +10,6 @@ import '../providers/language_provider.dart';
 import '../widgets/vpn_gradient_background.dart';
 import '../models/app_language.dart';
 import '../utils/app_localizations.dart';
-import '../screens/server_selection_screen.dart';
 import '../screens/ip_info_screen.dart';
 import '../screens/speedtest_screen.dart';
 import '../screens/host_checker_screen.dart';
@@ -43,19 +42,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     // Listen to app lifecycle to force rebuild when resumed
     WidgetsBinding.instance.addObserver(this);
     
-<<<<<<< HEAD
     // Check VPN status when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final provider = Provider.of<V2RayProvider>(context, listen: false);
-=======
-    // چک کردن وضعیت اتصال فقط یک بار وقتی صفحه باز می‌شه
-    // این کار باتری رو خالی نمی‌کنه چون فقط یک بار اجرا می‌شه
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<V2RayProvider>(context, listen: false);
-      // فقط اگه برنامه initialize شده باشه
-      if (!provider.isInitializing) {
->>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
         provider.forceCheckVpnStatus();
       }
     });
@@ -93,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       // Force rebuild UI when app comes back from background
       debugPrint('🏠 HomeScreen: App resumed, checking VPN status...');
       
-<<<<<<< HEAD
       // Force check actual VPN status from service
       final provider = Provider.of<V2RayProvider>(context, listen: false);
       provider.forceCheckVpnStatus().then((_) {
@@ -101,24 +90,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           setState(() {});
         }
       });
-=======
-      // CRITICAL: Force check VPN status when app resumes
-      final provider = Provider.of<V2RayProvider>(context, listen: false);
-      provider.forceCheckVpnStatus();
-      
-      // Single rebuild is enough - Consumer2 will handle the rest
-      if (mounted) {
-        setState(() {});
-      }
->>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
+
     }
-  }
-  
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _pageController.dispose();
-    super.dispose();
   }
 
   Future<void> _handleConnectionToggle() async {
@@ -133,83 +106,35 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
     try {
       if (provider.activeConfig != null) {
+        // Disconnect
         await provider.disconnect();
-        // _showSnackBar('Disconnected Successfully', Colors.orange);
+        if (mounted) {
+           _showSnackBar(AppLocalizations.of(context).translate('home.disconnected'), Colors.grey);
+        }
       } else {
-        // Check if user selected Smart Connect or a specific server
-        final selectedConfig = provider.selectedConfig;
+        // Connect (Smart Connect)
+        debugPrint('🧠 Auto Smart Connect: Finding best server...');
+        if (mounted) {
+          _showSnackBar(
+            AppLocalizations.of(context).translate('server_selection.finding_best_server'),
+            Colors.blue,
+          );
+        }
         
-        if (selectedConfig != null && selectedConfig.isSmartConnect) {
-          // Smart Connect selected: Find and connect to best server
-          debugPrint('🧠 Smart Connect: Finding best server...');
-          _showSnackBar(
-            AppLocalizations.of(context).translate('server_selection.finding_best_server'),
-            Colors.blue,
-          );
-          
-          final success = await provider.smartConnect(maxServersToTest: 5);
-          
-          if (mounted) {
-            if (success && provider.activeConfig != null) {
-              final serverName = provider.activeConfig!.isSmartConnect 
-                  ? AppLocalizations.of(context).translate('server_selection.smart_connect')
-                  : provider.activeConfig!.remark;
-              debugPrint('✅ Smart Connect successful to: ${provider.activeConfig!.remark}');
-              _showSnackBar('Connected to $serverName', Colors.green);
-            } else if (provider.errorMessage.isNotEmpty) {
-              debugPrint('❌ Smart Connect failed: ${provider.errorMessage}');
-              _showSnackBar(provider.errorMessage, Colors.red);
-            } else {
-              _showSnackBar('Connection failed', Colors.red);
-            }
-          }
-        } else if (selectedConfig != null) {
-          // Manual Connect: User selected a specific server
-          final serverName = selectedConfig.isSmartConnect 
-              ? AppLocalizations.of(context).translate('server_selection.smart_connect')
-              : selectedConfig.remark;
-          debugPrint('🎯 Manual Connect to: ${selectedConfig.remark}');
-          _showSnackBar('Connecting to $serverName...', Colors.blue);
-          
-          final success = await provider.connectToServer(selectedConfig);
-          
-          if (mounted) {
-            if (success && provider.activeConfig != null) {
-              final connectedServerName = provider.activeConfig!.isSmartConnect 
-                  ? AppLocalizations.of(context).translate('server_selection.smart_connect')
-                  : provider.activeConfig!.remark;
-              debugPrint('✅ Connected to: ${provider.activeConfig!.remark}');
-              _showSnackBar('Connected to $connectedServerName', Colors.green);
-            } else if (provider.errorMessage.isNotEmpty) {
-              debugPrint('❌ Connection failed: ${provider.errorMessage}');
-              _showSnackBar(provider.errorMessage, Colors.red);
-            } else {
-              _showSnackBar('Connection failed', Colors.red);
-            }
-          }
-        } else {
-          // No selection: Default to Smart Connect
-          debugPrint('🧠 No selection, using Smart Connect...');
-          _showSnackBar(
-            AppLocalizations.of(context).translate('server_selection.finding_best_server'),
-            Colors.blue,
-          );
-          
-          final success = await provider.smartConnect(maxServersToTest: 5);
-          
-          if (mounted) {
-            if (success && provider.activeConfig != null) {
-              final serverName = provider.activeConfig!.isSmartConnect 
-                  ? AppLocalizations.of(context).translate('server_selection.smart_connect')
-                  : provider.activeConfig!.remark;
-              debugPrint('✅ Smart Connect successful to: ${provider.activeConfig!.remark}');
-              _showSnackBar('Connected to $serverName', Colors.green);
-            } else if (provider.errorMessage.isNotEmpty) {
-              debugPrint('❌ Smart Connect failed: ${provider.errorMessage}');
-              _showSnackBar(provider.errorMessage, Colors.red);
-            } else {
-              _showSnackBar('Connection failed', Colors.red);
-            }
+        final success = await provider.smartConnect();
+        
+        if (mounted) {
+          if (success && provider.activeConfig != null) {
+            final serverName = provider.activeConfig!.isSmartConnect 
+                ? AppLocalizations.of(context).translate('server_selection.smart_connect')
+                : provider.activeConfig!.remark;
+            debugPrint('✅ Smart Connect successful to: ${provider.activeConfig!.remark}');
+            _showSnackBar('Connected to $serverName', Colors.green);
+          } else if (provider.errorMessage.isNotEmpty) {
+            debugPrint('❌ Smart Connect failed: ${provider.errorMessage}');
+            _showSnackBar(provider.errorMessage, Colors.red);
+          } else {
+            _showSnackBar('Connection failed', Colors.red);
           }
         }
       }
@@ -224,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
         
         // Reset IP when disconnected, fetch when connected
-        final provider = Provider.of<V2RayProvider>(context, listen: false);
         if (provider.activeConfig != null) {
           _fetchCurrentIp();
         } else {
@@ -676,8 +600,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             
             const SizedBox(height: 30),
             
-            // Server Selection Card - پایین‌تر
-            _buildServerCard(provider),
+            // Auto Server Info
+            _buildAutoServerInfo(provider),
             
             const SizedBox(height: 20),
             
@@ -990,204 +914,99 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildServerCard(V2RayProvider provider) {
-    final selectedConfig = provider.selectedConfig ?? provider.activeConfig;
+  Widget _buildAutoServerInfo(V2RayProvider provider) {
+    final activeConfig = provider.activeConfig;
+    final isSmartConnect = provider.wasUsingSmartConnect || (activeConfig?.isSmartConnect ?? false);
     
-    return GestureDetector(
-      onTap: () {
-        // Check if VPN is currently connected
-        if (provider.activeConfig != null) {
-          // Show dialog asking user to disconnect first
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                backgroundColor: const Color(0xFF1E293B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                title: Row(
-                  children: [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.orange,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(context).translate('server_selector.connection_active'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                content: Text(
-                  AppLocalizations.of(context).translate('server_selector.disconnect_first'),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 15,
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      AppLocalizations.of(context).translate('common.ok'),
-                      style: const TextStyle(
-                        color: Color(0xFF6366F1),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          );
-        } else {
-          // VPN is not connected, navigate to server selection
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ServerSelectionScreen(),
-            ),
-          );
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
+    // Determine the display name
+    String serverName;
+    if (activeConfig == null) {
+      serverName = AppLocalizations.of(context).translate('home.best_server_auto');
+    } else if (isSmartConnect) {
+      serverName = '${AppLocalizations.of(context).translate('home.connected_to')}: Smart Connect';
+    } else {
+      serverName = '${AppLocalizations.of(context).translate('home.connected_to')}: ${activeConfig.remark}';
+    }
+
+    // Determine the icon/flag
+    Widget iconWidget;
+    if (activeConfig != null && activeConfig.countryFlagUrl.isNotEmpty) {
+      iconWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: activeConfig.countryFlagUrl,
+          width: 32,
+          height: 24,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => const Icon(Icons.flag, color: Colors.white, size: 24),
+          errorWidget: (context, url, error) => const Icon(Icons.public, color: Colors.white, size: 24),
         ),
-        child: Row(
-          children: [
-            // Country Flag or Smart Connect Icon
-            if (selectedConfig != null) ...[
-              if (selectedConfig.isSmartConnect)
-                // Smart Connect Icon
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    image: const DecorationImage(
-                      image: AssetImage('assets/images/apk.png'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                )
-              else
-                // Country Flag (same size as Smart Connect)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(
-                    imageUrl: selectedConfig.countryFlagUrl,
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-<<<<<<< HEAD
-                        color: Colors.white.withOpacity(0.1),
-=======
-                        color: Colors.white.withValues(alpha: 0.1),
->>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
-                      ),
-                      child: Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-<<<<<<< HEAD
-                        color: Colors.white.withOpacity(0.1),
-                      ),
-                      child: Center(
-                        child: Text(
-                          selectedConfig.countryFlag,
-                          style: const TextStyle(fontSize: 32),
-=======
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Center(
-                          child: Text(
-                            selectedConfig.countryFlag,
-                            style: const TextStyle(
-                              fontSize: 32,
-                              height: 1.0,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
->>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AppLocalizations.of(context).translate('home.server_location_label'),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    selectedConfig != null
-                        ? selectedConfig.getDisplayName(
-                            (key) => AppLocalizations.of(context).translate(key),
-                          )
-                        : AppLocalizations.of(context).translate('home.no_server_selected'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white.withValues(alpha: 0.3),
-              size: 18,
-            ),
+      );
+    } else {
+      iconWidget = const Icon(
+        Icons.auto_awesome,
+        color: Colors.white,
+        size: 28,
+      );
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.1),
+            Colors.white.withValues(alpha: 0.05),
           ],
         ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+        ),
       ),
-    ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.2, end: 0);
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: iconWidget,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isSmartConnect 
+                      ? AppLocalizations.of(context).translate('server_selection.smart_connect')
+                      : AppLocalizations.of(context).translate('home.auto_server_selection'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  serverName,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 13,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0);
   }
 
   Widget _buildStatsGrid(V2RayProvider provider) {
@@ -1290,17 +1109,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-<<<<<<< HEAD
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-=======
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.1),
->>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
           width: 1,
         ),
       ),
@@ -1309,22 +1121,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         children: [
           Icon(
             icon,
-<<<<<<< HEAD
-            color: Colors.white.withOpacity(0.8),
-=======
             color: Colors.white.withValues(alpha: 0.8),
->>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
             size: 20,
           ),
           const SizedBox(height: 8),
           Text(
             label,
             style: TextStyle(
-<<<<<<< HEAD
-              color: Colors.white.withOpacity(0.6),
-=======
               color: Colors.white.withValues(alpha: 0.6),
->>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
               fontSize: 10,
               fontWeight: FontWeight.w500,
             ),

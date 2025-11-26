@@ -439,40 +439,77 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
 
   Widget _buildGetStartedPage() {
     return Padding(
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.all(30), // Reduced padding for better fit on smaller screens
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Success Icon with beautiful circle
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF10B981),
-                  Color(0xFF059669),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.4),
-                  blurRadius: 30,
-                  spreadRadius: 5,
-                ),
+          // Modern Success Animation (Optimized)
+          RepaintBoundary(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Pulse Animation (Outer Ring)
+                Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      width: 2,
+                    ),
+                  ),
+                ).animate(onPlay: (controller) => controller.repeat())
+                 .scale(duration: 2000.ms, begin: const Offset(0.8, 0.8), end: const Offset(1.3, 1.3))
+                 .fadeOut(duration: 2000.ms, curve: Curves.easeOut),
+                 
+                // Inner Glow
+                Container(
+                  width: 130,
+                  height: 130,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  ),
+                ).animate()
+                 .scale(duration: 1000.ms, curve: Curves.elasticOut, begin: const Offset(0, 0)),
+
+                // Main Circle with Gradient
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF34D399), // Lighter Green
+                        Color(0xFF059669), // Darker Green
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                        blurRadius: 25,
+                        offset: const Offset(0, 10),
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded, // Clean check icon without circle border
+                    size: 56,
+                    color: Colors.white,
+                  ),
+                ).animate()
+                 .scale(duration: 800.ms, curve: Curves.elasticOut, begin: const Offset(0, 0))
+                 .fadeIn(duration: 400.ms)
+                 .then()
+                 .shimmer(duration: 1500.ms, color: Colors.white.withValues(alpha: 0.4), delay: 1000.ms),
               ],
             ),
-            child: const Icon(
-              Icons.check_circle_outline,
-              size: 60,
-              color: Colors.white,
-            ),
-          ).animate()
-              .scale(duration: 1000.ms, curve: Curves.elasticOut)
-              .fadeIn(duration: 600.ms),
+          ),
           
           const SizedBox(height: 50),
           
@@ -480,131 +517,112 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
             AppLocalizations.of(context).translate('privacy_welcome.ready_to_start'),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.w900,
+              fontSize: 32, // Slightly smaller for better fit
+              fontWeight: FontWeight.w800,
               color: Colors.white,
-              letterSpacing: -1.2,
+              letterSpacing: -0.5,
               height: 1.2,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  offset: Offset(0, 2),
-                  blurRadius: 8,
-                ),
-              ],
             ),
           ).animate()
               .fadeIn(delay: 300.ms, duration: 600.ms)
-              .slideY(begin: 0.3, end: 0, curve: Curves.easeOutCubic),
+              .slideY(begin: 0.2, end: 0, curve: Curves.easeOutCubic),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           
           Text(
             AppLocalizations.of(context).translate('privacy_welcome.one_tap_away'),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 17,
-              color: Colors.white.withValues(alpha: 0.8),
-              height: 1.6,
-              letterSpacing: 0.3,
+              fontSize: 16,
+              color: Colors.white.withValues(alpha: 0.7),
+              height: 1.5,
+              letterSpacing: 0.2,
             ),
           ).animate()
               .fadeIn(delay: 500.ms, duration: 600.ms)
-              .slideY(begin: 0.3, end: 0, curve: Curves.easeOutCubic),
+              .slideY(begin: 0.2, end: 0, curve: Curves.easeOutCubic),
           
           const SizedBox(height: 60),
           
-          // Get Started Button with Glassmorphism
+          // Get Started Button - Optimized (Removed BackdropFilter for performance)
           GestureDetector(
             onTap: _completeOnboarding,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(35),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF6366F1).withValues(alpha: 0.9),
-                        const Color(0xFF8B5CF6).withValues(alpha: 0.8),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(35),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.5),
-                        blurRadius: 30,
-                        offset: const Offset(0, 15),
-                      ),
-                      BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                        blurRadius: 40,
-                        offset: const Offset(0, 20),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context).translate('privacy_welcome.get_started'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ],
-                  ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF6366F1), // Indigo
+                    Color(0xFF8B5CF6), // Violet
+                  ],
                 ),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    AppLocalizations.of(context).translate('privacy_welcome.get_started'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ],
               ),
             ),
           ).animate()
               .fadeIn(delay: 700.ms, duration: 600.ms)
-              .scale(delay: 700.ms, begin: const Offset(0.9, 0.9), curve: Curves.easeOutBack)
-              .then(delay: 500.ms)
-              .shimmer(duration: 2000.ms, color: Colors.white.withValues(alpha: 0.3)),
+              .scale(delay: 700.ms, begin: const Offset(0.9, 0.9), curve: Curves.easeOutBack),
           
-          const SizedBox(height: 40),
+          const SizedBox(height: 30),
           
+          // No Registration Badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.check_circle,
-                  color: const Color(0xFF10B981),
-                  size: 18,
+                const Icon(
+                  Icons.shield_outlined,
+                  color: Color(0xFF10B981),
+                  size: 16,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   AppLocalizations.of(context).translate('privacy_welcome.no_registration'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],

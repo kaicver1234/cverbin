@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../models/speed_test_state.dart';
@@ -338,7 +338,6 @@ class CloudflareSpeedTestService {
       int lastSent = 0;
       bool progressCallbackCalled = false;
       
-<<<<<<< HEAD
       // Split data into smaller chunks for better live progress tracking
       const chunkSize = 64 * 1024; // 64KB chunks for smooth progress
       List<List<int>> chunks = [];
@@ -348,8 +347,6 @@ class CloudflareSpeedTestService {
       }
       debugPrint('      📦 Split into ${chunks.length} chunks for live progress');
       
-=======
->>>>>>> 0230e278905dde01d89da8d30ca9ae07e94600a9
       await _dio.post(
         '/__up',
         data: Stream.fromIterable(chunks),
