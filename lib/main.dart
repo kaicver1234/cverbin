@@ -15,6 +15,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -145,6 +146,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-
-

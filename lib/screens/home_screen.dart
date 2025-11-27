@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,10 +9,12 @@ import '../providers/language_provider.dart';
 import '../widgets/vpn_gradient_background.dart';
 import '../models/app_language.dart';
 import '../utils/app_localizations.dart';
+import '../utils/app_colors.dart';
 import '../screens/ip_info_screen.dart';
 import '../screens/speedtest_screen.dart';
 import '../screens/host_checker_screen.dart';
 import '../screens/about_screen.dart';
+import 'server_selection_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +25,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   bool _isConnecting = false;
+  bool _isFindingServer = false; // For smart connect searching state
   late PageController _pageController;
   int _currentPage = 0;
   BoxDecoration? _statsDecoration; // Cache decoration for performance
@@ -98,15 +100,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (_isConnecting) return;
 
     if (!mounted) return;
-    setState(() {
-      _isConnecting = true;
-    });
-
+    
     final provider = Provider.of<V2RayProvider>(context, listen: false);
 
     try {
       if (provider.activeConfig != null) {
         // Disconnect
+        setState(() {
+          _isConnecting = true;
+        });
         await provider.disconnect();
         if (mounted) {
            _showSnackBar(AppLocalizations.of(context).translate('home.disconnected'), Colors.grey);
@@ -114,14 +116,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       } else {
         // Connect (Smart Connect)
         debugPrint('🧠 Auto Smart Connect: Finding best server...');
-        if (mounted) {
-          _showSnackBar(
-            AppLocalizations.of(context).translate('server_selection.finding_best_server'),
-            Colors.blue,
-          );
-        }
+        
+        // Show finding server state
+        setState(() {
+          _isConnecting = true;
+          _isFindingServer = true;
+        });
         
         final success = await provider.smartConnect();
+        
+        // Hide finding server state
+        if (mounted) {
+          setState(() {
+            _isFindingServer = false;
+          });
+        }
         
         if (mounted) {
           if (success && provider.activeConfig != null) {
@@ -129,23 +138,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 ? AppLocalizations.of(context).translate('server_selection.smart_connect')
                 : provider.activeConfig!.remark;
             debugPrint('✅ Smart Connect successful to: ${provider.activeConfig!.remark}');
-            _showSnackBar('Connected to $serverName', Colors.green);
+            _showSnackBar('${AppLocalizations.of(context).translate('home.connected_to')}: $serverName', Colors.green);
           } else if (provider.errorMessage.isNotEmpty) {
             debugPrint('❌ Smart Connect failed: ${provider.errorMessage}');
             _showSnackBar(provider.errorMessage, Colors.red);
           } else {
-            _showSnackBar('Connection failed', Colors.red);
+            _showSnackBar(AppLocalizations.of(context).translate('home.connection_failed'), Colors.red);
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Connection failed: $e', Colors.red);
+        setState(() {
+          _isFindingServer = false;
+        });
+        _showSnackBar('${AppLocalizations.of(context).translate('home.connection_failed')}: $e', Colors.red);
       }
     } finally {
       if (mounted) {
         setState(() {
           _isConnecting = false;
+          _isFindingServer = false;
         });
         
         // Reset IP when disconnected, fetch when connected
@@ -465,69 +478,59 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
   Widget _buildBottomTabBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      padding: const EdgeInsets.all(4),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        // Darker background to blend better with app background
-        color: const Color(0xFF0A0A0A).withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.06),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildTabButton(
-                  icon: Icons.vpn_key,
-                  label: AppLocalizations.of(context).translate('navigation.vpn'),
-                  isActive: _currentPage == 0,
-                  onTap: () {
-                    if (_currentPage != 0) {
-                      _pageController.animateToPage(
-                        0,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.fastOutSlowIn,
-                      );
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildTabButton(
-                  icon: Icons.build,
-                  label: AppLocalizations.of(context).translate('navigation.tools'),
-                  isActive: _currentPage == 1,
-                  onTap: () {
-                    if (_currentPage != 1) {
-                      _pageController.animateToPage(
-                        1,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.fastOutSlowIn,
-                      );
-                    }
-                  },
-                ),
-              ),
-            ],
+        // Use background colors for seamless look
+        color: AppColors.topGradientReadyToConnect,
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 1,
           ),
         ),
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0);
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: _buildTabButton(
+                icon: Icons.vpn_key,
+                label: AppLocalizations.of(context).translate('navigation.vpn'),
+                isActive: _currentPage == 0,
+                onTap: () {
+                  if (_currentPage != 0) {
+                    _pageController.animateToPage(
+                      0,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.fastOutSlowIn,
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildTabButton(
+                icon: Icons.build,
+                label: AppLocalizations.of(context).translate('navigation.tools'),
+                isActive: _currentPage == 1,
+                onTap: () {
+                  if (_currentPage != 1) {
+                    _pageController.animateToPage(
+                      1,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.fastOutSlowIn,
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
   
   Widget _buildTabButton({
@@ -540,44 +543,34 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.fastOutSlowIn,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
-          // Darker and more subtle colors
           color: isActive
-              ? Colors.white.withValues(alpha: 0.12)
+              ? Colors.white.withValues(alpha: 0.1)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive 
-                ? Colors.white.withValues(alpha: 0.15)
-                : Colors.transparent,
-            width: 1,
-          ),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.fastOutSlowIn,
+            Icon(
+              icon,
+              size: 20,
+              color: isActive 
+                  ? Colors.white 
+                  : Colors.white.withValues(alpha: 0.4),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                letterSpacing: 0.2,
-                color: isActive ? Colors.white : const Color(0xFF6B7280),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    icon,
-                    size: 20,
-                    color: isActive ? Colors.white : const Color(0xFF6B7280),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(label),
-                ],
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive 
+                    ? Colors.white 
+                    : Colors.white.withValues(alpha: 0.4),
               ),
             ),
           ],
@@ -801,73 +794,93 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildConnectionButton(V2RayProvider provider) {
     final isConnected = provider.activeConfig != null;
     
-    return Stack(
-      alignment: Alignment.center,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Pulse Animation Rings (کاهش از 3 به 2 برای بهینه‌سازی)
-        if (isConnected)
-          ...List.generate(2, (index) {
-            return _PulseRing(
-              delay: index * 0.5,
-              size: 200.0,
-            );
-          }),
-        
-        // Main Circle Button
-        GestureDetector(
-          onTap: _isConnecting ? null : () => _handleConnectionToggle(),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 500),
-            width: 150,
-            height: 150,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: isConnected
-                    ? [
-                        const Color(0xFF10B981).withValues(alpha: 0.9),
-                        const Color(0xFF059669),
-                        const Color(0xFF047857),
-                      ]
-                    : [
-                        const Color(0xFF1E293B),
-                        const Color(0xFF334155),
-                        const Color(0xFF475569),
-                      ],
-                stops: const [0.0, 0.6, 1.0],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isConnected
-                      ? const Color(0xFF10B981).withValues(alpha: 0.5)
-                      : Colors.black.withValues(alpha: 0.4),
-                  blurRadius: isConnected ? 40 : 20,
-                  spreadRadius: isConnected ? 5 : 0,
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            // Pulse Animation Rings when connected
+            if (isConnected)
+              ...List.generate(2, (index) {
+                return _PulseRing(
+                  delay: index * 0.5,
+                  size: 200.0,
+                );
+              }),
+            
+            // Search Animation Rings when finding server
+            if (_isFindingServer)
+              ...List.generate(3, (index) {
+                return _SearchRing(
+                  delay: index * 0.3,
+                  size: 180.0,
+                );
+              }),
+            
+            // Main Circle Button
+            GestureDetector(
+              onTap: _isConnecting ? null : () => _handleConnectionToggle(),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                width: _isFindingServer ? 140 : 150,
+                height: _isFindingServer ? 140 : 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: isConnected
+                        ? [
+                            AppColors.bottomGradientConnected.withValues(alpha: 0.9),
+                            AppColors.middleGradientConnected,
+                            const Color(0xFF047857),
+                          ]
+                        : _isFindingServer
+                            ? [
+                                AppColors.bottomGradientConnecting.withValues(alpha: 0.9),
+                                AppColors.middleGradientConnecting,
+                                AppColors.topGradientConnecting,
+                              ]
+                            : [
+                                AppColors.topGradientReadyToConnect,
+                                AppColors.middleGradient,
+                                AppColors.bottomGradient,
+                              ],
+                    stops: const [0.0, 0.6, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isConnected
+                          ? AppColors.bottomGradientConnected.withValues(alpha: 0.5)
+                          : _isFindingServer
+                              ? AppColors.bottomGradientConnecting.withValues(alpha: 0.5)
+                              : Colors.black.withValues(alpha: 0.4),
+                      blurRadius: isConnected || _isFindingServer ? 40 : 20,
+                      spreadRadius: isConnected || _isFindingServer ? 5 : 0,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Animated Border Gradient
-                if (isConnected)
-                  TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0, end: 1),
-                    duration: const Duration(seconds: 2),
-                    curve: Curves.linear,
-                    builder: (context, value, child) {
-                      return Transform.rotate(
-                        angle: value * 2 * 3.14159,
-                        child: Container(
-                          width: 145,
-                          height: 145,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: SweepGradient(
-                              colors: [
-                                Colors.transparent,
-                                Colors.white.withValues(alpha: 0.3),
-                                Colors.transparent,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Animated Border Gradient
+                    if (isConnected)
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0, end: 1),
+                        duration: const Duration(seconds: 2),
+                        curve: Curves.linear,
+                        builder: (context, value, child) {
+                          return Transform.rotate(
+                            angle: value * 2 * 3.14159,
+                            child: Container(
+                              width: 145,
+                              height: 145,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: SweepGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.white.withValues(alpha: 0.3),
+                                    Colors.transparent,
                               ],
                             ),
                           ),
@@ -881,34 +894,89 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 
                 // Center Icon with Animation
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 600),
+                  duration: const Duration(milliseconds: 400),
                   transitionBuilder: (Widget child, Animation<double> animation) {
                     return ScaleTransition(
                       scale: animation,
-                      child: RotationTransition(
-                        turns: animation,
-                        child: child,
-                      ),
+                      child: child,
                     );
                   },
-                  child: _isConnecting
-                      ? const CircularProgressIndicator(
-                          key: ValueKey('loading'),
+                  child: _isFindingServer
+                      ? const Icon(
+                          key: ValueKey('searching'),
+                          Icons.search,
+                          size: 50,
                           color: Colors.white,
-                          strokeWidth: 3,
                         )
-                      : Icon(
-                          isConnected 
-                              ? Icons.vpn_key
-                              : Icons.power_settings_new,
-                          key: ValueKey(isConnected ? 'vpn_key' : 'power'),
-                          size: 60,
-                          color: Colors.white,
-                        ),
+                      : _isConnecting
+                          ? const SizedBox(
+                              key: ValueKey('loading'),
+                              width: 40,
+                              height: 40,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : Icon(
+                              isConnected 
+                                  ? Icons.vpn_key
+                                  : Icons.power_settings_new,
+                              key: ValueKey(isConnected ? 'vpn_key' : 'power'),
+                              size: 55,
+                              color: Colors.white,
+                            ),
                 ),
               ],
             ),
           ),
+        ),
+          ],
+        ),
+        
+        // Status text below button
+        const SizedBox(height: 16),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: _isFindingServer
+              ? Text(
+                  AppLocalizations.of(context).translate('server_selection.finding_best_server'),
+                  key: const ValueKey('finding'),
+                  style: const TextStyle(
+                    color: AppColors.bottomGradientConnecting,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                )
+              : _isConnecting
+                  ? Text(
+                      AppLocalizations.of(context).translate('home.connecting'),
+                      key: const ValueKey('connecting'),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    )
+                  : isConnected
+                      ? Text(
+                          AppLocalizations.of(context).translate('home.tap_to_stop'),
+                          key: const ValueKey('tap_stop'),
+                          style: const TextStyle(
+                            color: AppColors.bottomGradientConnected,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        )
+                      : Text(
+                          AppLocalizations.of(context).translate('home.tap_to_connect'),
+                          key: const ValueKey('tap_connect'),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
         ),
       ],
     );
@@ -923,7 +991,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (activeConfig == null) {
       serverName = AppLocalizations.of(context).translate('home.best_server_auto');
     } else if (isSmartConnect) {
-      serverName = '${AppLocalizations.of(context).translate('home.connected_to')}: Smart Connect';
+      serverName = '${AppLocalizations.of(context).translate('home.connected_to')}: ${AppLocalizations.of(context).translate('server_selection.smart_connect')}';
     } else {
       serverName = '${AppLocalizations.of(context).translate('home.connected_to')}: ${activeConfig.remark}';
     }
@@ -950,63 +1018,83 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       );
     }
     
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.1),
-            Colors.white.withValues(alpha: 0.05),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ServerSelectionScreen()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.1),
+              Colors.white.withValues(alpha: 0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: iconWidget,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isSmartConnect 
+                        ? AppLocalizations.of(context).translate('server_selection.smart_connect')
+                        : AppLocalizations.of(context).translate('home.auto_server_selection'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    serverName,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: iconWidget,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isSmartConnect 
-                      ? AppLocalizations.of(context).translate('server_selection.smart_connect')
-                      : AppLocalizations.of(context).translate('home.auto_server_selection'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  serverName,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0);
+      ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
+    );
   }
 
   Widget _buildStatsGrid(V2RayProvider provider) {
@@ -1150,7 +1238,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
 }
 
-// Pulse Ring Animation Widget
+// Pulse Ring Animation Widget (for connected state)
 class _PulseRing extends StatefulWidget {
   final double delay;
   final double size;
@@ -1216,6 +1304,83 @@ class _PulseRingState extends State<_PulseRing>
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: const Color(0xFF10B981),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Search Ring Animation Widget (for finding server state)
+class _SearchRing extends StatefulWidget {
+  final double delay;
+  final double size;
+
+  const _SearchRing({
+    required this.delay,
+    required this.size,
+  });
+
+  @override
+  State<_SearchRing> createState() => _SearchRingState();
+}
+
+class _SearchRingState extends State<_SearchRing>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.7, end: 1.3).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.8, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    // Start animation with delay
+    Future.delayed(Duration(milliseconds: (widget.delay * 1000).toInt()), () {
+      if (mounted) {
+        _controller.repeat();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Opacity(
+            opacity: _opacityAnimation.value,
+            child: Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.bottomGradientConnecting,
                   width: 2,
                 ),
               ),

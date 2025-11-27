@@ -875,12 +875,32 @@ class V2RayService extends ChangeNotifier {
   
   Future<bool> isTunnelRunning() async {
     try {
-      final delay = await _flutterV2ray.getConnectedServerDelay()
-          .timeout(const Duration(seconds: 2));
+      // First check if we have a saved active config
+      final savedConfig = await _loadActiveConfig();
       
-      return delay >= 0 && delay < 10000;
+      // Try to get delay with longer timeout for cold start
+      final delay = await _flutterV2ray.getConnectedServerDelay()
+          .timeout(const Duration(seconds: 5));
+      
+      final isRunning = delay >= 0 && delay < 10000;
+      
+      // If running but no activeConfig, restore it
+      if (isRunning && _activeConfig == null && savedConfig != null) {
+        _activeConfig = savedConfig;
+        debugPrint('✅ Restored activeConfig during tunnel check: ${savedConfig.remark}');
+        notifyListeners();
+      }
+      
+      return isRunning;
     } catch (e) {
-      return _activeConfig != null;
+      // On error, check saved config as fallback
+      final savedConfig = await _loadActiveConfig();
+      if (savedConfig != null) {
+        _activeConfig = savedConfig;
+        debugPrint('⚠️ Tunnel check failed, using saved config: ${savedConfig.remark}');
+        return true; // Assume connected if we have saved config
+      }
+      return false;
     }
   }
   
