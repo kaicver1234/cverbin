@@ -28,6 +28,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _wasUsingSmartConnect = false;
   DateTime? _lastStatusCheck;
   
+  // Debounce for notifyListeners (battery optimized)
+  Timer? _notifyDebounceTimer;
+  DateTime? _lastNotifyTime;
+  static const _minNotifyInterval = Duration(milliseconds: 200);
+  
   // Method channel for VPN control
   static const platform = MethodChannel('com.tiksarvpn.app/vpn_control');
   
@@ -78,7 +83,24 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   }
   
   void _onV2RayServiceChanged() {
-    // When V2RayService state changes, notify our listeners
+    // When V2RayService state changes, notify our listeners with debounce
+    _debouncedNotify();
+  }
+  
+  /// Debounced notify to prevent UI freeze from too many updates
+  void _debouncedNotify() {
+    final now = DateTime.now();
+    if (_lastNotifyTime != null && 
+        now.difference(_lastNotifyTime!) < _minNotifyInterval) {
+      // Schedule a delayed notify if we're calling too fast
+      _notifyDebounceTimer?.cancel();
+      _notifyDebounceTimer = Timer(_minNotifyInterval, () {
+        _lastNotifyTime = DateTime.now();
+        notifyListeners();
+      });
+      return;
+    }
+    _lastNotifyTime = now;
     notifyListeners();
   }
   
@@ -719,6 +741,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   @override
   void dispose() {
+    // Cancel debounce timer
+    _notifyDebounceTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     // Remove listener from V2RayService
     _v2rayService.removeListener(_onV2RayServiceChanged);

@@ -18,7 +18,6 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
     with TickerProviderStateMixin {
   late AnimationController _progressController;
   late AnimationController _pulseController;
-  late AnimationController _gridController;
 
   @override
   void initState() {
@@ -31,18 +30,12 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
-    
-    _gridController = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    )..repeat();
   }
 
   @override
   void dispose() {
     _progressController.dispose();
     _pulseController.dispose();
-    _gridController.dispose();
     super.dispose();
   }
 
@@ -226,22 +219,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
               strokeWidth: 3,
             ),
           ),
-          // Animated Grid
-          Positioned(
-            top: 235,
-            child: AnimatedBuilder(
-              animation: _gridController,
-              builder: (context, child) {
-                return CustomPaint(
-                  size: const Size(350, 45),
-                  painter: AnimatedGridPainter(
-                    animation: _gridController.value,
-                    strokeWidth: 1,
-                  ),
-                );
-              },
-            ),
-          ),
+
           // Center Content
           Positioned(
             top: 80,
@@ -318,34 +296,27 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
           AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
-              return Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.transparent,
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Radial lines animation
-                    CustomPaint(
-                      size: const Size(50, 50),
-                      painter: RadialLinesPainter(
-                        progress: _pulseController.value,
-                        color: Colors.white,
-                      ),
-                    ),
-                    // Arrow icon
-                    Transform.rotate(
+              final scale = 1.0 + (_pulseController.value * 0.15);
+              final opacity = 0.7 + (_pulseController.value * 0.3);
+              return Transform.scale(
+                scale: scale,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                  ),
+                  child: Center(
+                    child: Transform.rotate(
                       angle: 15 / 3.14,
-                      child: const Icon(
+                      child: Icon(
                         Icons.near_me_outlined,
-                        color: Colors.white,
+                        color: Colors.white.withValues(alpha: opacity),
                         size: 20,
                       ),
                     ),
-                  ],
+                  ),
                 ),
               );
             },
@@ -745,102 +716,4 @@ class SemicircularProgressPainter extends CustomPainter {
 }
 
 
-/// Animated grid painter
-class AnimatedGridPainter extends CustomPainter {
-  final double animation;
-  final double strokeWidth;
 
-  AnimatedGridPainter({
-    required this.animation,
-    this.strokeWidth = 1.0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1 + (animation * 0.1))
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    // Horizontal lines
-    for (int i = 0; i < 5; i++) {
-      final y = size.height * (i / 4);
-      final offset = math.sin(animation * 2 * math.pi + i * 0.5) * 2;
-      canvas.drawLine(
-        Offset(0, y + offset),
-        Offset(size.width, y + offset),
-        paint,
-      );
-    }
-
-    // Vertical lines
-    for (int i = 0; i < 15; i++) {
-      final x = size.width * (i / 14);
-      final offset = math.cos(animation * 2 * math.pi + i * 0.3) * 2;
-      canvas.drawLine(
-        Offset(x + offset, 0),
-        Offset(x + offset, size.height),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(AnimatedGridPainter oldDelegate) {
-    return oldDelegate.animation != animation;
-  }
-}
-
-/// Radial lines painter for start button
-class RadialLinesPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-
-  RadialLinesPainter({
-    required this.progress,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.3 + (progress * 0.4))
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final List<double> lineAngles = [
-      math.pi * 0.875,
-      math.pi,
-      math.pi * 1.125,
-      math.pi * 1.25,
-      math.pi * 1.375,
-      math.pi * 1.5,
-      math.pi * 1.625,
-    ];
-
-    for (final angle in lineAngles) {
-      final startRadius = radius * 0.6 + (progress * radius * 0.15);
-      final endRadius = radius * 0.75 + (progress * radius * 0.2);
-
-      final startX = center.dx + startRadius * math.cos(angle);
-      final startY = center.dy + startRadius * math.sin(angle);
-      final endX = center.dx + endRadius * math.cos(angle);
-      final endY = center.dy + endRadius * math.sin(angle);
-
-      canvas.drawLine(
-        Offset(startX, startY),
-        Offset(endX, endY),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(RadialLinesPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
-  }
-}

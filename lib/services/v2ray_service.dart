@@ -136,13 +136,38 @@ class V2RayService extends ChangeNotifier {
   // Current V2Ray status from the callback
   V2RayStatus? _currentStatus;
   V2RayStatus? get currentStatus => _currentStatus;
+  
+  // Debounce for notifyListeners (battery optimized)
+  Timer? _notifyDebounceTimer;
+  DateTime? _lastNotifyTime;
+  static const _minNotifyInterval = Duration(milliseconds: 250);
+  
+  /// Debounced notify to prevent UI freeze
+  void _debouncedNotify() {
+    final now = DateTime.now();
+    if (_lastNotifyTime != null && 
+        now.difference(_lastNotifyTime!) < _minNotifyInterval) {
+      _notifyDebounceTimer?.cancel();
+      _notifyDebounceTimer = Timer(_minNotifyInterval, () {
+        _lastNotifyTime = DateTime.now();
+        notifyListeners();
+      });
+      return;
+    }
+    _lastNotifyTime = now;
+    notifyListeners();
+  }
 
   V2RayService._internal() {
     _flutterV2ray = FlutterV2ray(
       onStatusChanged: (status) {
+        final previousState = _currentStatus?.state;
         _currentStatus = status;
         _handleStatusChange(status);
-        notifyListeners(); // Notify listeners when status changes
+        // Only notify if state actually changed (not just traffic updates)
+        if (previousState != status.state) {
+          notifyListeners();
+        }
       },
     );
 
@@ -1178,6 +1203,7 @@ class V2RayService extends ChangeNotifier {
   @override
   void dispose() {
     // IMPROVED: Ensure all timers are properly cancelled
+    _notifyDebounceTimer?.cancel();
     _stopStatusMonitoring();
     _stopUsageMonitoring();
     _statusCheckTimer?.cancel();
@@ -1194,36 +1220,36 @@ class V2RayService extends ChangeNotifier {
     // Stop existing timer if any
     _usageStatsTimer?.cancel();
 
-    // Start periodic usage monitoring every second
-    _usageStatsTimer = Timer.periodic(Duration(seconds: 1), (timer) async {
+    // Start periodic usage monitoring every 3 seconds (battery optimized)
+    _usageStatsTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       if (_activeConfig != null) {
-        // Increment connected time
-        _connectedSeconds++;
+        // Increment connected time by 3 (since timer is every 3 seconds)
+        _connectedSeconds += 3;
 
         try {
           // IMPORTANT: Only use real V2Ray status data (no fake data)
           if (_currentStatus != null) {
-            // Get real-time traffic data from V2Ray status
             final status = _currentStatus!;
-
-            // Update cumulative statistics with REAL data only
-            // Note: V2Ray status provides cumulative data, so we store the latest values
-            _uploadBytes = status.upload;
-            _downloadBytes = status.download;
+            final newUpload = status.upload;
+            final newDownload = status.download;
             
-            // Notify UI to update with real data
-            notifyListeners();
+            // Only notify if values changed significantly (>1KB difference)
+            final uploadDiff = (newUpload - _uploadBytes).abs();
+            final downloadDiff = (newDownload - _downloadBytes).abs();
+            
+            if (uploadDiff > 1024 || downloadDiff > 1024) {
+              _uploadBytes = newUpload;
+              _downloadBytes = newDownload;
+              _debouncedNotify();
+            }
           }
-          // If no V2Ray status available, we keep the previous values
-          // No fake/simulated data generation
 
-          // Save statistics every minute to avoid excessive writes
-          if (_connectedSeconds % 60 == 0) {
+          // Save statistics every 2 minutes to reduce disk writes
+          if (_connectedSeconds % 120 == 0) {
             await _saveUsageStats();
           }
         } catch (e) {
-          // Error updating usage statistics
-          // Keep previous values, don't generate fake data
+          // Keep previous values on error
         }
       }
     });

@@ -55,7 +55,11 @@
         "servers_updated": "سرورها به‌روزرسانی شدند",
         "error_updating": "خطا در به‌روزرسانی سرورها",
         "test_ping": "تست پینگ",
-        "all_servers_timeout": "همه سرورها تایم‌اوت شدند"
+        "all_servers_timeout": "همه سرورها تایم‌اوت شدند",
+        "free": "رایگان",
+        "premium": "ویژه",
+        "coming_soon": "به زودی",
+        "coming_soon_desc": "این ویژگی در آینده تکمیل خواهد شد"
     },
     "host_checker": {
         "title": "بررسی میزبان",

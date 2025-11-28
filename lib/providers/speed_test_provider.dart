@@ -464,16 +464,19 @@ class SpeedTestProvider with ChangeNotifier {
     if (_isTestCanceled) return 0.0;
 
     try {
-      final startTime = DateTime.now();
       DateTime? lastUpdateTime;
+      DateTime? firstByteTime;
+      int lastSentBytes = 0;
 
       // Generate random data for upload
       final random = Random();
-      final data = List<int>.generate(bytes, (_) => random.nextInt(256));
+      final data = Uint8List.fromList(
+        List<int>.generate(bytes, (_) => random.nextInt(256)),
+      );
 
-      await _dio.post(
+      final response = await _dio.post(
         '/__up',
-        data: Stream.fromIterable([data]),
+        data: data,
         queryParameters: {
           'measId': _measurementId,
           'during': 'upload',
@@ -486,10 +489,21 @@ class SpeedTestProvider with ChangeNotifier {
         ),
         onSendProgress: (sent, total) {
           final now = DateTime.now();
-          final elapsed = now.difference(startTime).inMilliseconds / 1000.0;
+          
+          // Record time when first bytes are actually sent
+          if (firstByteTime == null && sent > 0) {
+            firstByteTime = now;
+            lastSentBytes = sent;
+            return;
+          }
+
+          if (firstByteTime == null) return;
+          
+          final elapsed = now.difference(firstByteTime!).inMilliseconds / 1000.0;
 
           if (!_isTestCanceled &&
               elapsed > 0.05 &&
+              sent > lastSentBytes &&
               (lastUpdateTime == null || now.difference(lastUpdateTime!).inMilliseconds > 100)) {
             final currentSpeedBps = (sent * 8) / elapsed;
             final currentSpeedMbps = currentSpeedBps / 1000000;
@@ -497,14 +511,32 @@ class SpeedTestProvider with ChangeNotifier {
             _state = _state.copyWith(currentSpeed: roundedSpeed);
             notifyListeners();
             lastUpdateTime = now;
+            lastSentBytes = sent;
           }
         },
       );
 
       if (_isTestCanceled) return 0.0;
 
-      final duration = DateTime.now().difference(startTime);
-      final durationSeconds = duration.inMilliseconds / 1000.0;
+      // Use server timing if available from response headers
+      final serverTiming = response.headers.value('server-timing');
+      double durationSeconds;
+      
+      if (serverTiming != null && serverTiming.contains('dur=')) {
+        // Parse server timing: "cfRequestDuration;dur=123.45"
+        final match = RegExp(r'dur=(\d+\.?\d*)').firstMatch(serverTiming);
+        if (match != null) {
+          durationSeconds = double.parse(match.group(1)!) / 1000.0;
+        } else {
+          durationSeconds = firstByteTime != null 
+              ? DateTime.now().difference(firstByteTime!).inMilliseconds / 1000.0
+              : 0.0;
+        }
+      } else {
+        durationSeconds = firstByteTime != null 
+            ? DateTime.now().difference(firstByteTime!).inMilliseconds / 1000.0
+            : 0.0;
+      }
 
       if (durationSeconds < 0.01) return 0.0;
 

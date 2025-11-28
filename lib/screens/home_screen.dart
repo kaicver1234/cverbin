@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import '../providers/v2ray_provider.dart';
@@ -414,9 +413,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   color: Colors.white,
                   size: 24,
                 ),
-              ).animate()
-                  .fadeIn()
-                  .scale(duration: 600.ms, curve: Curves.elasticOut),
+              ),
               
               const SizedBox(width: 12),
               
@@ -431,14 +428,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       color: Colors.white,
                       letterSpacing: -0.5,
                     ),
-                  ).animate().fadeIn().slideX(),
+                  ),
                   Text(
                     AppLocalizations.of(context).translate('home.secure_connection'),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white.withValues(alpha: 0.6),
                     ),
-                  ).animate().fadeIn(delay: 100.ms),
+                  ),
                 ],
               ),
             ],
@@ -489,7 +486,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           size: 22,
         ),
       ),
-    ).animate().scale(delay: 200.ms);
+    );
   }
 
   Widget _buildBottomTabBar() {
@@ -1015,37 +1012,55 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       // Connected - show what we're connected to
       if (provider.wasUsingSmartConnect) {
         titleText = AppLocalizations.of(context).translate('server_selection.smart_connect');
-        subtitleText = '${AppLocalizations.of(context).translate('home.connected_to')}: ${activeConfig.remark}';
-      } else {
-        titleText = activeConfig.remark;
-        subtitleText = AppLocalizations.of(context).translate('home.connected');
-      }
-      
-      // Show flag - try countryCode first, then extract from remark
-      final flagUrl = _getCountryFlagUrl(activeConfig);
-      if (flagUrl != null) {
+        subtitleText = '${AppLocalizations.of(context).translate('home.connected_to')}: ${_cleanServerName(activeConfig.remark)}';
+        // Show app logo for Smart Connect
         iconWidget = ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: CachedNetworkImage(
-            imageUrl: flagUrl,
+          child: Image.asset(
+            'assets/images/apk.png',
             width: 32,
-            height: 24,
+            height: 32,
             fit: BoxFit.cover,
-            placeholder: (context, url) => const Icon(Icons.flag, color: Colors.white, size: 24),
-            errorWidget: (context, url, error) => const Icon(Icons.public, color: Colors.white, size: 24),
           ),
         );
       } else {
-        iconWidget = const Icon(Icons.auto_awesome, color: Colors.white, size: 28);
+        titleText = _cleanServerName(activeConfig.remark);
+        subtitleText = AppLocalizations.of(context).translate('home.connected');
+        // Show flag - try countryCode first, then extract from remark
+        final flagUrl = _getCountryFlagUrl(activeConfig);
+        if (flagUrl != null) {
+          iconWidget = ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+              imageUrl: flagUrl,
+              width: 32,
+              height: 24,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => const Icon(Icons.flag, color: Colors.white, size: 24),
+              errorWidget: (context, url, error) => const Icon(Icons.public, color: Colors.white, size: 24),
+            ),
+          );
+        } else {
+          iconWidget = const Icon(Icons.public, color: Colors.white, size: 28);
+        }
       }
     } else {
       // Not connected - show selected server
       if (selectedConfig != null && selectedConfig.isSmartConnect) {
         titleText = AppLocalizations.of(context).translate('server_selection.smart_connect');
         subtitleText = AppLocalizations.of(context).translate('server_selection.smart_connect_description');
-        iconWidget = const Icon(Icons.auto_awesome, color: Colors.white, size: 28);
+        // Show app logo for Smart Connect
+        iconWidget = ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/images/apk.png',
+            width: 32,
+            height: 32,
+            fit: BoxFit.cover,
+          ),
+        );
       } else if (selectedConfig != null) {
-        titleText = selectedConfig.remark;
+        titleText = _cleanServerName(selectedConfig.remark);
         subtitleText = AppLocalizations.of(context).translate('home.tap_to_connect');
         final flagUrl = _getCountryFlagUrl(selectedConfig);
         if (flagUrl != null) {
@@ -1067,7 +1082,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         // Default to Smart Connect
         titleText = AppLocalizations.of(context).translate('server_selection.smart_connect');
         subtitleText = AppLocalizations.of(context).translate('server_selection.smart_connect_description');
-        iconWidget = const Icon(Icons.auto_awesome, color: Colors.white, size: 28);
+        // Show app logo for Smart Connect
+        iconWidget = ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/images/apk.png',
+            width: 32,
+            height: 32,
+            fit: BoxFit.cover,
+          ),
+        );
       }
     }
     
@@ -1144,7 +1168,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ),
           ],
         ),
-      ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
+      ),
     );
   }
 
@@ -1156,13 +1180,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       _fetchCurrentIp();
     }
     
-    // بهینه‌سازی: هر 2 ثانیه به جای 1 ثانیه (کاهش 50% rebuild)
+    // بهینه‌سازی: حذف StreamBuilder - استفاده از Consumer که خودش notify میشه
     return RepaintBoundary(
-      child: StreamBuilder(
-        key: const ValueKey('stats'),
-        stream: Stream.periodic(const Duration(seconds: 2)),
-        builder: (context, snapshot) {
-          return Container(
+      child: Container(
             padding: const EdgeInsets.all(16),
             decoration: _statsDecoration ??= BoxDecoration(
               gradient: const LinearGradient(
@@ -1186,55 +1206,53 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 ),
               ],
             ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatItem(
-                      icon: Icons.timer,
-                      label: AppLocalizations.of(context).translate('home.duration'),
-                      value: v2rayService.getFormattedConnectedTime(),
-                      color: Colors.white,
-                    ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    icon: Icons.timer,
+                    label: AppLocalizations.of(context).translate('home.duration'),
+                    value: v2rayService.getFormattedConnectedTime(),
+                    color: Colors.white,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildStatItem(
-                      icon: Icons.upload,
-                      label: AppLocalizations.of(context).translate('home.upload'),
-                      value: v2rayService.getFormattedUpload(),
-                      color: Colors.white,
-                    ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildStatItem(
+                    icon: Icons.upload,
+                    label: AppLocalizations.of(context).translate('home.upload'),
+                    value: v2rayService.getFormattedUpload(),
+                    color: Colors.white,
                   ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatItem(
-                      icon: Icons.download,
-                      label: AppLocalizations.of(context).translate('home.download'),
-                      value: v2rayService.getFormattedDownload(),
-                      color: Colors.white,
-                    ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    icon: Icons.download,
+                    label: AppLocalizations.of(context).translate('home.download'),
+                    value: v2rayService.getFormattedDownload(),
+                    color: Colors.white,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildStatItem(
-                      icon: Icons.public,
-                      label: AppLocalizations.of(context).translate('home.ip_address'),
-                      value: _currentIp,
-                      color: Colors.white,
-                    ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildStatItem(
+                    icon: Icons.public,
+                    label: AppLocalizations.of(context).translate('home.ip_address'),
+                    value: _currentIp,
+                    color: Colors.white,
                   ),
-                ],
-              ),
-            ],
-          ),
-          );
-        },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1302,6 +1320,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
     
     return null;
+  }
+
+  // Helper to clean server name (remove country code prefix)
+  String _cleanServerName(String remark) {
+    // Remove country code prefix: [DE] server name -> server name
+    return remark.replaceAll(RegExp(r'^\[([A-Z]{2})\]\s*'), '').trim();
   }
 }
 

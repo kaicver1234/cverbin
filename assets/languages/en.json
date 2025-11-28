@@ -55,7 +55,11 @@
         "servers_updated": "Servers updated",
         "error_updating": "Error updating servers",
         "test_ping": "Test Ping",
-        "all_servers_timeout": "All servers timed out"
+        "all_servers_timeout": "All servers timed out",
+        "free": "Free",
+        "premium": "Premium",
+        "coming_soon": "Coming Soon",
+        "coming_soon_desc": "This feature will be available in future updates"
     },
     "host_checker": {
         "title": "Host Checker",
