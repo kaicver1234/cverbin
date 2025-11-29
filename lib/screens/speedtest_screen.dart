@@ -74,28 +74,30 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
 
 
   Widget _buildHeader(BuildContext context, SpeedTestState state) {
-    String upperText;
-    String bottomText;
-
-    // Check states based on available SpeedTestStep values
+    final tr = AppLocalizations.of(context);
+    
+    // Check states
     final isTestRunning = state.step == SpeedTestStep.loading || 
                           state.step == SpeedTestStep.download || 
                           state.step == SpeedTestStep.upload;
     final isCompleted = state.testCompleted && state.step == SpeedTestStep.ready;
     final hasError = state.hadError && state.errorMessage != null;
 
+    String title;
+    String subtitle;
+
     if (isTestRunning) {
-      upperText = 'is';
-      bottomText = AppLocalizations.of(context).translate('speed_test.testing_speed');
+      title = tr.translate('speed_test.title_testing');
+      subtitle = tr.translate('speed_test.subtitle_testing');
     } else if (hasError) {
-      upperText = 'has';
-      bottomText = AppLocalizations.of(context).translate('speed_test.encountered_error');
+      title = tr.translate('speed_test.title_error');
+      subtitle = tr.translate('speed_test.subtitle_error');
     } else if (isCompleted) {
-      upperText = 'has';
-      bottomText = AppLocalizations.of(context).translate('speed_test.completed_test');
+      title = tr.translate('speed_test.title_completed');
+      subtitle = tr.translate('speed_test.subtitle_completed');
     } else {
-      upperText = 'is ready';
-      bottomText = AppLocalizations.of(context).translate('speed_test.to_speed_test');
+      title = tr.translate('speed_test.title_ready');
+      subtitle = tr.translate('speed_test.subtitle_ready');
     }
 
     return Row(
@@ -121,40 +123,21 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Text(
-                    'T',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF10B981),
-                    ),
-                  ),
-                  const Text(
-                    'iksar ',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xFF10B981),
-                    ),
-                  ),
-                  Text(
-                    upperText,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
               Text(
-                bottomText,
+                title,
                 style: const TextStyle(
-                  fontSize: 26,
+                  fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: Color(0xFF10B981),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -293,30 +276,38 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
             ),
           ),
           const SizedBox(height: 8),
+          // Animated mouse cursor with radial lines
           AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
-              final scale = 1.0 + (_pulseController.value * 0.15);
-              final opacity = 0.7 + (_pulseController.value * 0.3);
-              return Transform.scale(
-                scale: scale,
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.transparent,
-                  ),
-                  child: Center(
-                    child: Transform.rotate(
-                      angle: 15 / 3.14,
-                      child: Icon(
-                        Icons.near_me_outlined,
-                        color: Colors.white.withValues(alpha: opacity),
-                        size: 20,
+              return SizedBox(
+                width: 70,
+                height: 70,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // 7 radial lines animation around cursor
+                    CustomPaint(
+                      size: const Size(60, 60),
+                      painter: _CursorRadialLinesPainter(
+                        progress: _pulseController.value,
+                        color: Colors.white,
                       ),
                     ),
-                  ),
+                    // Mouse cursor icon
+                    Positioned(
+                      right: 18,
+                      bottom: 18,
+                      child: Transform.rotate(
+                        angle: 0.4,
+                        child: const Icon(
+                          Icons.near_me_outlined,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
@@ -485,10 +476,10 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   Widget _buildMetricsDisplay(SpeedTestState state) {
     final tr = AppLocalizations.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
@@ -504,7 +495,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
                 unit: tr.translate('speed_test.mbps'),
                 color: const Color(0xFF10B981),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _buildMetricItemSmall(
                 label: tr.translate('speed_test.ping'),
                 value: state.result.ping.toDouble(),
@@ -522,7 +513,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
                 unit: tr.translate('speed_test.mbps'),
                 color: const Color(0xFF3B82F6),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _buildMetricItemSmall(
                 label: tr.translate('speed_test.jitter'),
                 value: state.result.jitter.toDouble(),
@@ -548,12 +539,12 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
           label,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             letterSpacing: 1,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -561,19 +552,19 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
               value.toStringAsFixed(1),
               style: TextStyle(
                 color: color,
-                fontSize: 28,
+                fontSize: 36,
                 fontWeight: FontWeight.w700,
                 height: 1,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: 5),
               child: Text(
                 unit,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
+                  fontSize: 14,
                 ),
               ),
             ),
@@ -593,18 +584,18 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 10,
+            color: Colors.white.withValues(alpha: 0.5),
+            fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Text(
           '${value.toStringAsFixed(0)} $unit',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -715,5 +706,58 @@ class SemicircularProgressPainter extends CustomPainter {
   }
 }
 
+/// Radial lines painter for cursor click animation (7 lines)
+class _CursorRadialLinesPainter extends CustomPainter {
+  final double progress;
+  final Color color;
 
+  _CursorRadialLinesPainter({
+    required this.progress,
+    required this.color,
+  });
 
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.3 + (progress * 0.5))
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // 7 lines in semi-circle pattern (left side of cursor)
+    final List<double> lineAngles = [
+      math.pi * 0.85,
+      math.pi * 0.95,
+      math.pi * 1.05,
+      math.pi * 1.15,
+      math.pi * 1.25,
+      math.pi * 1.35,
+      math.pi * 1.45,
+    ];
+
+    for (final angle in lineAngles) {
+      // Lines grow and shrink with progress
+      final startRadius = radius * 0.55 + (progress * radius * 0.1);
+      final endRadius = radius * 0.75 + (progress * radius * 0.15);
+
+      final startX = center.dx + startRadius * math.cos(angle);
+      final startY = center.dy + startRadius * math.sin(angle);
+      final endX = center.dx + endRadius * math.cos(angle);
+      final endY = center.dy + endRadius * math.sin(angle);
+
+      canvas.drawLine(
+        Offset(startX, startY),
+        Offset(endX, endY),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CursorRadialLinesPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color;
+  }
+}

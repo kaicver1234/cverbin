@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../widgets/vpn_gradient_background.dart';
@@ -38,9 +39,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     // Listen to app lifecycle to force rebuild when resumed
     WidgetsBinding.instance.addObserver(this);
     
-    // Sync VPN status when screen first loads
+    // Sync VPN status and load servers when screen first loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncVpnStatus();
+      _loadServers();
     });
   }
   
@@ -49,6 +51,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final provider = Provider.of<V2RayProvider>(context, listen: false);
     await provider.forceSyncVpnStatus();
     if (mounted) setState(() {});
+  }
+  
+  Future<void> _loadServers() async {
+    if (!mounted) return;
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    // Load servers if not already loaded
+    if (provider.serverConfigs.isEmpty) {
+      await provider.fetchServers(
+        customUrl: 'https://raw.githubusercontent.com/cverhud/v2ray-sub/refs/heads/main/sub2.txt',
+      );
+      debugPrint('✅ Servers loaded in home screen');
+    }
   }
   
   @override
@@ -94,7 +108,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           }
           
           if (provider.selectedConfig == null) {
-            _showSnackBar('Please select a server first', Colors.red);
+            if (mounted) {
+              _showSnackBar(AppLocalizations.of(context).translate('common.please_select_server'), Colors.red);
+            }
           } else {
             // Connect to server
             debugPrint('🚀 Starting connection to: ${provider.selectedConfig!.remark}');
@@ -115,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Connection failed: $e', Colors.red);
+        _showSnackBar('${AppLocalizations.of(context).translate('common.connection_failed')}: $e', Colors.red);
       }
     } finally {
       if (mounted) {
@@ -763,14 +779,22 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Pulse Animation Rings (کاهش از 3 به 2 برای بهینه‌سازی)
+        // Pulse Animation Rings
         if (isConnected)
           ...List.generate(2, (index) {
             return _PulseRing(
               delay: index * 0.5,
               size: 200.0,
+              color: const Color(0xFF10B981),
             );
-          }),
+          })
+        else
+          // Subtle glow ring for disconnected state
+          _PulseRing(
+            delay: 0,
+            size: 180.0,
+            color: const Color(0xFF6366F1),
+          ),
         
         // Main Circle Button
         GestureDetector(
@@ -789,9 +813,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         const Color(0xFF047857),
                       ]
                     : [
-                        const Color(0xFF1E293B),
-                        const Color(0xFF334155),
-                        const Color(0xFF475569),
+                        const Color(0xFF6366F1).withValues(alpha: 0.8),
+                        const Color(0xFF4F46E5),
+                        const Color(0xFF4338CA),
                       ],
                 stops: const [0.0, 0.6, 1.0],
               ),
@@ -799,10 +823,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 BoxShadow(
                   color: isConnected
                       ? const Color(0xFF10B981).withValues(alpha: 0.5)
-                      : Colors.black.withValues(alpha: 0.4),
-                  blurRadius: isConnected ? 40 : 20,
-                  spreadRadius: isConnected ? 5 : 0,
+                      : const Color(0xFF6366F1).withValues(alpha: 0.4),
+                  blurRadius: 35,
+                  spreadRadius: 3,
                 ),
+                if (!isConnected)
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                    blurRadius: 60,
+                    spreadRadius: 10,
+                  ),
               ],
             ),
             child: Stack(
@@ -844,18 +874,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   transitionBuilder: (Widget child, Animation<double> animation) {
                     return ScaleTransition(
                       scale: animation,
-                      child: RotationTransition(
-                        turns: animation,
+                      child: FadeTransition(
+                        opacity: animation,
                         child: child,
                       ),
                     );
                   },
                   child: _isConnecting
-                      ? const CircularProgressIndicator(
-                          key: ValueKey('loading'),
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        )
+                      ? _buildSmartConnectAnimation(provider.wasUsingSmartConnect)
                       : Icon(
                           isConnected 
                               ? Icons.vpn_key
@@ -873,6 +899,60 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
+  // Smart Connect animation widget
+  Widget _buildSmartConnectAnimation(bool isSmartConnect) {
+    if (isSmartConnect) {
+      // Smart Connect: radar-like scanning animation
+      return SizedBox(
+        key: const ValueKey('smart_connect_anim'),
+        width: 70,
+        height: 70,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Rotating radar sweep
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 1500),
+              builder: (context, value, child) {
+                return Transform.rotate(
+                  angle: value * 2 * 3.14159,
+                  child: CustomPaint(
+                    size: const Size(60, 60),
+                    painter: _RadarSweepPainter(progress: value),
+                  ),
+                );
+              },
+              onEnd: () {},
+            ),
+            // Center flash icon
+            const Icon(
+              Icons.flash_on,
+              color: Colors.white,
+              size: 28,
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Normal connect: simple loading
+      return const SizedBox(
+        key: ValueKey('loading'),
+        width: 40,
+        height: 40,
+        child: CircularProgressIndicator(
+          color: Colors.white,
+          strokeWidth: 3,
+        ),
+      );
+    }
+  }
+
+  // Helper to clean server name (remove country code prefix like [DE], [US], etc.)
+  String _cleanServerName(String name) {
+    return name.replaceAll(RegExp(r'^\[[A-Z]{2}\]\s*'), '').trim();
+  }
+
   Widget _buildServerCard(V2RayProvider provider) {
     final isSmartConnect = provider.wasUsingSmartConnect;
     final selectedConfig = provider.selectedConfig ?? provider.activeConfig;
@@ -880,30 +960,30 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     // Determine what to show
     final String serverName;
     final String? serverSubtitle;
-    final bool showFlag;
+    final String? countryCode;
     
     if (provider.activeConfig != null) {
       // Connected - show actual server
-      serverName = provider.activeConfig!.remark;
+      serverName = _cleanServerName(provider.activeConfig!.remark);
       serverSubtitle = provider.activeConfig!.countryCode != null 
           ? provider.activeConfig!.countryName 
           : null;
-      showFlag = provider.activeConfig!.countryCode != null;
+      countryCode = provider.activeConfig!.countryCode;
     } else if (isSmartConnect) {
       // Smart Connect selected
       serverName = AppLocalizations.of(context).translate('server_selection.smart_connect');
       serverSubtitle = AppLocalizations.of(context).translate('server_selection.smart_connect_description');
-      showFlag = false;
+      countryCode = null;
     } else if (selectedConfig != null) {
       // Specific server selected
-      serverName = selectedConfig.remark;
+      serverName = _cleanServerName(selectedConfig.remark);
       serverSubtitle = selectedConfig.countryCode != null ? selectedConfig.countryName : null;
-      showFlag = selectedConfig.countryCode != null;
+      countryCode = selectedConfig.countryCode;
     } else {
       // Nothing selected
       serverName = AppLocalizations.of(context).translate('server_selection.select_server');
       serverSubtitle = null;
-      showFlag = false;
+      countryCode = null;
     }
     
     return GestureDetector(
@@ -981,34 +1061,66 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         ),
         child: Row(
           children: [
-            // Icon - Smart Connect or Globe
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isSmartConnect && provider.activeConfig == null
-                    ? const Color(0xFF10B981).withValues(alpha: 0.2)
-                    : const Color(0xFF6366F1).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+            // Country Flag or Smart Connect Icon
+            if (countryCode != null) ...[
+              // Show country flag image
+              Container(
+                width: 48,
+                height: 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: 'https://flagcdn.com/w160/${countryCode.toLowerCase()}.png',
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                      child: const Icon(Icons.public, color: Color(0xFF6366F1), size: 24),
+                    ),
+                  ),
+                ),
               ),
-              child: Icon(
-                isSmartConnect && provider.activeConfig == null
-                    ? Icons.flash_on
-                    : Icons.language,
-                color: isSmartConnect && provider.activeConfig == null
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFF6366F1),
-                size: 24,
+            ] else ...[
+              // Smart Connect or Globe icon
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSmartConnect && provider.activeConfig == null
+                      ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                      : const Color(0xFF6366F1).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isSmartConnect && provider.activeConfig == null
+                      ? Icons.flash_on
+                      : Icons.language,
+                  color: isSmartConnect && provider.activeConfig == null
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFF6366F1),
+                  size: 24,
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            // Country Flag (only if connected or specific server selected)
-            if (showFlag && (provider.activeConfig?.countryCode != null || selectedConfig?.countryCode != null)) ...[
-              Text(
-                provider.activeConfig?.countryFlag ?? selectedConfig?.countryFlag ?? '',
-                style: const TextStyle(fontSize: 36),
-              ),
-              const SizedBox(width: 12),
             ],
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1067,73 +1179,65 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: _statsDecoration ??= BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0x1AFFFFFF),
-                  Color(0x0DFFFFFF),
-                ],
-              ),
+              // Glass effect matching background
+              color: const Color(0xFF0A0E1A).withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0x33FFFFFF),
-                width: 1.5,
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 1,
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x1A000000),
-                  blurRadius: 15,
-                  offset: Offset(0, 8),
-                ),
-              ],
             ),
-          child: Column(
-            children: [
-              Row(
+          child: Builder(
+            builder: (context) {
+              final tr = AppLocalizations.of(context);
+              return Column(
                 children: [
-                  Expanded(
-                    child: _buildStatItem(
-                      icon: Icons.timer,
-                      label: 'Duration',
-                      value: v2rayService.getFormattedConnectedTime(),
-                      color: Colors.blue,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatItem(
+                          icon: Icons.timer,
+                          label: tr.translate('home.duration'),
+                          value: v2rayService.getFormattedConnectedTime(),
+                          color: const Color(0xFF10B981),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildStatItem(
+                          icon: Icons.upload,
+                          label: tr.translate('home.upload'),
+                          value: v2rayService.getFormattedUpload(),
+                          color: const Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildStatItem(
-                      icon: Icons.upload,
-                      label: 'Upload',
-                      value: v2rayService.getFormattedUpload(),
-                      color: Colors.green,
-                    ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatItem(
+                          icon: Icons.download,
+                          label: tr.translate('home.download'),
+                          value: v2rayService.getFormattedDownload(),
+                          color: const Color(0xFF10B981),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildStatItem(
+                          icon: Icons.public,
+                          label: tr.translate('home.ip_address'),
+                          value: v2rayService.ipInfo?.ip ?? '...',
+                          color: const Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatItem(
-                      icon: Icons.download,
-                      label: 'Download',
-                      value: v2rayService.getFormattedDownload(),
-                      color: Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildStatItem(
-                      icon: Icons.public,
-                      label: 'IP Address',
-                      value: v2rayService.ipInfo?.ip ?? '...',
-                      color: Colors.purple,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              );
+            },
           ),
           );
         },
@@ -1183,17 +1287,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 10,
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.3,
             ),
@@ -1209,10 +1313,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 class _PulseRing extends StatefulWidget {
   final double delay;
   final double size;
+  final Color color;
 
   const _PulseRing({
     required this.delay,
     required this.size,
+    required this.color,
   });
 
   @override
@@ -1237,7 +1343,7 @@ class _PulseRingState extends State<_PulseRing>
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
 
-    _opacityAnimation = Tween<double>(begin: 0.6, end: 0.0).animate(
+    _opacityAnimation = Tween<double>(begin: 0.5, end: 0.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
 
@@ -1270,7 +1376,7 @@ class _PulseRingState extends State<_PulseRing>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color(0xFF10B981),
+                  color: widget.color,
                   width: 2,
                 ),
               ),
@@ -1279,5 +1385,48 @@ class _PulseRingState extends State<_PulseRing>
         );
       },
     );
+  }
+}
+
+// Radar sweep painter for Smart Connect animation
+class _RadarSweepPainter extends CustomPainter {
+  final double progress;
+
+  _RadarSweepPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Draw radar circles
+    final circlePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    canvas.drawCircle(center, radius * 0.4, circlePaint);
+    canvas.drawCircle(center, radius * 0.7, circlePaint);
+    canvas.drawCircle(center, radius, circlePaint);
+
+    // Draw sweep gradient
+    final sweepPaint = Paint()
+      ..shader = SweepGradient(
+        startAngle: 0,
+        endAngle: 3.14159 / 2,
+        colors: [
+          Colors.white.withValues(alpha: 0.0),
+          Colors.white.withValues(alpha: 0.4),
+          const Color(0xFF10B981).withValues(alpha: 0.6),
+        ],
+        transform: GradientRotation(progress * 2 * 3.14159),
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+
+    canvas.drawCircle(center, radius, sweepPaint);
+  }
+
+  @override
+  bool shouldRepaint(_RadarSweepPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

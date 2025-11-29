@@ -42,7 +42,12 @@
         "duration": "Duration",
         "upload": "Upload",
         "download": "Download",
-        "ip_address": "IP Address"
+        "ip_address": "IP Address",
+        "server_location_label": "Server Location"
+    },
+    "server_selector": {
+        "connection_active": "Connection Active",
+        "disconnect_first": "Please disconnect from the current server before selecting a new one."
     },
     "server_selection": {
         "title": "Select Server",
@@ -63,17 +68,20 @@
     },
     "host_checker": {
         "title": "Host Checker",
-        "enter_host": "Enter host (e.g., google.com)",
+        "enter_host": "Enter website (e.g., google.com)",
         "online": "Online",
         "offline": "Offline",
         "please_enter_host": "Please enter a host",
         "is_online": "{host} is online!",
-        "is_offline": "{host} is offline",
+        "is_offline": "{host} is offline: {error}",
         "connection_timeout": "Connection timeout",
         "host_not_found": "Host not found",
         "connection_refused": "Connection refused",
         "unknown_error": "Unknown error",
-        "start_checking": "Start checking hosts"
+        "start_checking": "Check website status",
+        "quick_check": "Quick Check",
+        "no_results": "No results yet",
+        "enter_host_to_check": "Enter a website or use quick buttons"
     },
     "about": {
         "app_name": "Tiksar VPN",
@@ -85,7 +93,11 @@
         "tiksar_village_page": "Official Tiksar Village Page"
     },
     "common": {
-        "ok": "OK"
+        "ok": "OK",
+        "please_select_server": "Please select a server first",
+        "connection_failed": "Connection failed",
+        "no_servers_available": "No servers available",
+        "loading_servers": "Loading servers..."
     },
     "privacy_welcome": {
         "skip": "Skip",
@@ -109,6 +121,14 @@
         "no_registration": "No registration required"
     },
     "speed_test": {
+        "title_ready": "Tiksar Speed Test",
+        "subtitle_ready": "Tap to start",
+        "title_testing": "Testing Speed...",
+        "subtitle_testing": "Please wait",
+        "title_completed": "Test Completed",
+        "subtitle_completed": "Results ready",
+        "title_error": "Test Failed",
+        "subtitle_error": "Try again",
         "testing_speed": "testing speed",
         "completed_test": "completed test",
         "encountered_error": "encountered error",

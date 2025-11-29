@@ -56,7 +56,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
       debugPrint('Language load error: $e');
     }
 
-    // Wait 2.5 seconds for splash display
+    // Wait for splash display
     await Future.delayed(const Duration(milliseconds: 2500));
 
     // Navigate to next screen

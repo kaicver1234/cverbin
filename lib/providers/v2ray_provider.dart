@@ -25,12 +25,12 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isLoading = false;
   String _errorMessage = '';
   V2RayConfig? _selectedConfig;
-  bool _wasUsingSmartConnect = false;
+  bool _wasUsingSmartConnect = true; // Default to Smart Connect
   
   // Getter for wasUsingSmartConnect
   bool get wasUsingSmartConnect => _wasUsingSmartConnect;
   
-  // Smart Connect: Find and connect to fastest server
+  // Smart Connect: Find and connect to fastest server (tests first 7 servers)
   Future<void> smartConnect() async {
     debugPrint('⚡ Smart Connect: Finding fastest server...');
     _isConnecting = true;
@@ -39,48 +39,69 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
     
     try {
-      // Get all server configs (excluding smart connect itself)
-      final servers = serverConfigs;
+      // Get server configs (excluding smart connect itself)
+      var servers = serverConfigs;
+      
+      // If no servers, try to load them first
+      if (servers.isEmpty) {
+        debugPrint('⚠️ No servers loaded, fetching...');
+        await fetchServers(
+          customUrl: 'https://raw.githubusercontent.com/cverhud/v2ray-sub/refs/heads/main/sub2.txt',
+        );
+        servers = serverConfigs;
+      }
+      
       if (servers.isEmpty) {
         _setError('No servers available for Smart Connect');
+        _isConnecting = false;
+        notifyListeners();
         return;
       }
       
-      // Find fastest server by pinging all
+      // Test only first 7 servers for speed
+      final serversToTest = servers.take(7).toList();
       V2RayConfig? fastestServer;
-      int? lowestPing;
+      int lowestPing = 999999;
       
-      debugPrint('⚡ Testing ${servers.length} servers...');
+      debugPrint('⚡ Testing ${serversToTest.length} servers...');
       
-      for (final server in servers) {
-        try {
-          final ping = await _v2rayService.getServerDelay(server);
-          if (ping != null && ping > 0 && ping < 10000) {
-            debugPrint('   ${server.remark}: ${ping}ms');
-            if (lowestPing == null || ping < lowestPing) {
-              lowestPing = ping;
-              fastestServer = server;
+      // Test servers in parallel for faster results
+      final results = await Future.wait(
+        serversToTest.map((server) async {
+          try {
+            final ping = await _v2rayService.getServerDelay(server)
+                .timeout(const Duration(seconds: 5), onTimeout: () => null);
+            if (ping != null && ping > 0 && ping < 10000) {
+              debugPrint('   ✓ ${server.remark}: ${ping}ms');
+              return {'server': server, 'ping': ping};
             }
+          } catch (e) {
+            debugPrint('   ✗ ${server.remark}: failed');
           }
-        } catch (e) {
-          debugPrint('   ${server.remark}: timeout');
+          return null;
+        }),
+      );
+      
+      // Find fastest from results
+      for (final result in results) {
+        if (result != null) {
+          final ping = result['ping'] as int;
+          if (ping < lowestPing) {
+            lowestPing = ping;
+            fastestServer = result['server'] as V2RayConfig;
+          }
         }
       }
       
-      if (fastestServer != null) {
-        debugPrint('⚡ Fastest server: ${fastestServer.remark} (${lowestPing}ms)');
-        _selectedConfig = fastestServer;
-        notifyListeners();
-        
-        // Connect to fastest server
-        await connectToServer(fastestServer);
-      } else {
-        // Fallback: connect to first server
-        debugPrint('⚠️ No responsive servers, using first server');
-        _selectedConfig = servers.first;
-        notifyListeners();
-        await connectToServer(servers.first);
-      }
+      // Connect to fastest or fallback to first
+      final serverToConnect = fastestServer ?? servers.first;
+      debugPrint('⚡ Connecting to: ${serverToConnect.remark} ${fastestServer != null ? "(${lowestPing}ms)" : "(fallback)"}');
+      
+      _selectedConfig = serverToConnect;
+      notifyListeners();
+      
+      // Actually connect
+      await connectToServer(serverToConnect);
     } catch (e) {
       debugPrint('❌ Smart Connect error: $e');
       _setError('Smart Connect failed: $e');
@@ -532,44 +553,26 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final servers = await _serverService.fetchServers(customUrl: customUrl);
 
       if (servers.isNotEmpty) {
-        // Get all subscription config IDs to preserve them
-        final subscriptionConfigIds = <String>{};
-        for (var subscription in _subscriptions) {
-          subscriptionConfigIds.addAll(subscription.configIds);
-        }
+        // Clear all ping cache
+        _v2rayService.clearPingCache();
+        
+        // Replace all configs with new servers (no duplicates)
+        _configs = servers;
 
-        // Clear ping cache for default servers (non-subscription servers)
-        for (var config in _configs) {
-          if (!subscriptionConfigIds.contains(config.id)) {
-            _v2rayService.clearPingCache(configId: config.id);
-          }
-        }
-
-        // Keep existing subscription configs
-        final subscriptionConfigs = _configs
-            .where((c) => subscriptionConfigIds.contains(c.id))
-            .toList();
-
-        // Add default servers to the configs list
-        _configs = [...subscriptionConfigs, ...servers];
-
-        // Save configs and update UI immediately to show servers
+        // Save configs
         await _v2rayService.saveConfigs(_configs);
 
-        // Mark loading as complete
-        _isLoadingServers = false;
-        notifyListeners();
-
-        // Server delay functionality removed as requested
+        debugPrint('✅ Loaded ${_configs.length} servers');
       } else {
         // If no servers found online, try to load from local storage
         _configs = await _v2rayService.loadConfigs();
+        debugPrint('📂 Loaded ${_configs.length} servers from cache');
       }
     } catch (e) {
+      debugPrint('❌ Failed to fetch servers: $e');
       _setError('Failed to fetch servers: $e');
       // Try to load from local storage as fallback
       _configs = await _v2rayService.loadConfigs();
-      notifyListeners();
     } finally {
       _isLoadingServers = false;
       notifyListeners();

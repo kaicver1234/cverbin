@@ -191,14 +191,17 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
             Expanded(
               child: GestureDetector(
                 onTap: () => setState(() => _currentTab = 0),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
                     gradient: _currentTab == 0
                         ? const LinearGradient(
                             colors: [Color(0xFF10B981), Color(0xFF059669)],
                           )
                         : null,
+                    color: _currentTab == 0 ? null : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
@@ -208,7 +211,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
                         Icons.public,
                         color: _currentTab == 0 
                             ? Colors.white 
-                            : Colors.white.withValues(alpha: 0.4),
+                            : Colors.white.withValues(alpha: 0.5),
                         size: 20,
                       ),
                       const SizedBox(width: 8),
@@ -217,7 +220,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
                         style: TextStyle(
                           color: _currentTab == 0 
                               ? Colors.white 
-                              : Colors.white.withValues(alpha: 0.4),
+                              : Colors.white.withValues(alpha: 0.5),
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -231,14 +234,17 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
             Expanded(
               child: GestureDetector(
                 onTap: () => setState(() => _currentTab = 1),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
                     gradient: _currentTab == 1
                         ? const LinearGradient(
-                            colors: [Color(0xFF10B981), Color(0xFF059669)],
+                            colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
                           )
                         : null,
+                    color: _currentTab == 1 ? null : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
@@ -248,7 +254,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
                         Icons.workspace_premium,
                         color: _currentTab == 1 
                             ? Colors.white 
-                            : Colors.white.withValues(alpha: 0.4),
+                            : Colors.white.withValues(alpha: 0.5),
                         size: 20,
                       ),
                       const SizedBox(width: 8),
@@ -257,7 +263,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
                         style: TextStyle(
                           color: _currentTab == 1 
                               ? Colors.white 
-                              : Colors.white.withValues(alpha: 0.4),
+                              : Colors.white.withValues(alpha: 0.5),
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -673,15 +679,15 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   }
 
   Widget _buildLoadingState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: Color(0xFF10B981)),
-          SizedBox(height: 16),
+          const CircularProgressIndicator(color: Color(0xFF10B981)),
+          const SizedBox(height: 16),
           Text(
-            'Loading servers...',
-            style: TextStyle(color: Colors.white54, fontSize: 14),
+            AppLocalizations.of(context).translate('common.loading_servers'),
+            style: const TextStyle(color: Colors.white54, fontSize: 14),
           ),
         ],
       ),
