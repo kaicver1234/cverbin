@@ -6,8 +6,35 @@ import '../widgets/vpn_gradient_background.dart';
 import '../utils/app_localizations.dart';
 import '../utils/app_colors.dart';
 
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
+
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _heartController;
+  late Animation<double> _heartAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _heartController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+    
+    _heartAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
+      CurvedAnimation(parent: _heartController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _heartController.dispose();
+    super.dispose();
+  }
 
   Future<void> _launchUrl(BuildContext context, String url) async {
     final Uri uri = Uri.parse(url);
@@ -205,10 +232,18 @@ class AboutScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.favorite,
-                color: Colors.red,
-                size: 16,
+              AnimatedBuilder(
+                animation: _heartAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _heartAnimation.value,
+                    child: const Icon(
+                      Icons.favorite,
+                      color: Colors.red,
+                      size: 16,
+                    ),
+                  );
+                },
               ),
               const SizedBox(width: 6),
               Text(

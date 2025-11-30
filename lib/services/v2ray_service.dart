@@ -383,32 +383,44 @@ class V2RayService extends ChangeNotifier {
       
       // Try multiple times to check if VPN is actually running
       bool? isConnected;
+      int successfulChecks = 0;
+      int failedChecks = 0;
+      
       for (int attempt = 0; attempt < 3; attempt++) {
         try {
           // Check if VPN is actually running with timeout
           final delay = await _flutterV2ray.getConnectedServerDelay()
-              .timeout(const Duration(seconds: 8));
-          isConnected = delay >= 0 && delay < 10000;
-          debugPrint('🔎 Delay check result: ${delay}ms, connected: $isConnected');
-          break; // Success, exit retry loop
+              .timeout(const Duration(seconds: 5));
+          
+          if (delay >= 0 && delay < 10000) {
+            successfulChecks++;
+            isConnected = true;
+            debugPrint('🔎 Delay check result: ${delay}ms, connected: true');
+            break; // Success, exit retry loop
+          } else {
+            failedChecks++;
+            debugPrint('🔎 Delay check result: ${delay}ms (invalid)');
+          }
         } catch (e) {
+          failedChecks++;
           debugPrint('⚠️ Delay check attempt ${attempt + 1} failed: $e');
-          // Timeout or error - retry
+          // Timeout or error - could be no internet, keep trying
           if (attempt < 2) {
             await Future.delayed(const Duration(milliseconds: 500));
           }
         }
       }
 
-      if (isConnected == false) {
-        // VPN is definitely not running, clear active config
-        debugPrint('❌ Background verification: VPN is NOT running');
-        _activeConfig = null;
-        await _clearActiveConfig();
-        notifyListeners();
+      // Only clear if we got explicit "not connected" response
+      // If all checks failed (timeout/error), keep the optimistic state
+      // because it could be due to no internet, not VPN being disconnected
+      if (isConnected == true) {
+        debugPrint('✅ Background verification: VPN is running');
+      } else if (successfulChecks == 0 && failedChecks == 3) {
+        // All checks failed - could be no internet, keep optimistic state
+        debugPrint('⚠️ Background verification: All checks failed (possibly no internet), keeping state');
       } else {
-        // Either verified as connected or couldn't verify (keep optimistic state)
-        debugPrint('✅ Background verification: VPN appears to be running');
+        debugPrint('ℹ️ Background verification: Inconclusive, keeping state');
       }
     } catch (e) {
       debugPrint('⚠️ Error during background verification: $e');
@@ -833,26 +845,31 @@ class V2RayService extends ChangeNotifier {
         return true;
       }
       
-      // Priority 2: Check V2Ray core status
+      // Priority 2: Check saved config FIRST (VPN might be running but app was killed)
+      // This is important when there's no internet - we trust the saved state
+      final savedConfig = await _loadActiveConfig();
+      if (savedConfig != null) {
+        _activeConfig = savedConfig;
+        await _restoreConnectionTime();
+        _startUsageMonitoring();
+        notifyListeners();
+        debugPrint('✅ VPN connected (restored from saved config)');
+        return true;
+      }
+      
+      // Priority 3: Check V2Ray core status
       final currentState = _currentStatus?.state.toLowerCase() ?? '';
       debugPrint('🔎 Current V2Ray state: "$currentState"');
       
       if (currentState.contains('connect') || 
           currentState == 'connected' ||
           currentState == 'running') {
-        // Status says connected, restore config
+        // Status says connected, try to restore config
         await _tryRestoreActiveConfig();
-        debugPrint('✅ VPN connected (V2Ray status)');
-        return true;
-      }
-      
-      // Priority 3: Check saved config (VPN might be running but app was killed)
-      final savedConfig = await _loadActiveConfig();
-      if (savedConfig != null) {
-        _activeConfig = savedConfig;
-        notifyListeners();
-        debugPrint('✅ VPN connected (restored from saved config)');
-        return true;
+        if (_activeConfig != null) {
+          debugPrint('✅ VPN connected (V2Ray status)');
+          return true;
+        }
       }
       
       // If status explicitly says disconnected

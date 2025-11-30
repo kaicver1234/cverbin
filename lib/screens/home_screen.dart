@@ -774,16 +774,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildConnectionButton(V2RayProvider provider) {
     final isConnected = provider.activeConfig != null;
     
-    // Colors: Beautiful Red when disconnected, Green when connected
+    // Colors: Elegant Gray when disconnected, Green when connected
     final buttonColor = isConnected 
         ? const Color(0xFF10B981) // Green
-        : const Color(0xFFE53935); // Beautiful Red
+        : const Color(0xFF4A5568); // Elegant Gray
     final buttonColorDark = isConnected 
         ? const Color(0xFF059669) 
-        : const Color(0xFFC62828);
+        : const Color(0xFF3D4654);
     final buttonColorDarker = isConnected 
         ? const Color(0xFF047857) 
-        : const Color(0xFFB71C1C);
+        : const Color(0xFF2D3748);
     
     return Stack(
       alignment: Alignment.center,
@@ -829,8 +829,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 child: _isConnecting
                     ? _buildSmartConnectAnimation(provider.wasUsingSmartConnect)
                     : Icon(
-                        isConnected ? Icons.stop_rounded : Icons.power_settings_new,
-                        key: ValueKey(isConnected ? 'stop' : 'power'),
+                        isConnected ? Icons.vpn_key : Icons.power_settings_new,
+                        key: ValueKey(isConnected ? 'vpn_key' : 'power'),
                         size: 60,
                         color: Colors.white,
                       ),
@@ -870,21 +870,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final String? countryCode;
     
     if (provider.activeConfig != null) {
-      // Connected - show actual server
+      // Connected - show actual server (no subtitle)
       serverName = _cleanServerName(provider.activeConfig!.remark);
-      serverSubtitle = provider.activeConfig!.countryCode != null 
-          ? provider.activeConfig!.countryName 
-          : null;
+      serverSubtitle = null;
       countryCode = provider.activeConfig!.countryCode;
     } else if (isSmartConnect) {
-      // Smart Connect selected
+      // Smart Connect selected - show description
       serverName = AppLocalizations.of(context).translate('server_selection.smart_connect');
       serverSubtitle = AppLocalizations.of(context).translate('server_selection.smart_connect_description');
       countryCode = null;
     } else if (selectedConfig != null) {
-      // Specific server selected
+      // Specific server selected (no subtitle)
       serverName = _cleanServerName(selectedConfig.remark);
-      serverSubtitle = selectedConfig.countryCode != null ? selectedConfig.countryName : null;
+      serverSubtitle = null;
       countryCode = selectedConfig.countryCode;
     } else {
       // Nothing selected

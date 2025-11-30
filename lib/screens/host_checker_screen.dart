@@ -25,7 +25,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
   // Quick access hosts
   final List<Map<String, dynamic>> _quickHosts = [
     {'name': 'Google', 'host': 'google.com', 'icon': Icons.search},
-    {'name': 'GitHub', 'host': 'github.com', 'icon': Icons.code},
+    {'name': 'Instagram', 'host': 'instagram.com', 'icon': Icons.camera_alt},
     {'name': 'YouTube', 'host': 'youtube.com', 'icon': Icons.play_circle},
     {'name': 'Twitter', 'host': 'x.com', 'icon': Icons.alternate_email},
   ];

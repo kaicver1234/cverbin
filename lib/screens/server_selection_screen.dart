@@ -20,6 +20,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   Map<String, int> _pingResults = {};
   List<V2RayConfig>? _sortedConfigs;
   late AnimationController _refreshAnimController;
+  late PageController _pageController;
   int _currentTab = 0; // 0 = Free, 1 = Premium
 
   @override
@@ -29,11 +30,13 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+    _pageController = PageController(initialPage: 0);
   }
 
   @override
   void dispose() {
     _refreshAnimController.dispose();
+    _pageController.dispose();
     _sortedConfigs = null;
     _pingResults.clear();
     super.dispose();
@@ -111,9 +114,16 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
                 _buildTabButtons(),
                 if (_currentTab == 0) _buildActionButtons(),
                 Expanded(
-                  child: _currentTab == 0 
-                      ? _buildFreeServersTab() 
-                      : _buildPremiumTab(),
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (index) {
+                      setState(() => _currentTab = index);
+                    },
+                    children: [
+                      _buildFreeServersTab(),
+                      _buildPremiumTab(),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -188,7 +198,12 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
             // Free Tab
             Expanded(
               child: GestureDetector(
-                onTap: () => setState(() => _currentTab = 0),
+                onTap: () {
+                  setState(() => _currentTab = 0);
+                  _pageController.animateToPage(0, 
+                    duration: const Duration(milliseconds: 300), 
+                    curve: Curves.easeInOut);
+                },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.all(4),
@@ -231,7 +246,12 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
             // Premium Tab
             Expanded(
               child: GestureDetector(
-                onTap: () => setState(() => _currentTab = 1),
+                onTap: () {
+                  setState(() => _currentTab = 1);
+                  _pageController.animateToPage(1, 
+                    duration: const Duration(milliseconds: 300), 
+                    curve: Curves.easeInOut);
+                },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.all(4),

@@ -30,11 +30,12 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   // Getter for wasUsingSmartConnect
   bool get wasUsingSmartConnect => _wasUsingSmartConnect;
   
-  // Smart Connect: Find and connect to fastest server (tests first 5 servers)
+  // Smart Connect: Find and connect to fastest server (tests first 7 servers)
   Future<void> smartConnect() async {
     debugPrint('⚡ Smart Connect: Starting...');
     _errorMessage = '';
     _wasUsingSmartConnect = true;
+    _isConnecting = true;
     notifyListeners();
     
     try {
@@ -50,21 +51,23 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       
       if (servers.isEmpty) {
         _setError('No servers available');
+        _isConnecting = false;
+        notifyListeners();
         return;
       }
       
-      debugPrint('⚡ Found ${servers.length} servers, testing first 5...');
+      debugPrint('⚡ Found ${servers.length} servers, testing first 7...');
       
-      // Test first 5 servers in parallel for speed
-      final serversToTest = servers.take(5).toList();
+      // Test first 7 servers in parallel for speed
+      final serversToTest = servers.take(7).toList();
       final Map<V2RayConfig, int> pingResults = {};
       
-      // Test all 5 servers in parallel
+      // Test all 7 servers in parallel with 6 second timeout
       final futures = serversToTest.map((server) async {
         try {
           debugPrint('   Testing ${server.remark}...');
           final ping = await _v2rayService.getServerDelay(server)
-              .timeout(const Duration(seconds: 5), onTimeout: () => null);
+              .timeout(const Duration(seconds: 6), onTimeout: () => null);
           if (ping != null && ping > 0 && ping < 10000) {
             debugPrint('   ✓ ${server.remark}: ${ping}ms');
             return MapEntry(server, ping);
@@ -85,6 +88,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           pingResults[result.key] = result.value;
         }
       }
+      
+      debugPrint('⚡ Got ${pingResults.length} successful ping results');
       
       // Find fastest server
       V2RayConfig? fastestServer;
