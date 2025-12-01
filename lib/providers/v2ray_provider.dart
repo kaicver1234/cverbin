@@ -32,6 +32,12 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   
   // Smart Connect: Find and connect to fastest server (tests first 7 servers)
   Future<void> smartConnect() async {
+    // Prevent multiple simultaneous calls
+    if (_isConnecting) {
+      debugPrint('⚠️ Smart Connect already in progress, ignoring...');
+      return;
+    }
+    
     debugPrint('⚡ Smart Connect: Starting...');
     _errorMessage = '';
     _wasUsingSmartConnect = true;
@@ -50,6 +56,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       if (servers.isEmpty) {
+        debugPrint('❌ No servers available');
         _setError('No servers available');
         _isConnecting = false;
         notifyListeners();
@@ -112,14 +119,22 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       _selectedConfig = serverToConnect;
+      _isConnecting = false; // Reset before calling connectToServer
       notifyListeners();
       
       // Connect to the selected server
       await connectToServer(serverToConnect);
       
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('❌ Smart Connect error: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
       _setError('Connection failed: $e');
+    } finally {
+      // Always ensure _isConnecting is reset
+      if (_isConnecting) {
+        _isConnecting = false;
+        notifyListeners();
+      }
     }
   }
   

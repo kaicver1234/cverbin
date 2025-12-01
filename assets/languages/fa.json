@@ -90,7 +90,9 @@
         "developed_with": "ساخته شده با",
         "developer": "توسط ابوالفضل جهانی",
         "connect_with_me": "در ارتباط باشید",
-        "tiksar_village_page": "پیج رسمی روستای تیکسر"
+        "tiksar_village_page": "پیج رسمی روستای تیکسر",
+        "telegram": "تلگرام",
+        "instagram": "اینستاگرام"
     },
     "common": {
         "ok": "تأیید",
@@ -121,7 +123,7 @@
         "no_registration": "نیازی به ثبت نام نیست"
     },
     "speed_test": {
-        "title_ready": "تست سرعت تیکسر",
+        "title_ready": "تست سرعت تیکسر وی‌پی‌ان",
         "subtitle_ready": "برای شروع ضربه بزنید",
         "title_testing": "در حال تست سرعت...",
         "subtitle_testing": "لطفاً صبر کنید",

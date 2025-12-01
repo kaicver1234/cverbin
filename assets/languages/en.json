@@ -90,7 +90,9 @@
         "developed_with": "Developed with",
         "developer": "by Abolfazl Jahani",
         "connect_with_me": "Connect With Me",
-        "tiksar_village_page": "Official Tiksar Village Page"
+        "tiksar_village_page": "Official Tiksar Village Page",
+        "telegram": "Telegram",
+        "instagram": "Instagram"
     },
     "common": {
         "ok": "OK",
@@ -121,7 +123,7 @@
         "no_registration": "No registration required"
     },
     "speed_test": {
-        "title_ready": "Tiksar Speed Test",
+        "title_ready": "Tiksar VPN Speed Test",
         "subtitle_ready": "Tap to start",
         "title_testing": "Testing Speed...",
         "subtitle_testing": "Please wait",

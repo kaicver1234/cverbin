@@ -297,7 +297,7 @@ class _AboutScreenState extends State<AboutScreen> with SingleTickerProviderStat
         _buildSocialItem(
           context: context,
           icon: Icons.send,
-          title: 'Telegram',
+          title: AppLocalizations.of(context).translate('about.telegram'),
           subtitle: '@tiksar_vpn',
           color: const Color(0xFF0088CC),
           onTap: () => _launchUrl(context, 'https://t.me/tiksar_vpn'),
@@ -309,7 +309,7 @@ class _AboutScreenState extends State<AboutScreen> with SingleTickerProviderStat
         _buildSocialItem(
           context: context,
           icon: Icons.camera_alt_outlined,
-          title: 'Instagram',
+          title: AppLocalizations.of(context).translate('about.instagram'),
           subtitle: '@aboljahany',
           color: const Color(0xFFE1306C),
           onTap: () => _launchUrl(context, 'https://instagram.com/aboljahany'),

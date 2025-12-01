@@ -516,19 +516,29 @@ class V2RayService extends ChangeNotifier {
         // Use V2Ray's built-in ping method for better accuracy
         await initialize();
 
-        final parser = FlutterV2ray.parseFromURL(config.fullConfig);
+        // Safely parse the config
+        V2RayURL parser;
+        try {
+          parser = FlutterV2ray.parseFromURL(config.fullConfig);
+        } catch (parseError) {
+          debugPrint('❌ Failed to parse config ${config.remark}: $parseError');
+          _pingInProgress[hostKey] = false;
+          _pingInProgress[configId] = false;
+          return null;
+        }
+
         final delay = await _flutterV2ray
             .getServerDelay(config: parser.getFullConfiguration())
             .timeout(
               const Duration(seconds: 8),
               onTimeout: () {
                 debugPrint('⚠️ Ping timeout for ${config.remark}');
-                throw Exception('V2Ray ping timeout');
+                return -1; // Return -1 instead of throwing
               },
             );
 
         // Cache the result by both host and config ID with timestamp
-        if (delay >= -1 && delay < 10000) {
+        if (delay >= 0 && delay < 10000) {
           final now = DateTime.now();
           _pingCache[hostKey] = (delay: delay, timestamp: now);
           _pingCache[configId] = (delay: delay, timestamp: now);

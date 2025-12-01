@@ -308,31 +308,41 @@ class SpeedTestProvider with ChangeNotifier {
     );
 
     final startTime = DateTime.now();
+    int sentBytes = 0;
 
-    await _dio.post(
-      '/__up',
-      data: data,
-      queryParameters: {'measId': _measurementId},
-      options: Options(
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'Content-Length': bytes,
+    try {
+      await _dio.post(
+        '/__up',
+        data: data,
+        queryParameters: {'measId': _measurementId},
+        options: Options(
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': bytes.toString(),
+          },
+          validateStatus: (status) => status != null && status < 500,
+        ),
+        onSendProgress: (sent, total) {
+          sentBytes = sent;
+          final elapsed = DateTime.now().difference(startTime).inMilliseconds / 1000.0;
+          if (elapsed > 0.1 && !_isTestCanceled) {
+            final speedMbps = (sent * 8) / elapsed / 1000000;
+            _state = _state.copyWith(currentSpeed: _roundSpeed(speedMbps));
+            notifyListeners();
+          }
         },
-      ),
-      onSendProgress: (sent, total) {
-        final elapsed = DateTime.now().difference(startTime).inMilliseconds / 1000.0;
-        if (elapsed > 0.1 && !_isTestCanceled) {
-          final speedMbps = (sent * 8) / elapsed / 1000000;
-          _state = _state.copyWith(currentSpeed: _roundSpeed(speedMbps));
-          notifyListeners();
-        }
-      },
-    );
+      );
+    } catch (e) {
+      debugPrint('⚠️ Upload request error: $e');
+      // Even if request fails, we can calculate speed from sent bytes
+    }
 
     final duration = DateTime.now().difference(startTime).inMilliseconds / 1000.0;
     if (duration < 0.01) return 0.0;
 
-    return (bytes * 8) / duration / 1000000;
+    // Use actual sent bytes for calculation
+    final actualBytes = sentBytes > 0 ? sentBytes : bytes;
+    return (actualBytes * 8) / duration / 1000000;
   }
 
   void _calculateFinalResults() {

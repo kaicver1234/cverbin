@@ -275,39 +275,29 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
-          // Animated mouse cursor with radial lines
+          const SizedBox(height: 12),
+          // Simple animated tap icon
           AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
-              return SizedBox(
-                width: 70,
-                height: 70,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // 7 radial lines animation around cursor
-                    CustomPaint(
-                      size: const Size(60, 60),
-                      painter: _CursorRadialLinesPainter(
-                        progress: _pulseController.value,
-                        color: Colors.white,
-                      ),
+              return Transform.scale(
+                scale: 1.0 + (_pulseController.value * 0.15),
+                child: Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.1),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3 + (_pulseController.value * 0.2)),
+                      width: 2,
                     ),
-                    // Mouse cursor icon - positioned at center-left where lines are
-                    Positioned(
-                      left: 12,
-                      top: 20,
-                      child: Transform.rotate(
-                        angle: -0.5,
-                        child: const Icon(
-                          Icons.near_me,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                  child: const Icon(
+                    Icons.touch_app,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                 ),
               );
             },
@@ -706,58 +696,4 @@ class SemicircularProgressPainter extends CustomPainter {
   }
 }
 
-/// Radial lines painter for cursor click animation (7 lines)
-class _CursorRadialLinesPainter extends CustomPainter {
-  final double progress;
-  final Color color;
 
-  _CursorRadialLinesPainter({
-    required this.progress,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.3 + (progress * 0.5))
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    // 7 lines in semi-circle pattern (left side of cursor)
-    final List<double> lineAngles = [
-      math.pi * 0.85,
-      math.pi * 0.95,
-      math.pi * 1.05,
-      math.pi * 1.15,
-      math.pi * 1.25,
-      math.pi * 1.35,
-      math.pi * 1.45,
-    ];
-
-    for (final angle in lineAngles) {
-      // Lines grow and shrink with progress
-      final startRadius = radius * 0.55 + (progress * radius * 0.1);
-      final endRadius = radius * 0.75 + (progress * radius * 0.15);
-
-      final startX = center.dx + startRadius * math.cos(angle);
-      final startY = center.dy + startRadius * math.sin(angle);
-      final endX = center.dx + endRadius * math.cos(angle);
-      final endY = center.dy + endRadius * math.sin(angle);
-
-      canvas.drawLine(
-        Offset(startX, startY),
-        Offset(endX, endY),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CursorRadialLinesPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
-  }
-}
