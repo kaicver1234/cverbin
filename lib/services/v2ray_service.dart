@@ -346,6 +346,15 @@ class V2RayService extends ChangeNotifier {
       notifyListeners();
       debugPrint('✅ Active config restored optimistically for UI');
       
+      // Fetch IP info after restore (with delay to ensure VPN is stable)
+      Future.delayed(const Duration(seconds: 1), () {
+        fetchIpInfo().then((_) {
+          debugPrint('✅ IP info fetched after config restore');
+        }).catchError((e) {
+          debugPrint('⚠️ Failed to fetch IP after restore: $e');
+        });
+      });
+      
       // Now verify in background (non-blocking)
       // This happens asynchronously and won't delay UI display
       _verifyConnectionInBackground();
@@ -864,6 +873,16 @@ class V2RayService extends ChangeNotifier {
         _startUsageMonitoring();
         notifyListeners();
         debugPrint('✅ VPN connected (restored from saved config)');
+        
+        // Fetch IP info after restore
+        Future.delayed(const Duration(milliseconds: 500), () async {
+          try {
+            await fetchIpInfo();
+          } catch (e) {
+            debugPrint('⚠️ Failed to fetch IP: $e');
+          }
+        });
+        
         return true;
       }
       
