@@ -16,39 +16,100 @@ class SpeedTestScreen extends StatefulWidget {
 
 class _SpeedTestScreenState extends State<SpeedTestScreen>
     with TickerProviderStateMixin {
-  late AnimationController _needleController;
+  late AnimationController _downloadArcController;
+  late AnimationController _uploadArcController;
   late AnimationController _pulseController;
-  double _currentNeedleAngle = 0.0;
+  late AnimationController _gridController;
+
+  late Animation<double> _downloadArcAnimation;
+  late Animation<double> _uploadArcAnimation;
+
+  double _targetDownloadProgress = 0.0;
+  double _targetUploadProgress = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _needleController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+
+    _downloadArcController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _uploadArcController = AnimationController(
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
+
+    _gridController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    )..repeat();
+
+    _downloadArcAnimation = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(parent: _downloadArcController, curve: Curves.easeInOut),
+    );
+    _uploadArcAnimation = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(parent: _uploadArcController, curve: Curves.easeInOut),
+    );
   }
 
   @override
   void dispose() {
-    _needleController.dispose();
+    _downloadArcController.dispose();
+    _uploadArcController.dispose();
     _pulseController.dispose();
+    _gridController.dispose();
     super.dispose();
   }
 
-  // Convert speed to angle (0-1000 Mbps range)
-  double _speedToAngle(double speed) {
-    // Logarithmic scale like speedtest.net
-    // 0 -> -135°, 1000 -> 135°
-    if (speed <= 0) return -135.0;
-    
-    // Use log scale for better visualization
-    final logSpeed = math.log(speed + 1) / math.log(1001);
-    return -135.0 + (logSpeed * 270.0);
+  void _updateProgress(SpeedTestState state) {
+    double newDownload = 0.0;
+    double newUpload = 0.0;
+
+    if (state.step == SpeedTestStep.download) {
+      newDownload = state.progress;
+      newUpload = 0.0;
+    } else if (state.step == SpeedTestStep.upload) {
+      newDownload = 0.0;
+      newUpload = state.progress;
+    } else if (state.testCompleted) {
+      newDownload = 1.0;
+      newUpload = 1.0;
+    }
+
+    if (newDownload != _targetDownloadProgress) {
+      _downloadArcAnimation = Tween<double>(
+        begin: _downloadArcAnimation.value,
+        end: newDownload,
+      ).animate(CurvedAnimation(
+        parent: _downloadArcController,
+        curve: newDownload < _targetDownloadProgress ? Curves.easeOutCubic : Curves.easeInOut,
+      ));
+      _downloadArcController.duration = Duration(
+        milliseconds: newDownload < _targetDownloadProgress ? 1200 : 400,
+      );
+      _downloadArcController.forward(from: 0);
+      _targetDownloadProgress = newDownload;
+    }
+
+    if (newUpload != _targetUploadProgress) {
+      _uploadArcAnimation = Tween<double>(
+        begin: _uploadArcAnimation.value,
+        end: newUpload,
+      ).animate(CurvedAnimation(
+        parent: _uploadArcController,
+        curve: newUpload < _targetUploadProgress ? Curves.easeOutCubic : Curves.easeInOut,
+      ));
+      _uploadArcController.duration = Duration(
+        milliseconds: newUpload < _targetUploadProgress ? 1200 : 400,
+      );
+      _uploadArcController.forward(from: 0);
+      _targetUploadProgress = newUpload;
+    }
   }
 
   @override
@@ -58,19 +119,13 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
     return Directionality(
       textDirection: languageProvider.textDirection,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1C1C3C),
         body: VPNGradientBackground(
           child: SafeArea(
             child: Consumer<SpeedTestProvider>(
               builder: (context, provider, child) {
                 final state = provider.state;
-                
-                // Update needle angle
-                final targetAngle = _speedToAngle(state.currentSpeed);
-                if (targetAngle != _currentNeedleAngle) {
-                  _currentNeedleAngle = targetAngle;
-                }
-                
+                _updateProgress(state);
+
                 return Column(
                   children: [
                     _buildHeader(context, state),
@@ -88,6 +143,29 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   }
 
   Widget _buildHeader(BuildContext context, SpeedTestState state) {
+    final tr = AppLocalizations.of(context);
+
+    final isRunning = state.step != SpeedTestStep.ready;
+    final hasError = state.hadError && state.errorMessage != null;
+    final isCompleted = state.testCompleted && state.step == SpeedTestStep.ready;
+
+    String title;
+    String subtitle;
+
+    if (isRunning) {
+      title = tr.translate('speed_test.title_testing');
+      subtitle = tr.translate('speed_test.subtitle_testing');
+    } else if (hasError) {
+      title = tr.translate('speed_test.title_error');
+      subtitle = tr.translate('speed_test.subtitle_error');
+    } else if (isCompleted) {
+      title = tr.translate('speed_test.title_completed');
+      subtitle = tr.translate('speed_test.subtitle_completed');
+    } else {
+      title = tr.translate('speed_test.title_ready');
+      subtitle = tr.translate('speed_test.subtitle_ready');
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -108,12 +186,27 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
             ),
           ),
           const SizedBox(width: 16),
-          Text(
-            AppLocalizations.of(context).translate('speed_test.title_ready'),
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF10B981),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -126,68 +219,74 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          const Spacer(flex: 1),
-          _buildSpeedometer(context, provider, state),
-          const Spacer(flex: 1),
-          _buildResultsRow(context, state),
           const SizedBox(height: 30),
+          _buildProgressIndicator(state, provider),
+          const Spacer(),
+          if (state.result.ping > 0 || state.testCompleted)
+            _buildMetricsDisplay(state),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _buildSpeedometer(BuildContext context, SpeedTestProvider provider, SpeedTestState state) {
-    final tr = AppLocalizations.of(context);
-    final isRunning = state.step != SpeedTestStep.ready;
-    final isCompleted = state.testCompleted && !isRunning;
-    final hasError = state.hadError && state.errorMessage != null && !isRunning;
-
+  Widget _buildProgressIndicator(SpeedTestState state, SpeedTestProvider provider) {
     return SizedBox(
-      width: 300,
-      height: 300,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Gauge background with scale
-          CustomPaint(
-            size: const Size(300, 300),
-            painter: _SpeedometerPainter(
-              progress: isRunning ? state.progress : (isCompleted ? 1.0 : 0.0),
-              isDownload: state.step == SpeedTestStep.download,
-              isUpload: state.step == SpeedTestStep.upload,
-            ),
-          ),
-          
-          // Needle
-          if (isRunning || isCompleted)
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: -135, end: _speedToAngle(state.currentSpeed)),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              builder: (context, angle, child) {
-                return CustomPaint(
-                  size: const Size(300, 300),
-                  painter: _NeedlePainter(angle: angle),
-                );
-              },
-            ),
-          
-          // Center content
-          _buildCenterContent(context, provider, state, tr, isRunning, isCompleted, hasError),
-        ],
+      width: 320,
+      height: 280,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_downloadArcAnimation, _uploadArcAnimation, _gridController]),
+        builder: (context, child) {
+          return Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              // Upload Arc (inner - blue)
+              CustomPaint(
+                size: const Size(230, 160),
+                painter: _SemicircularProgressPainter(
+                  progress: _uploadArcAnimation.value,
+                  color: const Color(0xFF3B82F6),
+                  strokeWidth: 3,
+                ),
+              ),
+              // Download Arc (outer - green)
+              CustomPaint(
+                size: const Size(270, 180),
+                painter: _SemicircularProgressPainter(
+                  progress: _downloadArcAnimation.value,
+                  color: const Color(0xFF10B981),
+                  strokeWidth: 4,
+                ),
+              ),
+              // Animated Grid
+              Positioned(
+                top: 200,
+                child: CustomPaint(
+                  size: const Size(300, 40),
+                  painter: _AnimatedGridPainter(
+                    animation: _gridController.value,
+                  ),
+                ),
+              ),
+              // Center Content
+              Positioned(
+                top: 80,
+                child: _buildCenterContent(state, provider),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildCenterContent(
-    BuildContext context,
-    SpeedTestProvider provider,
-    SpeedTestState state,
-    AppLocalizations tr,
-    bool isRunning,
-    bool isCompleted,
-    bool hasError,
-  ) {
+  Widget _buildCenterContent(SpeedTestState state, SpeedTestProvider provider) {
+    final tr = AppLocalizations.of(context);
+    final isRunning = state.step == SpeedTestStep.download || state.step == SpeedTestStep.upload;
+    final isLoading = state.step == SpeedTestStep.loading;
+    final isCompleted = state.testCompleted && state.step == SpeedTestStep.ready;
+    final hasError = state.hadError && state.errorMessage != null && state.step == SpeedTestStep.ready;
+
     // Error state
     if (hasError) {
       return Column(
@@ -201,71 +300,70 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          _buildGoButton(provider, tr, isRetry: true),
+          _buildRetryButton(provider),
         ],
       );
     }
 
-    // Running state
+    // Loading state (ping test)
+    if (isLoading) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '${tr.translate('speed_test.ping')}: ${state.result.ping} ${tr.translate('speed_test.ms')}',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
+          ),
+        ],
+      );
+    }
+
+    // Running state (download/upload)
     if (isRunning) {
       final isDownload = state.step == SpeedTestStep.download;
-      final isUpload = state.step == SpeedTestStep.upload;
-      final isLoading = state.step == SpeedTestStep.loading;
+      final color = isDownload ? const Color(0xFF10B981) : const Color(0xFF3B82F6);
+      final label = isDownload
+          ? tr.translate('speed_test.download')
+          : tr.translate('speed_test.upload');
 
       return GestureDetector(
         onTap: () => provider.stopTest(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Speed value
             Text(
-              isLoading ? '---' : state.currentSpeed.toStringAsFixed(2),
+              state.currentSpeed.toStringAsFixed(1),
               style: const TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.w300,
                 color: Colors.white,
-                letterSpacing: -2,
+                height: 1,
               ),
             ),
-            // Mbps label
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.download_rounded,
-                  color: Colors.white.withValues(alpha: 0.6),
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  tr.translate('speed_test.mbps'),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Current phase indicator
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: (isDownload ? const Color(0xFF00D4AA) : isUpload ? const Color(0xFF00B4D8) : Colors.grey)
-                    .withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 4),
+            Text(
+              tr.translate('speed_test.mbps'),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.6),
               ),
-              child: Text(
-                isLoading 
-                    ? tr.translate('speed_test.ping')
-                    : isDownload 
-                        ? tr.translate('speed_test.download')
-                        : tr.translate('speed_test.upload'),
-                style: TextStyle(
-                  color: isDownload ? const Color(0xFF00D4AA) : isUpload ? const Color(0xFF00B4D8) : Colors.grey,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
               ),
             ),
           ],
@@ -279,100 +377,101 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            state.result.downloadSpeed.toStringAsFixed(2),
+            state.result.downloadSpeed.toStringAsFixed(1),
             style: const TextStyle(
-              fontSize: 48,
+              fontSize: 44,
               fontWeight: FontWeight.w300,
               color: Colors.white,
-              letterSpacing: -2,
+              height: 1,
             ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.download_rounded,
-                color: Colors.white.withValues(alpha: 0.6),
-                size: 16,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                tr.translate('speed_test.mbps'),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            tr.translate('speed_test.mbps'),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.6),
+            ),
           ),
-          const SizedBox(height: 16),
-          _buildGoButton(provider, tr, isRetry: true),
+          const SizedBox(height: 14),
+          _buildRetryButton(provider),
         ],
       );
     }
 
-    // Ready state - GO button
-    return _buildGoButton(provider, tr);
+    // Ready state - Start button
+    return _buildStartButton(provider, tr);
   }
 
-  Widget _buildGoButton(SpeedTestProvider provider, AppLocalizations tr, {bool isRetry = false}) {
+  Widget _buildStartButton(SpeedTestProvider provider, AppLocalizations tr) {
     return GestureDetector(
       onTap: () => provider.startTest(),
-      child: AnimatedBuilder(
-        animation: _pulseController,
-        builder: (context, child) {
-          final scale = isRetry ? 1.0 : 1.0 + (_pulseController.value * 0.05);
-          return Transform.scale(
-            scale: scale,
-            child: Container(
-              width: isRetry ? 60 : 120,
-              height: isRetry ? 60 : 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0xFF00D4AA).withValues(alpha: 0.9),
-                    const Color(0xFF00B4D8).withValues(alpha: 0.9),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF00D4AA).withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: isRetry
-                    ? const Icon(Icons.refresh_rounded, color: Colors.white, size: 28)
-                    : Text(
-                        tr.translate('speed_test.go'),
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 2,
-                        ),
-                      ),
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            tr.translate('speed_test.tap_here'),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 10),
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              return CustomPaint(
+                size: const Size(60, 60),
+                painter: _RadialLinesPainter(
+                  progress: _pulseController.value,
+                ),
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  alignment: Alignment.center,
+                  child: Transform.rotate(
+                    angle: 0.5,
+                    child: const Icon(
+                      Icons.near_me_outlined,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildResultsRow(BuildContext context, SpeedTestState state) {
-    final tr = AppLocalizations.of(context);
-    final showResults = state.result.ping > 0 || state.testCompleted;
+  Widget _buildRetryButton(SpeedTestProvider provider) {
+    return GestureDetector(
+      onTap: () => provider.startTest(),
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.08),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        child: const Icon(
+          Icons.cached_rounded,
+          color: Colors.white,
+          size: 26,
+        ),
+      ),
+    );
+  }
 
-    if (!showResults) return const SizedBox.shrink();
+  Widget _buildMetricsDisplay(SpeedTestState state) {
+    final tr = AppLocalizations.of(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
@@ -380,36 +479,47 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
       ),
       child: Row(
         children: [
-          // Ping
-          Expanded(
-            child: _buildResultItem(
-              icon: Icons.network_ping,
-              label: tr.translate('speed_test.ping'),
-              value: '${state.result.ping}',
-              unit: tr.translate('speed_test.ms'),
-              color: Colors.white,
-            ),
-          ),
-          _buildDivider(),
           // Download
           Expanded(
-            child: _buildResultItem(
+            child: _buildMetricItem(
               icon: Icons.download_rounded,
               label: tr.translate('speed_test.download'),
               value: state.result.downloadSpeed.toStringAsFixed(1),
               unit: tr.translate('speed_test.mbps'),
-              color: const Color(0xFF00D4AA),
+              color: const Color(0xFF10B981),
             ),
           ),
           _buildDivider(),
           // Upload
           Expanded(
-            child: _buildResultItem(
+            child: _buildMetricItem(
               icon: Icons.upload_rounded,
               label: tr.translate('speed_test.upload'),
               value: state.result.uploadSpeed.toStringAsFixed(1),
               unit: tr.translate('speed_test.mbps'),
-              color: const Color(0xFF00B4D8),
+              color: const Color(0xFF3B82F6),
+            ),
+          ),
+          _buildDivider(),
+          // Ping
+          Expanded(
+            child: _buildMetricItem(
+              icon: Icons.network_ping,
+              label: tr.translate('speed_test.ping'),
+              value: state.result.ping.toString(),
+              unit: tr.translate('speed_test.ms'),
+              color: Colors.white,
+            ),
+          ),
+          _buildDivider(),
+          // Jitter
+          Expanded(
+            child: _buildMetricItem(
+              icon: Icons.swap_vert,
+              label: tr.translate('speed_test.jitter'),
+              value: state.result.jitter.toString(),
+              unit: tr.translate('speed_test.ms'),
+              color: Colors.white,
             ),
           ),
         ],
@@ -420,13 +530,13 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   Widget _buildDivider() {
     return Container(
       width: 1,
-      height: 50,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: Colors.white.withValues(alpha: 0.1),
+      height: 45,
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      color: Colors.white.withValues(alpha: 0.08),
     );
   }
 
-  Widget _buildResultItem({
+  Widget _buildMetricItem({
     required IconData icon,
     required String label,
     required String value,
@@ -435,22 +545,22 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   }) {
     return Column(
       children: [
-        Icon(icon, color: color.withValues(alpha: 0.7), size: 18),
-        const SizedBox(height: 6),
+        Icon(icon, color: color.withValues(alpha: 0.7), size: 16),
+        const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           value,
           style: TextStyle(
             color: color,
-            fontSize: 22,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -458,7 +568,7 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
           unit,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 10,
+            fontSize: 9,
           ),
         ),
       ],
@@ -466,201 +576,170 @@ class _SpeedTestScreenState extends State<SpeedTestScreen>
   }
 }
 
-/// Speedometer gauge painter (like speedtest.net)
-class _SpeedometerPainter extends CustomPainter {
-  final double progress;
-  final bool isDownload;
-  final bool isUpload;
+// ============================================================================
+// Custom Painters
+// ============================================================================
 
-  _SpeedometerPainter({
+class _SemicircularProgressPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final double strokeWidth;
+
+  _SemicircularProgressPainter({
     required this.progress,
-    required this.isDownload,
-    required this.isUpload,
+    required this.color,
+    this.strokeWidth = 4,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 20;
+    final center = Offset(size.width / 2, size.height);
+    final radius = size.width / 2 - strokeWidth / 2;
 
-    // Draw scale marks and numbers
-    _drawScale(canvas, center, radius);
-    
-    // Draw progress arc
+    const startAngle = math.pi * 0.85;
+    const sweepAngle = math.pi * 1.3;
+
+    // Background arc
+    final bgPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.12)
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      bgPaint,
+    );
+
     if (progress > 0) {
-      _drawProgressArc(canvas, center, radius - 15);
-    }
-  }
+      // Shadow
+      final shadowPaint = Paint()
+        ..color = color.withValues(alpha: 0.4)
+        ..strokeWidth = strokeWidth
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
 
-  void _drawScale(Canvas canvas, Offset center, double radius) {
-    final scaleValues = [0, 5, 10, 50, 100, 250, 500, 750, 1000];
-    
-    for (int i = 0; i < scaleValues.length; i++) {
-      final value = scaleValues[i];
-      // Calculate angle using log scale
-      final logValue = value == 0 ? 0.0 : math.log(value + 1) / math.log(1001);
-      final angle = -135.0 + (logValue * 270.0);
-      final radians = angle * math.pi / 180;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle * progress,
+        false,
+        shadowPaint,
+      );
 
-      // Draw tick mark
-      final innerRadius = radius - 10;
-      final outerRadius = radius;
-      
-      final startX = center.dx + innerRadius * math.cos(radians);
-      final startY = center.dy + innerRadius * math.sin(radians);
-      final endX = center.dx + outerRadius * math.cos(radians);
-      final endY = center.dy + outerRadius * math.sin(radians);
-
-      final tickPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.3)
-        ..strokeWidth = 2
+      // Progress arc
+      final progressPaint = Paint()
+        ..color = color
+        ..strokeWidth = strokeWidth
+        ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
 
-      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), tickPaint);
-
-      // Draw number
-      final textRadius = radius - 25;
-      final textX = center.dx + textRadius * math.cos(radians);
-      final textY = center.dy + textRadius * math.sin(radians);
-
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: value.toString(),
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle * progress,
+        false,
+        progressPaint,
       );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(textX - textPainter.width / 2, textY - textPainter.height / 2),
-      );
+
+      // Dot at end
+      final angle = startAngle + (sweepAngle * progress);
+      final dotX = center.dx + radius * math.cos(angle);
+      final dotY = center.dy + radius * math.sin(angle);
+
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: 0.5)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+      canvas.drawCircle(Offset(dotX, dotY), 4, glowPaint);
+
+      final dotPaint = Paint()..color = color;
+      canvas.drawCircle(Offset(dotX, dotY), 3, dotPaint);
     }
-
-    // Draw background arc
-    final arcPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
-      ..strokeWidth = 8
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius - 15),
-      -135 * math.pi / 180,
-      270 * math.pi / 180,
-      false,
-      arcPaint,
-    );
-  }
-
-  void _drawProgressArc(Canvas canvas, Offset center, double radius) {
-    final color = isDownload 
-        ? const Color(0xFF00D4AA) 
-        : isUpload 
-            ? const Color(0xFF00B4D8) 
-            : Colors.grey;
-
-    // Glow effect
-    final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
-      ..strokeWidth = 12
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -135 * math.pi / 180,
-      270 * progress * math.pi / 180,
-      false,
-      glowPaint,
-    );
-
-    // Main arc
-    final arcPaint = Paint()
-      ..shader = SweepGradient(
-        startAngle: -135 * math.pi / 180,
-        endAngle: 135 * math.pi / 180,
-        colors: [
-          color.withValues(alpha: 0.6),
-          color,
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..strokeWidth = 8
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -135 * math.pi / 180,
-      270 * progress * math.pi / 180,
-      false,
-      arcPaint,
-    );
   }
 
   @override
-  bool shouldRepaint(_SpeedometerPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.isDownload != isDownload ||
-        oldDelegate.isUpload != isUpload;
+  bool shouldRepaint(_SemicircularProgressPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color;
   }
 }
 
-/// Needle painter
-class _NeedlePainter extends CustomPainter {
-  final double angle;
+class _AnimatedGridPainter extends CustomPainter {
+  final double animation;
 
-  _NeedlePainter({required this.angle});
+  _AnimatedGridPainter({required this.animation});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..strokeWidth = 1;
+
+    // Horizontal lines
+    for (int i = 0; i <= 4; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+
+    // Vertical lines with animation
+    final numLines = 12;
+    for (int i = 0; i <= numLines; i++) {
+      final baseX = size.width * i / numLines;
+      final offset = math.sin((animation * 2 * math.pi) + (i * 0.3)) * 3;
+      final x = baseX + offset;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_AnimatedGridPainter oldDelegate) {
+    return oldDelegate.animation != animation;
+  }
+}
+
+class _RadialLinesPainter extends CustomPainter {
+  final double progress;
+
+  _RadialLinesPainter({required this.progress});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radians = angle * math.pi / 180;
-    final needleLength = size.width / 2 - 50;
+    final radius = size.width / 2;
 
-    // Needle shadow
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.3)
-      ..strokeWidth = 4
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.3 + (progress * 0.4))
+      ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
-    final shadowEnd = Offset(
-      center.dx + needleLength * math.cos(radians) + 2,
-      center.dy + needleLength * math.sin(radians) + 2,
-    );
-    canvas.drawLine(center, shadowEnd, shadowPaint);
+    final angles = [
+      math.pi * 0.875,
+      math.pi,
+      math.pi * 1.125,
+      math.pi * 1.25,
+      math.pi * 1.375,
+      math.pi * 1.5,
+      math.pi * 1.625,
+    ];
 
-    // Needle
-    final needlePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
+    for (final angle in angles) {
+      final startRadius = radius * 0.6 + (progress * radius * 0.15);
+      final endRadius = radius * 0.75 + (progress * radius * 0.2);
 
-    final needleEnd = Offset(
-      center.dx + needleLength * math.cos(radians),
-      center.dy + needleLength * math.sin(radians),
-    );
-    canvas.drawLine(center, needleEnd, needlePaint);
+      final startX = center.dx + startRadius * math.cos(angle);
+      final startY = center.dy + startRadius * math.sin(angle);
+      final endX = center.dx + endRadius * math.cos(angle);
+      final endY = center.dy + endRadius * math.sin(angle);
 
-    // Center dot
-    final dotPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, 8, dotPaint);
-
-    final innerDotPaint = Paint()
-      ..color = const Color(0xFF1C1C3C)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, 4, innerDotPaint);
+      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), paint);
+    }
   }
 
   @override
-  bool shouldRepaint(_NeedlePainter oldDelegate) {
-    return oldDelegate.angle != angle;
+  bool shouldRepaint(_RadialLinesPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
