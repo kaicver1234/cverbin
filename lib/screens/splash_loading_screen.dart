@@ -58,7 +58,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
       ),
     );
 
-    _tMoveAnim = Tween<double>(begin: 0, end: 8).animate(
+    _tMoveAnim = Tween<double>(begin: 0, end: 5).animate(
       CurvedAnimation(
         parent: _mainController,
         curve: const Interval(0.18, 0.28, curve: Curves.easeOut),

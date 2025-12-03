@@ -202,7 +202,9 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildDownloadState(
       BuildContext context, SpeedTestProvider provider, SpeedTestState state) {
-    final speedProgress = (state.currentSpeed / 100).clamp(0.0, 1.0);
+    // Use result.downloadSpeed for display (more accurate), currentSpeed for progress animation
+    final displaySpeed = state.result.downloadSpeed > 0 ? state.result.downloadSpeed : state.currentSpeed;
+    final speedProgress = (displaySpeed / 100).clamp(0.0, 1.0);
     final combinedProgress = (state.progress * 0.5) + (speedProgress * 0.5);
 
     return Column(
@@ -215,7 +217,7 @@ class SpeedTestScreen extends StatelessWidget {
             progress: combinedProgress,
             color: AppColors.downloadColor,
             showButton: false,
-            centerValue: state.currentSpeed > 0 ? state.currentSpeed : state.result.downloadSpeed,
+            centerValue: displaySpeed,
             centerUnit: 'Mbps',
             subtitle: 'DOWNLOAD',
             result: state.result,
@@ -228,7 +230,9 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildUploadState(
       BuildContext context, SpeedTestProvider provider, SpeedTestState state) {
-    final speedProgress = (state.currentSpeed / 50).clamp(0.0, 1.0);
+    // Use result.uploadSpeed for display (more accurate), currentSpeed for progress animation
+    final displaySpeed = state.result.uploadSpeed > 0 ? state.result.uploadSpeed : state.currentSpeed;
+    final speedProgress = (displaySpeed / 50).clamp(0.0, 1.0);
     final combinedProgress = (state.progress * 0.5) + (speedProgress * 0.5);
 
     return Column(
@@ -241,7 +245,7 @@ class SpeedTestScreen extends StatelessWidget {
             progress: combinedProgress,
             color: AppColors.uploadColor,
             showButton: false,
-            centerValue: state.currentSpeed > 0 ? state.currentSpeed : state.result.uploadSpeed,
+            centerValue: displaySpeed,
             centerUnit: 'Mbps',
             subtitle: 'UPLOAD',
             result: state.result,

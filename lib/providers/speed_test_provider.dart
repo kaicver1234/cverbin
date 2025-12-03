@@ -288,6 +288,7 @@ class SpeedTestProvider with ChangeNotifier {
 
     final sw = Stopwatch()..start();
     DateTime? lastUpdateTime;
+    final List<double> realtimeSpeeds = [];
 
     try {
       final response = await _dio.get<List<int>>(
@@ -306,7 +307,13 @@ class SpeedTestProvider with ChangeNotifier {
           if (elapsed > 0.05 &&
               (lastUpdateTime == null || now.difference(lastUpdateTime!).inMilliseconds > 100)) {
             final currentSpeedMbps = (received * 8) / elapsed / 1000000;
-            final roundedSpeed = _roundSpeed(currentSpeedMbps);
+            realtimeSpeeds.add(currentSpeedMbps);
+            
+            // Use smoothed average instead of raw speed
+            final smoothedSpeed = realtimeSpeeds.length > 3
+                ? realtimeSpeeds.sublist(realtimeSpeeds.length - 3).reduce((a, b) => a + b) / 3
+                : currentSpeedMbps;
+            final roundedSpeed = _roundSpeed(smoothedSpeed);
             _state = _state.copyWith(currentSpeed: roundedSpeed);
             notifyListeners();
             lastUpdateTime = now;
@@ -397,6 +404,7 @@ class SpeedTestProvider with ChangeNotifier {
 
     final sw = Stopwatch()..start();
     DateTime? lastUpdateTime;
+    final List<double> realtimeSpeeds = [];
 
     try {
       await _dio.post(
@@ -415,7 +423,13 @@ class SpeedTestProvider with ChangeNotifier {
           if (elapsed > 0.05 &&
               (lastUpdateTime == null || now.difference(lastUpdateTime!).inMilliseconds > 100)) {
             final currentSpeedMbps = (sent * 8) / elapsed / 1000000;
-            final roundedSpeed = _roundSpeed(currentSpeedMbps);
+            realtimeSpeeds.add(currentSpeedMbps);
+            
+            // Use smoothed average instead of raw speed
+            final smoothedSpeed = realtimeSpeeds.length > 3
+                ? realtimeSpeeds.sublist(realtimeSpeeds.length - 3).reduce((a, b) => a + b) / 3
+                : currentSpeedMbps;
+            final roundedSpeed = _roundSpeed(smoothedSpeed);
             _state = _state.copyWith(currentSpeed: roundedSpeed);
             notifyListeners();
             lastUpdateTime = now;
