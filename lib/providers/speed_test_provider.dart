@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../models/speed_test_state.dart';
@@ -22,9 +21,9 @@ class SpeedTestProvider with ChangeNotifier {
 
   SpeedTestProvider() {
     _dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 20),
-      receiveTimeout: const Duration(seconds: 120),
-      sendTimeout: const Duration(seconds: 120),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 60),
+      sendTimeout: const Duration(seconds: 60),
     ));
   }
 
@@ -42,7 +41,7 @@ class SpeedTestProvider with ChangeNotifier {
   Future<void> startTest() async {
     if (_state.step != SpeedTestStep.ready) {
       stopTest();
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 200));
     }
 
     _isCanceled = false;
@@ -55,12 +54,20 @@ class SpeedTestProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      await _testLatency();
+      // Test latency
+      final latencyOk = await _testLatency();
       if (_isCanceled) return;
+      
+      if (!latencyOk) {
+        _setError('connection_failed');
+        return;
+      }
 
+      // Test download
       await _testDownload();
       if (_isCanceled) return;
 
+      // Test upload
       await _testUpload();
       if (_isCanceled) return;
 
@@ -68,32 +75,37 @@ class SpeedTestProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Speed test error: $e');
       if (!_isCanceled) {
-        _state = _state.copyWith(
-          step: SpeedTestStep.ready,
-          errorMessage: 'تست سرعت با خطا مواجه شد',
-          hadError: true,
-        );
-        notifyListeners();
+        _setError('test_failed');
       }
     }
   }
 
+  void _setError(String errorKey) {
+    _state = _state.copyWith(
+      step: SpeedTestStep.ready,
+      errorMessage: errorKey, // Will be translated in UI
+      hadError: true,
+    );
+    notifyListeners();
+  }
 
-  Future<void> _testLatency() async {
+  Future<bool> _testLatency() async {
     debugPrint('Testing latency...');
 
+    // Warmup
     try {
-      await _dio.head('$_downloadUrl?bytes=0');
+      await _dio.head('$_downloadUrl?bytes=0').timeout(const Duration(seconds: 5));
     } catch (_) {}
 
-    await Future.delayed(const Duration(milliseconds: 200));
-
-    for (int i = 0; i < 10; i++) {
-      if (_isCanceled) return;
+    for (int i = 0; i < 8; i++) {
+      if (_isCanceled) return false;
 
       try {
         final sw = Stopwatch()..start();
-        await _dio.head('$_downloadUrl?bytes=0', cancelToken: _cancelToken);
+        await _dio.head(
+          '$_downloadUrl?bytes=0',
+          cancelToken: _cancelToken,
+        ).timeout(const Duration(seconds: 5));
         sw.stop();
 
         final latency = sw.elapsedMilliseconds;
@@ -102,7 +114,7 @@ class SpeedTestProvider with ChangeNotifier {
         }
 
         _state = _state.copyWith(
-          progress: (i + 1) / 10,
+          progress: (i + 1) / 8,
           result: _state.result.copyWith(
             ping: _latencies.isNotEmpty ? _latencies.reduce(min) : 0,
             jitter: _calcJitter(),
@@ -110,15 +122,13 @@ class SpeedTestProvider with ChangeNotifier {
         );
         notifyListeners();
       } catch (e) {
-        debugPrint('Ping failed: $e');
+        debugPrint('Ping $i failed: $e');
       }
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 80));
     }
 
-    if (_latencies.isEmpty) {
-      throw Exception('Latency test failed');
-    }
+    return _latencies.isNotEmpty;
   }
 
   Future<void> _testDownload() async {
@@ -131,7 +141,7 @@ class SpeedTestProvider with ChangeNotifier {
     );
     notifyListeners();
 
-    final testSizes = [100000, 1000000, 5000000, 10000000, 25000000];
+    final testSizes = [500000, 2000000, 5000000, 10000000];
 
     for (int i = 0; i < testSizes.length; i++) {
       if (_isCanceled) return;
@@ -150,10 +160,10 @@ class SpeedTestProvider with ChangeNotifier {
         );
         notifyListeners();
 
-        if (avgSpeed < 1 && i >= 2) break;
+        debugPrint('Download ${bytes ~/ 1000}KB: ${speed.toStringAsFixed(1)} Mbps');
       }
 
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 150));
     }
   }
 
@@ -173,7 +183,7 @@ class SpeedTestProvider with ChangeNotifier {
           if (_isCanceled) return;
           received = recv;
           final elapsed = sw.elapsedMilliseconds / 1000.0;
-          if (elapsed > 0.2) {
+          if (elapsed > 0.15) {
             final speed = (recv * 8) / elapsed / 1000000;
             _state = _state.copyWith(currentSpeed: speed);
             notifyListeners();
@@ -183,7 +193,7 @@ class SpeedTestProvider with ChangeNotifier {
 
       sw.stop();
       final seconds = sw.elapsedMilliseconds / 1000.0;
-      if (seconds < 0.05) return 0;
+      if (seconds < 0.05 || received == 0) return 0;
       return (received * 8) / seconds / 1000000;
     } catch (e) {
       sw.stop();
@@ -193,7 +203,6 @@ class SpeedTestProvider with ChangeNotifier {
       return 0;
     }
   }
-
 
   Future<void> _testUpload() async {
     debugPrint('Testing upload...');
@@ -205,7 +214,7 @@ class SpeedTestProvider with ChangeNotifier {
     );
     notifyListeners();
 
-    final testSizes = [100000, 500000, 1000000, 2000000, 5000000];
+    final testSizes = [250000, 500000, 1000000, 2000000];
 
     for (int i = 0; i < testSizes.length; i++) {
       if (_isCanceled) return;
@@ -224,17 +233,17 @@ class SpeedTestProvider with ChangeNotifier {
         );
         notifyListeners();
 
-        if (avgSpeed < 0.5 && i >= 2) break;
+        debugPrint('Upload ${bytes ~/ 1000}KB: ${speed.toStringAsFixed(1)} Mbps');
       }
 
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 150));
     }
   }
 
   Future<double> _measureUpload(int bytes) async {
     final data = Uint8List(bytes);
     final random = Random();
-    for (int i = 0; i < min(4096, bytes); i++) {
+    for (int i = 0; i < min(2048, bytes); i++) {
       data[i] = random.nextInt(256);
     }
 
@@ -253,7 +262,7 @@ class SpeedTestProvider with ChangeNotifier {
           if (_isCanceled) return;
           sent = s;
           final elapsed = sw.elapsedMilliseconds / 1000.0;
-          if (elapsed > 0.2) {
+          if (elapsed > 0.15) {
             final speed = (s * 8) / elapsed / 1000000;
             _state = _state.copyWith(currentSpeed: speed);
             notifyListeners();
@@ -296,14 +305,13 @@ class SpeedTestProvider with ChangeNotifier {
     );
     notifyListeners();
 
-    debugPrint('Test Complete: Download=${download.toStringAsFixed(1)}Mbps, Upload=${upload.toStringAsFixed(1)}Mbps, Ping=${ping}ms');
+    debugPrint('Complete: ↓${download.toStringAsFixed(1)} ↑${upload.toStringAsFixed(1)} Mbps, ${ping}ms');
   }
 
   double _calcAverage(List<double> values) {
     if (values.isEmpty) return 0;
     if (values.length == 1) return values.first;
-    final relevant = values.length > 1 ? values.sublist(1) : values;
-    return relevant.reduce((a, b) => a + b) / relevant.length;
+    return values.reduce((a, b) => a + b) / values.length;
   }
 
   int _calcJitter() {

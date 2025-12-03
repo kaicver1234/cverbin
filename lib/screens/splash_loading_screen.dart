@@ -14,122 +14,85 @@ class SplashLoadingScreen extends StatefulWidget {
 
 class _SplashLoadingScreenState extends State<SplashLoadingScreen>
     with TickerProviderStateMixin {
+  late AnimationController _mainController;
   
-  // Animation controllers
-  late AnimationController _tLogoController;
-  late AnimationController _lettersController;
-  late AnimationController _zoomController;
-
-  // T Logo animations
-  late Animation<double> _barTopAnimation;
-  late Animation<double> _barVerticalAnimation;
-  late Animation<double> _tLogoMoveAnimation;
-
-  // Letter animations
-  final List<Animation<double>> _letterAnimations = [];
-
-  // Zoom animation
-  late Animation<double> _zoomAnimation;
-  late Animation<double> _opacityAnimation;
-
-  // Letters for animation
-  final List<String> _tiksarLetters = ['I', 'K', 'S', 'A', 'R'];
-  final List<String> _vpnLetters = ['V', 'P', 'N'];
+  late Animation<double> _barTopAnim;
+  late Animation<double> _barVerticalAnim;
+  late Animation<double> _tMoveAnim;
+  late Animation<double> _zoomAnim;
+  late Animation<double> _fadeAnim;
+  
+  final List<Animation<double>> _letterAnims = [];
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
-    _startAnimationSequence();
+    _mainController.forward();
+    
+    // Navigate after animation completes
+    Future.delayed(const Duration(milliseconds: 3500), () {
+      if (mounted) _navigateToNext();
+    });
   }
 
   void _setupAnimations() {
-    // T Logo controller (0-1s)
-    _tLogoController = AnimationController(
+    // Single controller for everything - more efficient
+    _mainController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 3500),
     );
 
-    _barTopAnimation = Tween<double>(begin: 0, end: 1).animate(
+    // T Logo: 0-400ms
+    _barTopAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
-        parent: _tLogoController,
-        curve: const Interval(0, 0.4, curve: Curves.easeOut),
+        parent: _mainController,
+        curve: const Interval(0, 0.12, curve: Curves.easeOut),
       ),
     );
 
-    _barVerticalAnimation = Tween<double>(begin: 0, end: 1).animate(
+    _barVerticalAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
-        parent: _tLogoController,
-        curve: const Interval(0.2, 0.6, curve: Curves.easeOut),
+        parent: _mainController,
+        curve: const Interval(0.06, 0.18, curve: Curves.easeOut),
       ),
     );
 
-    _tLogoMoveAnimation = Tween<double>(begin: 0, end: 1).animate(
+    _tMoveAnim = Tween<double>(begin: 0, end: 8).animate(
       CurvedAnimation(
-        parent: _tLogoController,
-        curve: const Interval(0.6, 1.0, curve: Curves.easeOut),
+        parent: _mainController,
+        curve: const Interval(0.18, 0.28, curve: Curves.easeOut),
       ),
     );
 
-    // Letters controller
-    _lettersController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-
-    // Create animations for each letter (IKSAR + space + VPN = 9 items)
+    // Letters: 400ms-1600ms (staggered)
     for (int i = 0; i < 9; i++) {
-      final start = i * 0.08;
-      final end = start + 0.25;
-      _letterAnimations.add(
+      final start = 0.12 + (i * 0.03);
+      final end = start + 0.1;
+      _letterAnims.add(
         Tween<double>(begin: 0, end: 1).animate(
           CurvedAnimation(
-            parent: _lettersController,
-            curve: Interval(start.clamp(0, 1), end.clamp(0, 1), curve: Curves.easeOut),
+            parent: _mainController,
+            curve: Interval(start, end.clamp(0, 0.6), curve: Curves.easeOut),
           ),
         ),
       );
     }
 
-    // Zoom controller
-    _zoomController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-
-    _zoomAnimation = Tween<double>(begin: 1, end: 30).animate(
+    // Zoom: 2500ms-3500ms
+    _zoomAnim = Tween<double>(begin: 1, end: 1.1).animate(
       CurvedAnimation(
-        parent: _zoomController,
-        curve: const Interval(0.25, 1.0, curve: Curves.easeIn),
+        parent: _mainController,
+        curve: const Interval(0.7, 0.8, curve: Curves.easeOut),
       ),
     );
 
-    _opacityAnimation = Tween<double>(begin: 1, end: 0).animate(
+    _fadeAnim = Tween<double>(begin: 1, end: 0).animate(
       CurvedAnimation(
-        parent: _zoomController,
-        curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+        parent: _mainController,
+        curve: const Interval(0.85, 1.0, curve: Curves.easeIn),
       ),
     );
-  }
-
-  Future<void> _startAnimationSequence() async {
-    // Start T logo animation
-    _tLogoController.forward();
-
-    // Wait then start letters
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    _lettersController.forward();
-
-    // Wait then start zoom
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (!mounted) return;
-    _zoomController.forward();
-
-    // Navigate after zoom
-    await Future.delayed(const Duration(milliseconds: 1000));
-    if (!mounted) return;
-    _navigateToNext();
   }
 
   void _navigateToNext() {
@@ -147,18 +110,15 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
 
   @override
   void dispose() {
-    _tLogoController.dispose();
-    _lettersController.dispose();
-    _zoomController.dispose();
+    _mainController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 360;
-    final fontSize = isSmallScreen ? 32.0 : (screenWidth < 600 ? 40.0 : 50.0);
-    final logoSize = isSmallScreen ? 35.0 : (screenWidth < 600 ? 45.0 : 55.0);
+    final fontSize = screenWidth < 360 ? 28.0 : (screenWidth < 600 ? 36.0 : 46.0);
+    final logoSize = screenWidth < 360 ? 30.0 : (screenWidth < 600 ? 40.0 : 50.0);
 
     return Scaffold(
       body: Container(
@@ -168,104 +128,48 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0F1629),
-              Color(0xFF0A0E1A),
-              Color(0xFF050709),
-            ],
+            colors: [Color(0xFF0F1629), Color(0xFF0A0E1A), Color(0xFF050709)],
             stops: [0.0, 0.5, 1.0],
           ),
         ),
-        child: AnimatedBuilder(
-          animation: Listenable.merge([_tLogoController, _lettersController, _zoomController]),
-          builder: (context, child) {
-            return Center(
-              child: Transform.scale(
-                scale: _zoomAnimation.value,
-                child: Opacity(
-                  opacity: _opacityAnimation.value,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // T Logo
-                      _buildTLogo(logoSize),
-                      
-                      // Letters
-                      ..._buildLetters(fontSize),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTLogo(double size) {
-    final barThickness = size * 0.26;
-    final logoHeight = size * 2;
-    final moveOffset = 8.0 * _tLogoMoveAnimation.value;
-
-    return Padding(
-      padding: EdgeInsets.only(right: moveOffset),
-      child: SizedBox(
-        width: size,
-        height: logoHeight,
         child: Stack(
           children: [
-            // Top bar
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Transform.scale(
-                scaleX: _barTopAnimation.value,
-                child: Container(
-                  height: barThickness,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF10B981), Color(0xFF059669)],
-                    ),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        spreadRadius: 2,
+            Center(
+              child: AnimatedBuilder(
+                animation: _mainController,
+                builder: (context, _) {
+                  return FadeTransition(
+                    opacity: _fadeAnim,
+                    child: Transform.scale(
+                      scale: _zoomAnim.value,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _TLogo(
+                            size: logoSize,
+                            barTopValue: _barTopAnim.value,
+                            barVerticalValue: _barVerticalAnim.value,
+                            moveValue: _tMoveAnim.value,
+                          ),
+                          ..._buildLetters(fontSize),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             ),
-            // Vertical bar
+            // Version at bottom
             Positioned(
-              top: barThickness,
-              left: (size - barThickness) / 2,
-              child: Transform.scale(
-                scaleY: _barVerticalAnimation.value,
-                alignment: Alignment.topCenter,
-                child: Container(
-                  width: barThickness,
-                  height: logoHeight - barThickness,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF059669), Color(0xFF10B981)],
-                    ),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Text(
+                'v1.1.1',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.25),
                 ),
               ),
             ),
@@ -276,60 +180,139 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
   }
 
   List<Widget> _buildLetters(double fontSize) {
-    final List<Widget> widgets = [];
+    const tiksar = ['I', 'K', 'S', 'A', 'R'];
+    const vpn = ['V', 'P', 'N'];
+    final widgets = <Widget>[];
 
-    // IKSAR letters (indices 0-4)
-    for (int i = 0; i < _tiksarLetters.length; i++) {
-      widgets.add(_buildLetter(_tiksarLetters[i], fontSize, i, true));
+    for (int i = 0; i < tiksar.length; i++) {
+      widgets.add(_Letter(letter: tiksar[i], fontSize: fontSize, anim: _letterAnims[i], isGreen: true));
     }
-
-    // Space (index 5)
-    widgets.add(
-      AnimatedBuilder(
-        animation: _letterAnimations[5],
-        builder: (context, child) {
-          return SizedBox(width: fontSize * 0.3 * _letterAnimations[5].value);
-        },
-      ),
-    );
-
-    // VPN letters (indices 6-8)
-    for (int i = 0; i < _vpnLetters.length; i++) {
-      widgets.add(_buildLetter(_vpnLetters[i], fontSize, i + 6, false));
+    
+    widgets.add(_Space(fontSize: fontSize, anim: _letterAnims[5]));
+    
+    for (int i = 0; i < vpn.length; i++) {
+      widgets.add(_Letter(letter: vpn[i], fontSize: fontSize, anim: _letterAnims[i + 6], isGreen: false));
     }
 
     return widgets;
   }
+}
 
-  Widget _buildLetter(String letter, double fontSize, int index, bool isGreen) {
+// Separate stateless widgets for better performance
+class _TLogo extends StatelessWidget {
+  final double size;
+  final double barTopValue;
+  final double barVerticalValue;
+  final double moveValue;
+
+  const _TLogo({
+    required this.size,
+    required this.barTopValue,
+    required this.barVerticalValue,
+    required this.moveValue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final thickness = size * 0.28;
+    final height = size * 2;
+
+    return Padding(
+      padding: EdgeInsets.only(right: moveValue),
+      child: SizedBox(
+        width: size,
+        height: height,
+        child: Stack(
+          children: [
+            // Top bar
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Transform.scale(
+                scaleX: barTopValue,
+                child: Container(
+                  height: thickness,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+            // Vertical bar
+            Positioned(
+              top: thickness,
+              left: (size - thickness) / 2,
+              child: Transform.scale(
+                scaleY: barVerticalValue,
+                alignment: Alignment.topCenter,
+                child: Container(
+                  width: thickness,
+                  height: height - thickness,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Letter extends StatelessWidget {
+  final String letter;
+  final double fontSize;
+  final Animation<double> anim;
+  final bool isGreen;
+
+  const _Letter({
+    required this.letter,
+    required this.fontSize,
+    required this.anim,
+    required this.isGreen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _letterAnimations[index],
-      builder: (context, child) {
-        final progress = _letterAnimations[index].value;
+      animation: anim,
+      builder: (context, _) {
         return Transform.translate(
-          offset: Offset(0, 50 * (1 - progress)),
+          offset: Offset(0, 40 * (1 - anim.value)),
           child: Opacity(
-            opacity: progress,
+            opacity: anim.value,
             child: Text(
               letter,
               style: TextStyle(
                 fontSize: fontSize,
-                fontWeight: isGreen ? FontWeight.w700 : FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: isGreen ? const Color(0xFF10B981) : Colors.white,
-                letterSpacing: 2,
-                shadows: isGreen
-                    ? [
-                        Shadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.5),
-                          blurRadius: 30,
-                        ),
-                      ]
-                    : null,
+                letterSpacing: 1,
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _Space extends StatelessWidget {
+  final double fontSize;
+  final Animation<double> anim;
+
+  const _Space({required this.fontSize, required this.anim});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: anim,
+      builder: (context, _) => SizedBox(width: fontSize * 0.25 * anim.value),
     );
   }
 }

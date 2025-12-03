@@ -133,9 +133,9 @@
         "subtitle_error": "دوباره تلاش کنید",
         "go": "شروع",
         "testing_speed": "در حال تست سرعت",
-        "completed_test": "تست را تکمیل کرد",
-        "encountered_error": "با خطا مواجه شد",
-        "to_speed_test": "برای تست سرعت",
+        "completed_test": "تست تکمیل شد",
+        "encountered_error": "خطا رخ داد",
+        "to_speed_test": "تست سرعت",
         "tap_here": "برای شروع ضربه بزنید",
         "download": "دانلود",
         "upload": "آپلود",
@@ -149,6 +149,8 @@
         "measuring_latency": "در حال اندازه‌گیری تأخیر...",
         "download_test": "تست دانلود",
         "upload_test": "تست آپلود",
-        "test_completed": "تست تکمیل شد"
+        "test_completed": "تست تکمیل شد",
+        "connection_failed": "اتصال برقرار نشد. اینترنت را بررسی کنید.",
+        "test_failed": "تست سرعت ناموفق بود. دوباره تلاش کنید."
     }
 }

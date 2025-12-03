@@ -5,6 +5,7 @@ import '../providers/speed_test_provider.dart';
 import '../models/speed_test_state.dart';
 import '../widgets/vpn_gradient_background.dart';
 import '../utils/app_localizations.dart';
+import 'dart:math' as math;
 
 class SpeedTestScreen extends StatelessWidget {
   const SpeedTestScreen({super.key});
@@ -22,9 +23,9 @@ class SpeedTestScreen extends StatelessWidget {
               builder: (context, provider, child) {
                 return Column(
                   children: [
-                    _Header(state: provider.state),
+                    _buildHeader(context, provider.state),
                     Expanded(
-                      child: _Content(provider: provider),
+                      child: _buildContent(context, provider),
                     ),
                   ],
                 );
@@ -35,26 +36,25 @@ class SpeedTestScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-// ============================================================================
-// Header
-// ============================================================================
-class _Header extends StatelessWidget {
-  final SpeedTestState state;
-
-  const _Header({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildHeader(BuildContext context, SpeedTestState state) {
     final tr = AppLocalizations.of(context);
-    final status = _getStatus(state, tr);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
         children: [
-          _BackButton(),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+            ),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -62,19 +62,12 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   tr.translate('speed_test.title_ready'),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
+                  _getStatusText(state, tr),
+                  style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.5)),
                 ),
               ],
             ),
@@ -84,7 +77,7 @@ class _Header extends StatelessWidget {
     );
   }
 
-  String _getStatus(SpeedTestState state, AppLocalizations tr) {
+  String _getStatusText(SpeedTestState state, AppLocalizations tr) {
     if (state.step == SpeedTestStep.loading) return tr.translate('speed_test.measuring_latency');
     if (state.step == SpeedTestStep.download) return tr.translate('speed_test.download_test');
     if (state.step == SpeedTestStep.upload) return tr.translate('speed_test.upload_test');
@@ -92,82 +85,43 @@ class _Header extends StatelessWidget {
     if (state.hadError) return tr.translate('speed_test.subtitle_error');
     return tr.translate('speed_test.subtitle_ready');
   }
-}
 
-class _BackButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(
-          Icons.arrow_back_ios_new,
-          color: Colors.white,
-          size: 20,
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// Content
-// ============================================================================
-class _Content extends StatelessWidget {
-  final SpeedTestProvider provider;
-
-  const _Content({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildContent(BuildContext context, SpeedTestProvider provider) {
     final state = provider.state;
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const Spacer(flex: 2),
-          _SpeedDisplay(state: state, provider: provider),
-          const Spacer(flex: 2),
-          if (_shouldShowResults(state)) _ResultsCard(state: state),
+          const Spacer(),
+          _SpeedGauge(state: state, provider: provider),
+          const Spacer(),
+          if (state.result.ping > 0 || state.testCompleted) _ResultsCard(state: state),
           const SizedBox(height: 20),
         ],
       ),
     );
   }
-
-  bool _shouldShowResults(SpeedTestState state) {
-    return state.result.ping > 0 || state.testCompleted;
-  }
 }
 
-// ============================================================================
-// Speed Display - Main Circle
-// ============================================================================
-class _SpeedDisplay extends StatefulWidget {
+class _SpeedGauge extends StatefulWidget {
   final SpeedTestState state;
   final SpeedTestProvider provider;
 
-  const _SpeedDisplay({required this.state, required this.provider});
+  const _SpeedGauge({required this.state, required this.provider});
 
   @override
-  State<_SpeedDisplay> createState() => _SpeedDisplayState();
+  State<_SpeedGauge> createState() => _SpeedGaugeState();
 }
 
-class _SpeedDisplayState extends State<_SpeedDisplay>
-    with SingleTickerProviderStateMixin {
+class _SpeedGaugeState extends State<_SpeedGauge> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     )..repeat(reverse: true);
   }
@@ -184,92 +138,62 @@ class _SpeedDisplayState extends State<_SpeedDisplay>
     final isIdle = state.step == SpeedTestStep.ready && !state.testCompleted && !state.hadError;
     final isRunning = state.step != SpeedTestStep.ready;
     final isCompleted = state.testCompleted && state.step == SpeedTestStep.ready;
-    final hasError = state.hadError && state.errorMessage != null;
+    final hasError = state.hadError;
+    final tr = AppLocalizations.of(context);
 
     return GestureDetector(
-      onTap: () => _handleTap(isRunning),
+      onTap: () {
+        if (isRunning) {
+          widget.provider.stopTest();
+        } else {
+          widget.provider.startTest();
+        }
+      },
       child: SizedBox(
-        width: 220,
-        height: 220,
+        width: 260,
+        height: 260,
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Progress Ring
-            if (isRunning) _ProgressRing(state: state),
+            // Outer ring with gradient
+            if (isRunning) _buildProgressRing(state),
             
-            // Main Circle
-            _MainCircle(
-              isRunning: isRunning,
-              isCompleted: isCompleted,
-              state: state,
-            ),
+            // Main circle
+            _buildMainCircle(isRunning, isCompleted, hasError, state),
             
-            // Center Content
-            _CenterContent(
-              state: state,
-              isIdle: isIdle,
-              isRunning: isRunning,
-              isCompleted: isCompleted,
-              hasError: hasError,
-              pulseController: _pulseController,
-              onStart: () => widget.provider.startTest(),
-            ),
+            // Center content
+            _buildCenterContent(state, isIdle, isRunning, isCompleted, hasError, tr),
           ],
         ),
       ),
     );
   }
 
-  void _handleTap(bool isRunning) {
-    if (isRunning) {
-      widget.provider.stopTest();
-    } else {
-      widget.provider.startTest();
-    }
-  }
-}
-
-class _ProgressRing extends StatelessWidget {
-  final SpeedTestState state;
-
-  const _ProgressRing({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildProgressRing(SpeedTestState state) {
     final isDownload = state.step == SpeedTestStep.download;
     final color = isDownload ? const Color(0xFF10B981) : const Color(0xFF3B82F6);
 
     return SizedBox(
-      width: 220,
-      height: 220,
-      child: CircularProgressIndicator(
-        value: state.progress,
-        strokeWidth: 4,
-        backgroundColor: Colors.white.withValues(alpha: 0.1),
-        valueColor: AlwaysStoppedAnimation<Color>(color),
+      width: 260,
+      height: 260,
+      child: CustomPaint(
+        painter: _ArcPainter(
+          progress: state.progress,
+          color: color,
+          backgroundColor: Colors.white.withValues(alpha: 0.1),
+        ),
       ),
     );
   }
-}
 
-class _MainCircle extends StatelessWidget {
-  final bool isRunning;
-  final bool isCompleted;
-  final SpeedTestState state;
-
-  const _MainCircle({
-    required this.isRunning,
-    required this.isCompleted,
-    required this.state,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildMainCircle(bool isRunning, bool isCompleted, bool hasError, SpeedTestState state) {
     Color bgColor;
-    if (isRunning) {
+    if (hasError) {
+      bgColor = Colors.red.withValues(alpha: 0.1);
+    } else if (isRunning) {
       bgColor = state.step == SpeedTestStep.download
-          ? const Color(0xFF10B981).withValues(alpha: 0.15)
-          : const Color(0xFF3B82F6).withValues(alpha: 0.15);
+          ? const Color(0xFF10B981).withValues(alpha: 0.12)
+          : const Color(0xFF3B82F6).withValues(alpha: 0.12);
     } else if (isCompleted) {
       bgColor = const Color(0xFF10B981).withValues(alpha: 0.1);
     } else {
@@ -278,97 +202,66 @@ class _MainCircle extends StatelessWidget {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      width: 180,
-      height: 180,
+      width: 200,
+      height: 200,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: bgColor,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
       ),
     );
   }
-}
 
-class _CenterContent extends StatelessWidget {
-  final SpeedTestState state;
-  final bool isIdle;
-  final bool isRunning;
-  final bool isCompleted;
-  final bool hasError;
-  final AnimationController pulseController;
-  final VoidCallback onStart;
-
-  const _CenterContent({
-    required this.state,
-    required this.isIdle,
-    required this.isRunning,
-    required this.isCompleted,
-    required this.hasError,
-    required this.pulseController,
-    required this.onStart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = AppLocalizations.of(context);
-
+  Widget _buildCenterContent(SpeedTestState state, bool isIdle, bool isRunning, bool isCompleted, bool hasError, AppLocalizations tr) {
     if (hasError) {
-      return _ErrorContent(
-        message: state.errorMessage ?? tr.translate('speed_test.error_message'),
-        onRetry: onStart,
-      );
+      return _buildErrorContent(state, tr);
     }
-
     if (state.step == SpeedTestStep.loading) {
-      return _LoadingContent(ping: state.result.ping, tr: tr);
+      return _buildLoadingContent(state, tr);
     }
-
     if (isRunning) {
-      return _RunningContent(state: state, tr: tr);
+      return _buildRunningContent(state, tr);
     }
-
     if (isCompleted) {
-      return _CompletedContent(state: state, tr: tr, onRetry: onStart);
+      return _buildCompletedContent(state, tr);
     }
-
-    // Idle state
-    return _IdleContent(pulseController: pulseController, tr: tr);
+    return _buildIdleContent(tr);
   }
-}
 
-class _IdleContent extends StatelessWidget {
-  final AnimationController pulseController;
-  final AppLocalizations tr;
-
-  const _IdleContent({required this.pulseController, required this.tr});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildIdleContent(AppLocalizations tr) {
     return AnimatedBuilder(
-      animation: pulseController,
+      animation: _pulseController,
       builder: (context, child) {
-        final scale = 1.0 + (pulseController.value * 0.08);
+        final scale = 1.0 + (_pulseController.value * 0.06);
         return Transform.scale(
           scale: scale,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.play_arrow_rounded,
-                size: 56,
-                color: Colors.white.withValues(alpha: 0.9),
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF10B981),
+                      const Color(0xFF10B981).withValues(alpha: 0.8),
+                    ],
+                  ),
+                ),
+                child: const Icon(Icons.play_arrow_rounded, size: 45, color: Colors.white),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               Text(
                 tr.translate('speed_test.go'),
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white.withValues(alpha: 0.7),
-                  letterSpacing: 2,
+                  color: Colors.white.withValues(alpha: 0.8),
+                  letterSpacing: 3,
                 ),
               ),
             ],
@@ -377,196 +270,124 @@ class _IdleContent extends StatelessWidget {
       },
     );
   }
-}
 
-class _LoadingContent extends StatelessWidget {
-  final int ping;
-  final AppLocalizations tr;
-
-  const _LoadingContent({required this.ping, required this.tr});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildLoadingContent(SpeedTestState state, AppLocalizations tr) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(
-          width: 32,
-          height: 32,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2.5,
-          ),
+          width: 40,
+          height: 40,
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
-          '${tr.translate('speed_test.ping')}: $ping ${tr.translate('speed_test.ms')}',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.7),
-          ),
+          '${state.result.ping} ${tr.translate('speed_test.ms')}',
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w300, color: Colors.white),
+        ),
+        Text(
+          tr.translate('speed_test.ping'),
+          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)),
         ),
       ],
     );
   }
-}
 
-class _RunningContent extends StatelessWidget {
-  final SpeedTestState state;
-  final AppLocalizations tr;
-
-  const _RunningContent({required this.state, required this.tr});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildRunningContent(SpeedTestState state, AppLocalizations tr) {
     final isDownload = state.step == SpeedTestStep.download;
     final color = isDownload ? const Color(0xFF10B981) : const Color(0xFF3B82F6);
-    final label = isDownload
-        ? tr.translate('speed_test.download')
-        : tr.translate('speed_test.upload');
+    final label = isDownload ? tr.translate('speed_test.download') : tr.translate('speed_test.upload');
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           state.currentSpeed.toStringAsFixed(1),
-          style: const TextStyle(
-            fontSize: 42,
-            fontWeight: FontWeight.w300,
-            color: Colors.white,
-            height: 1,
-          ),
+          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w300, color: Colors.white, height: 1),
         ),
-        const SizedBox(height: 4),
         Text(
           tr.translate('speed_test.mbps'),
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.5),
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.5)),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(20),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(isDownload ? Icons.download_rounded : Icons.upload_rounded, color: color, size: 16),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+            ],
           ),
         ),
       ],
     );
   }
-}
 
-class _CompletedContent extends StatelessWidget {
-  final SpeedTestState state;
-  final AppLocalizations tr;
-  final VoidCallback onRetry;
-
-  const _CompletedContent({
-    required this.state,
-    required this.tr,
-    required this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildCompletedContent(SpeedTestState state, AppLocalizations tr) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        const Icon(Icons.check_circle_rounded, size: 50, color: Color(0xFF10B981)),
+        const SizedBox(height: 12),
         Text(
           state.result.downloadSpeed.toStringAsFixed(1),
-          style: const TextStyle(
-            fontSize: 38,
-            fontWeight: FontWeight.w300,
-            color: Colors.white,
-            height: 1,
-          ),
+          style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w300, color: Colors.white),
         ),
-        const SizedBox(height: 4),
         Text(
           tr.translate('speed_test.mbps'),
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.white.withValues(alpha: 0.5),
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         GestureDetector(
-          onTap: onRetry,
+          onTap: () => widget.provider.startTest(),
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withValues(alpha: 0.1),
             ),
-            child: const Icon(
-              Icons.refresh_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
+            child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
           ),
         ),
       ],
     );
   }
-}
 
-class _ErrorContent extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
+  Widget _buildErrorContent(SpeedTestState state, AppLocalizations tr) {
+    final errorKey = state.errorMessage ?? 'test_failed';
+    final errorMsg = tr.translate('speed_test.$errorKey');
 
-  const _ErrorContent({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = AppLocalizations.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          Icons.error_outline,
-          size: 36,
-          color: Colors.red.withValues(alpha: 0.8),
-        ),
+        Icon(Icons.error_outline, size: 40, color: Colors.red.withValues(alpha: 0.8)),
         const SizedBox(height: 12),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            message,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
+            errorMsg,
+            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.7)),
             textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(height: 16),
         GestureDetector(
-          onTap: onRetry,
+          onTap: () => widget.provider.startTest(),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF10B981).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               tr.translate('speed_test.retry'),
-              style: const TextStyle(
-                color: Color(0xFF10B981),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(color: Color(0xFF10B981), fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ),
@@ -575,9 +396,45 @@ class _ErrorContent extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// Results Card
-// ============================================================================
+class _ArcPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final Color backgroundColor;
+
+  _ArcPainter({required this.progress, required this.color, required this.backgroundColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 8;
+    const startAngle = -math.pi / 2;
+    const sweepAngle = 2 * math.pi;
+
+    // Background arc
+    final bgPaint = Paint()
+      ..color = backgroundColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweepAngle, false, bgPaint);
+
+    // Progress arc
+    final progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweepAngle * progress, false, progressPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color;
+  }
+}
+
 class _ResultsCard extends StatelessWidget {
   final SpeedTestState state;
 
@@ -588,7 +445,7 @@ class _ResultsCard extends StatelessWidget {
     final tr = AppLocalizations.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
@@ -603,7 +460,7 @@ class _ResultsCard extends StatelessWidget {
             unit: tr.translate('speed_test.mbps'),
             color: const Color(0xFF10B981),
           ),
-          _Divider(),
+          _buildDivider(),
           _ResultItem(
             icon: Icons.upload_rounded,
             label: tr.translate('speed_test.upload'),
@@ -611,7 +468,7 @@ class _ResultsCard extends StatelessWidget {
             unit: tr.translate('speed_test.mbps'),
             color: const Color(0xFF3B82F6),
           ),
-          _Divider(),
+          _buildDivider(),
           _ResultItem(
             icon: Icons.network_ping,
             label: tr.translate('speed_test.ping'),
@@ -621,6 +478,15 @@ class _ResultsCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      width: 1,
+      height: 50,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: Colors.white.withValues(alpha: 0.08),
     );
   }
 }
@@ -645,46 +511,14 @@ class _ResultItem extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Icon(icon, color: color.withValues(alpha: 0.7), size: 18),
+          Icon(icon, color: color.withValues(alpha: 0.7), size: 20),
           const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w500)),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Text(
-            unit,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 10,
-            ),
-          ),
+          Text(value, style: TextStyle(color: color, fontSize: 24, fontWeight: FontWeight.w700)),
+          Text(unit, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10)),
         ],
       ),
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 50,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: Colors.white.withValues(alpha: 0.08),
     );
   }
 }
