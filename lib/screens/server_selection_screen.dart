@@ -480,7 +480,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                // VPN Icon
+                // App icon as Smart Connect flag - fills the entire box
                 Container(
                   width: 48,
                   height: 48,
@@ -491,16 +491,20 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
                       color: const Color(0xFF10B981).withValues(alpha: 0.3),
                     ),
                   ),
-                  child: Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
                     child: Image.asset(
                       'assets/images/apk.png',
-                      width: 32,
-                      height: 32,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
-                          Icons.vpn_key,
-                          color: Color(0xFF10B981),
-                          size: 24,
+                        return const Center(
+                          child: Icon(
+                            Icons.public,
+                            color: Color(0xFF10B981),
+                            size: 28,
+                          ),
                         );
                       },
                     ),
@@ -660,19 +664,24 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     Color pingColor;
     String pingText;
     
-    if (ping > 9999) {
+    if (ping >= 99999) {
+      // Timeout - no response
       pingColor = Colors.red;
-      pingText = '---';
-    } else if (ping < 1000) {
-      // 1-999ms: سبز
+      pingText = 'Timeout';
+    } else if (ping < 500) {
+      // 0-499ms: سبز (عالی)
       pingColor = const Color(0xFF10B981);
       pingText = '${ping}ms';
+    } else if (ping < 1000) {
+      // 500-999ms: سبز روشن (خوب)
+      pingColor = const Color(0xFF34D399);
+      pingText = '${ping}ms';
     } else if (ping < 2000) {
-      // 1000-1999ms: نارنجی
+      // 1000-1999ms: نارنجی (متوسط)
       pingColor = Colors.orange;
       pingText = '${ping}ms';
     } else {
-      // 2000ms+: قرمز
+      // 2000ms+: قرمز (ضعیف)
       pingColor = Colors.red;
       pingText = '${ping}ms';
     }
@@ -810,15 +819,25 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
           final pingValue = ping ?? 99999;
           results[config.id] = pingValue;
           if (pingValue < 99999) successCount++;
-          setState(() => _pingResults = Map.from(results));
+          
+          // Update ping results and sort in real-time
+          setState(() {
+            _pingResults = Map.from(results);
+          });
+          
+          // Sort servers by ping in real-time as results come in
+          _sortServersByPing(provider, results);
+          
         } catch (e) {
           results[config.id] = 99999;
-          if (mounted) setState(() => _pingResults = Map.from(results));
+          if (mounted) {
+            setState(() => _pingResults = Map.from(results));
+            _sortServersByPing(provider, results);
+          }
         }
       }
 
       if (!mounted) return;
-      _sortServersByPing(provider, results);
 
       _showSnackBar(
         '${AppLocalizations.of(context).translate('server_selection.servers_updated')} ($successCount/${configs.length})',
@@ -840,11 +859,15 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   void _sortServersByPing(V2RayProvider provider, Map<String, int> pingResults) {
     final smartConnect = V2RayConfig.smartConnect();
     final serverConfigs = List<V2RayConfig>.from(provider.serverConfigs);
+    
+    // Sort by ping: lowest (best) first, timeout (99999) at the end
     serverConfigs.sort((a, b) {
       final pingA = pingResults[a.id] ?? 99999;
       final pingB = pingResults[b.id] ?? 99999;
+      // Lower ping = better = comes first
       return pingA.compareTo(pingB);
     });
+    
     setState(() => _sortedConfigs = [smartConnect, ...serverConfigs]);
   }
 }

@@ -120,8 +120,10 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
     final fontSize = screenWidth < 360 ? 28.0 : (screenWidth < 600 ? 36.0 : 46.0);
     final logoSize = screenWidth < 360 ? 30.0 : (screenWidth < 600 ? 40.0 : 50.0);
 
-    return Scaffold(
-      body: Container(
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Scaffold(
+        body: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
@@ -175,6 +177,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
             ),
           ],
         ),
+      ),
       ),
     );
   }

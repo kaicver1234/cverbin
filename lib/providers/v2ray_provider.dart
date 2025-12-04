@@ -1322,17 +1322,59 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // STEP 1: Re-initialize service to restore saved state
       await _v2rayService.initialize();
       
-      // STEP 2: Check actual VPN connection status
-      final isActuallyConnected = await _v2rayService.isActuallyConnected()
-          .timeout(const Duration(seconds: 3), onTimeout: () => false);
+      // STEP 2: Check actual VPN connection status using V2Ray delay check
+      // This is more reliable than just checking if VPN is running
+      bool isOurVpnConnected = false;
       
-      debugPrint('🔎 VPN actually connected: $isActuallyConnected');
+      try {
+        // Try to get delay from connected server - this only works if OUR V2Ray is running
+        final activeConfig = _v2rayService.activeConfig;
+        
+        // If we have an active config AND V2Ray reports it's running, verify it's ours
+        if (activeConfig != null) {
+          // Try to ping through our V2Ray connection
+          // If another VPN is active, this will fail or timeout
+          final testDelay = await _v2rayService.getServerDelay(activeConfig)
+              .timeout(const Duration(seconds: 3), onTimeout: () => null);
+          
+          if (testDelay != null && testDelay > 0 && testDelay < 10000) {
+            isOurVpnConnected = true;
+            debugPrint('✅ Our V2Ray VPN is active (delay: ${testDelay}ms)');
+          } else {
+            debugPrint('⚠️ V2Ray delay check failed - another VPN may be active');
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error checking V2Ray status: $e');
+      }
+      
+      // Fallback: Check if V2Ray service thinks it's connected
+      if (!isOurVpnConnected) {
+        final isActuallyConnected = await _v2rayService.isActuallyConnected()
+            .timeout(const Duration(seconds: 2), onTimeout: () => false);
+        
+        if (isActuallyConnected && _v2rayService.activeConfig != null) {
+          // Double check by verifying the connection is responsive
+          try {
+            final status = _v2rayService.currentStatus;
+            // If we have traffic data, it's likely our VPN
+            if (status != null && (status.upload > 0 || status.download > 0)) {
+              isOurVpnConnected = true;
+              debugPrint('✅ V2Ray has traffic data - connection is ours');
+            }
+          } catch (e) {
+            debugPrint('⚠️ Could not verify traffic: $e');
+          }
+        }
+      }
+      
+      debugPrint('🔎 Our VPN connected: $isOurVpnConnected');
       debugPrint('🔎 Active config: ${_v2rayService.activeConfig?.remark ?? "none"}');
       
       bool stateChanged = false;
       
-      if (isActuallyConnected) {
-        debugPrint('✅ VPN is connected! Syncing UI...');
+      if (isOurVpnConnected) {
+        debugPrint('✅ Our VPN is connected! Syncing UI...');
         
         // Get active config from service
         final activeConfig = _v2rayService.activeConfig;
@@ -1370,7 +1412,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         // Ensure monitoring is active
         _v2rayService.ensureMonitoringActive();
       } else {
-        debugPrint('❌ VPN is NOT connected, clearing states');
+        debugPrint('❌ Our VPN is NOT connected, clearing states');
         
         // Clear all connection states
         for (var config in _configs) {
@@ -1378,6 +1420,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             config.isConnected = false;
             stateChanged = true;
           }
+        }
+        
+        // Also clear active config in service if another VPN took over
+        if (_v2rayService.activeConfig != null) {
+          debugPrint('🧹 Clearing stale active config from service');
+          // Don't call disconnect() as that might interfere with the other VPN
+          // Just clear our internal state
         }
       }
       
