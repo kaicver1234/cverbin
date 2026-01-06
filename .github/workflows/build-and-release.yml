@@ -78,10 +78,16 @@ jobs:
         shell: bash
 
       - name: Build universal APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
       - name: Build split APKs
-        run: flutter build apk --split-per-abi --release
+        run: |
+          flutter build apk --split-per-abi --release
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
       - name: Rename APKs
         run: |
