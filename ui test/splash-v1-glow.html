@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splash V1 - Glow Effect</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(180deg, #0F1629 0%, #0A0E1A 50%, #050709 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            animation: zoomFade 1s ease-out 2.5s forwards;
+        }
+
+        @keyframes zoomFade {
+            to {
+                transform: scale(1.1);
+                opacity: 0;
+            }
+        }
+
+        .logo-text {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            font-size: 46px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        /* T Logo */
+        .t-logo {
+            position: relative;
+            width: 50px;
+            height: 100px;
+            margin-right: 5px;
+        }
+
+        .t-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 14px;
+            background: #10B981;
+            border-radius: 2px;
+            transform: scaleX(0);
+            animation: growX 0.3s ease-out forwards;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .t-vertical {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%) scaleY(0);
+            width: 14px;
+            height: 86px;
+            background: #10B981;
+            border-radius: 2px;
+            transform-origin: top;
+            animation: growY 0.3s ease-out 0.15s forwards;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+
+        @keyframes growX {
+            to { transform: scaleX(1); }
+        }
+
+        @keyframes growY {
+            to { transform: translateX(-50%) scaleY(1); }
+        }
+
+        /* Letters */
+        .letter {
+            opacity: 0;
+            transform: translateY(40px);
+            display: inline-block;
+        }
+
+        .green { color: #10B981; text-shadow: 0 0 30px rgba(16, 185, 129, 0.6); }
+        .white { color: #fff; text-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+
+        .letter:nth-child(2) { animation: letterIn 0.3s ease-out 0.35s forwards; }
+        .letter:nth-child(3) { animation: letterIn 0.3s ease-out 0.42s forwards; }
+        .letter:nth-child(4) { animation: letterIn 0.3s ease-out 0.49s forwards; }
+        .letter:nth-child(5) { animation: letterIn 0.3s ease-out 0.56s forwards; }
+        .letter:nth-child(6) { animation: letterIn 0.3s ease-out 0.63s forwards; }
+
+        .space { width: 15px; }
+
+        .letter:nth-child(8) { animation: letterIn 0.3s ease-out 0.75s forwards; }
+        .letter:nth-child(9) { animation: letterIn 0.3s ease-out 0.82s forwards; }
+        .letter:nth-child(10) { animation: letterIn 0.3s ease-out 0.89s forwards; }
+
+        @keyframes letterIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Glow pulse behind logo */
+        .glow-bg {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: glowPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .version {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="glow-bg"></div>
+    
+    <div class="container">
+        <div class="logo-text">
+            <div class="t-logo">
+                <div class="t-top"></div>
+                <div class="t-vertical"></div>
+            </div>
+            <span class="letter green">I</span>
+            <span class="letter green">K</span>
+            <span class="letter green">S</span>
+            <span class="letter green">A</span>
+            <span class="letter green">R</span>
+            <span class="space"></span>
+            <span class="letter white">V</span>
+            <span class="letter white">P</span>
+            <span class="letter white">N</span>
+        </div>
+    </div>
+
+    <div class="version">v1.1.1</div>
+</body>
+</html>

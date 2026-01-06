@@ -13,6 +13,10 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        // Mirror repositories
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
@@ -23,3 +27,15 @@ plugins {
 }
 
 include(":app")
+
+// Add mirror for all projects
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://jitpack.io") }
+    }
+}
