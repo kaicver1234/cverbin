@@ -38,6 +38,13 @@ class RemoteConfigService {
     'announcement_type': 'info',
     'maintenance_mode': false,
     'maintenance_message': 'سرویس در حال بروزرسانی است',
+    // Social links
+    'telegram_id': '@tiksar_vpn',
+    'telegram_url': 'https://t.me/tiksar_vpn',
+    'instagram_id': '@aboljahany',
+    'instagram_url': 'https://instagram.com/aboljahany',
+    'tiksar_page_id': '@tiksaar_leyl_gilan',
+    'tiksar_page_url': 'https://instagram.com/tiksaar_leyl_gilan',
   };
 
   Future<void> initialize() async {
@@ -113,5 +120,42 @@ class RemoteConfigService {
   String get maintenanceMessage {
     if (!_isSupported || _remoteConfig == null) return '';
     return _remoteConfig!.getString('maintenance_message');
+  }
+
+  /// Get social links
+  String get telegramId {
+    if (!_isSupported || _remoteConfig == null) return '@tiksar_vpn';
+    final id = _remoteConfig!.getString('telegram_id');
+    return id.isNotEmpty ? id : '@tiksar_vpn';
+  }
+
+  String get telegramUrl {
+    if (!_isSupported || _remoteConfig == null) return 'https://t.me/tiksar_vpn';
+    final url = _remoteConfig!.getString('telegram_url');
+    return url.isNotEmpty ? url : 'https://t.me/tiksar_vpn';
+  }
+
+  String get instagramId {
+    if (!_isSupported || _remoteConfig == null) return '@aboljahany';
+    final id = _remoteConfig!.getString('instagram_id');
+    return id.isNotEmpty ? id : '@aboljahany';
+  }
+
+  String get instagramUrl {
+    if (!_isSupported || _remoteConfig == null) return 'https://instagram.com/aboljahany';
+    final url = _remoteConfig!.getString('instagram_url');
+    return url.isNotEmpty ? url : 'https://instagram.com/aboljahany';
+  }
+
+  String get tiksarPageId {
+    if (!_isSupported || _remoteConfig == null) return '@tiksaar_leyl_gilan';
+    final id = _remoteConfig!.getString('tiksar_page_id');
+    return id.isNotEmpty ? id : '@tiksaar_leyl_gilan';
+  }
+
+  String get tiksarPageUrl {
+    if (!_isSupported || _remoteConfig == null) return 'https://instagram.com/tiksaar_leyl_gilan';
+    final url = _remoteConfig!.getString('tiksar_page_url');
+    return url.isNotEmpty ? url : 'https://instagram.com/tiksaar_leyl_gilan';
   }
 }

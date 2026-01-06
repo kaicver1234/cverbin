@@ -72,29 +72,25 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final serversToTest = servers.take(7).toList();
       final Map<V2RayConfig, int> pingResults = {};
       
-      // Test servers one by one using V2Ray core
+      // Test ALL 7 servers - don't stop early, inactive servers will timeout gracefully
       for (int i = 0; i < serversToTest.length; i++) {
         final server = serversToTest[i];
-        debugPrint('   [${i + 1}/7] Testing ${server.remark}...');
+        debugPrint('   [${i + 1}/${serversToTest.length}] Testing ${server.remark}...');
         
         try {
           // Use V2Ray core ping directly (no cache)
+          // Timeout is handled in getServerDelayDirect (5 seconds)
           final ping = await _v2rayService.getServerDelayDirect(server);
           
           if (ping != null && ping > 0 && ping < 10000) {
             debugPrint('   ✓ ${server.remark}: ${ping}ms');
             pingResults[server] = ping;
-            
-            // If we found a very fast server (< 150ms), we can stop early
-            if (ping < 150 && pingResults.length >= 2) {
-              debugPrint('   ⚡ Found fast server, stopping early');
-              break;
-            }
           } else {
-            debugPrint('   ✗ ${server.remark}: no response');
+            debugPrint('   ✗ ${server.remark}: no response or timeout');
           }
         } catch (e) {
           debugPrint('   ✗ ${server.remark}: error - $e');
+          // Continue to next server on error
         }
       }
       
@@ -121,8 +117,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       _selectedConfig = serverToConnect;
-      _isConnecting = false; // Reset before calling connectToServer
       notifyListeners();
+      
+      // Reset _isConnecting before calling connectToServer
+      // connectToServer will set it to true again
+      _isConnecting = false;
       
       // Connect to the selected server
       await connectToServer(serverToConnect);

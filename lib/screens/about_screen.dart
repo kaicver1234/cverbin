@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/language_provider.dart';
 import '../widgets/cyber_glow_background.dart';
 import '../utils/app_localizations.dart';
+import '../services/remote_config_service.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -202,7 +203,7 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'v1.1.1',
+                  'v1.1.2',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.white.withValues(alpha: 0.8),
@@ -306,6 +307,8 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
   }
 
   Widget _buildSocialSection(BuildContext context) {
+    final remoteConfig = RemoteConfigService();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -342,27 +345,27 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
           context: context,
           icon: Icons.send_rounded,
           title: AppLocalizations.of(context).translate('about.telegram'),
-          subtitle: '@tiksar_vpn',
+          subtitle: remoteConfig.telegramId,
           gradient: const [Color(0xFF0088CC), Color(0xFF00A8E8)],
-          onTap: () => _launchUrl(context, 'https://t.me/tiksar_vpn'),
+          onTap: () => _launchUrl(context, remoteConfig.telegramUrl),
         ),
         const SizedBox(height: 10),
         _buildSocialItem(
           context: context,
           icon: Icons.camera_alt_rounded,
           title: AppLocalizations.of(context).translate('about.instagram'),
-          subtitle: '@aboljahany',
+          subtitle: remoteConfig.instagramId,
           gradient: const [Color(0xFFE1306C), Color(0xFFF77737)],
-          onTap: () => _launchUrl(context, 'https://instagram.com/aboljahany'),
+          onTap: () => _launchUrl(context, remoteConfig.instagramUrl),
         ),
         const SizedBox(height: 10),
         _buildSocialItem(
           context: context,
           icon: Icons.landscape_rounded,
           title: AppLocalizations.of(context).translate('about.tiksar_village_page'),
-          subtitle: '@tiksaar_leyl_gilan',
+          subtitle: remoteConfig.tiksarPageId,
           gradient: const [Color(0xFF833AB4), Color(0xFFC13584)],
-          onTap: () => _launchUrl(context, 'https://instagram.com/tiksaar_leyl_gilan'),
+          onTap: () => _launchUrl(context, remoteConfig.tiksarPageUrl),
         ),
       ],
     );

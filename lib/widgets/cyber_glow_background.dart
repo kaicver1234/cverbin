@@ -52,7 +52,7 @@ class CyberGlowBackground extends StatelessWidget {
                     center: Alignment.center,
                     radius: 0.8,
                     colors: [
-                      const Color(0xFF6366f1).withOpacity(0.08),
+                      const Color(0xFF6366f1).withValues(alpha: 0.08),
                       Colors.transparent,
                     ],
                   ),
@@ -71,7 +71,7 @@ class CyberGlowBackground extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       colors: [
-                        const Color(0xFF10b981).withOpacity(0.15),
+                        const Color(0xFF10b981).withValues(alpha: 0.15),
                         Colors.transparent,
                       ],
                     ),
@@ -90,7 +90,7 @@ class CyberGlowBackground extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       colors: [
-                        const Color(0xFF06b6d4).withOpacity(0.15),
+                        const Color(0xFF06b6d4).withValues(alpha: 0.15),
                         Colors.transparent,
                       ],
                     ),
@@ -111,7 +111,7 @@ class CyberGlowBackground extends StatelessWidget {
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        const Color(0xFF10b981).withOpacity(0.06),
+                        const Color(0xFF10b981).withValues(alpha: 0.06),
                         Colors.transparent,
                       ],
                     ),

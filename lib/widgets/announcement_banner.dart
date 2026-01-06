@@ -143,7 +143,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
             color: const Color(0xFF1a1f2e),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: color.withOpacity(0.25),
+              color: color.withValues(alpha: 0.25),
               width: 1,
             ),
           ),
@@ -159,7 +159,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                     child: Text(
                       _banner!.message,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.85),
+                        color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 13,
                         height: 1.4,
                       ),
@@ -170,7 +170,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                     onTap: _dismiss,
                     child: Icon(
                       Icons.close_rounded,
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                       size: 18,
                     ),
                   ),
@@ -184,7 +184,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
+                      color: color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(

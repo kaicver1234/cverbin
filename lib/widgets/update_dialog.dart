@@ -68,12 +68,12 @@ class _UpdateDialogState extends State<UpdateDialog>
                 ),
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                  color: _primaryColor.withOpacity(0.2),
+                  color: _primaryColor.withValues(alpha: 0.2),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _primaryColor.withOpacity(0.15),
+                    color: _primaryColor.withValues(alpha: 0.15),
                     blurRadius: 30,
                     spreadRadius: 5,
                   ),
@@ -108,17 +108,17 @@ class _UpdateDialogState extends State<UpdateDialog>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  _primaryColor.withOpacity(0.2),
-                  _secondaryColor.withOpacity(0.1),
+                  _primaryColor.withValues(alpha: 0.2),
+                  _secondaryColor.withValues(alpha: 0.1),
                 ],
               ),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: _primaryColor.withOpacity(0.3),
+                color: _primaryColor.withValues(alpha: 0.3),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _primaryColor.withOpacity(0.2),
+                  color: _primaryColor.withValues(alpha: 0.2),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
@@ -148,13 +148,13 @@ class _UpdateDialogState extends State<UpdateDialog>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  _primaryColor.withOpacity(0.15),
-                  _secondaryColor.withOpacity(0.1),
+                  _primaryColor.withValues(alpha: 0.15),
+                  _secondaryColor.withValues(alpha: 0.1),
                 ],
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: _primaryColor.withOpacity(0.3),
+                color: _primaryColor.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -168,7 +168,7 @@ class _UpdateDialogState extends State<UpdateDialog>
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: _primaryColor.withOpacity(0.5),
+                        color: _primaryColor.withValues(alpha: 0.5),
                         blurRadius: 6,
                       ),
                     ],
@@ -198,10 +198,10 @@ class _UpdateDialogState extends State<UpdateDialog>
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.03),
+          color: Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withOpacity(0.06),
+            color: Colors.white.withValues(alpha: 0.06),
           ),
         ),
         child: Column(
@@ -229,7 +229,7 @@ class _UpdateDialogState extends State<UpdateDialog>
             Text(
               widget.updateInfo.message,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 fontSize: 14,
                 height: 1.6,
               ),
@@ -263,7 +263,7 @@ class _UpdateDialogState extends State<UpdateDialog>
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: _primaryColor.withOpacity(0.4),
+                    color: _primaryColor.withValues(alpha: 0.4),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -295,17 +295,17 @@ class _UpdateDialogState extends State<UpdateDialog>
                 width: double.infinity,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                   ),
                 ),
                 child: Center(
                   child: Text(
                     'بعداً یادآوری کن',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -320,10 +320,10 @@ class _UpdateDialogState extends State<UpdateDialog>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: Colors.orange.withOpacity(0.2),
+                  color: Colors.orange.withValues(alpha: 0.2),
                 ),
               ),
               child: Row(
