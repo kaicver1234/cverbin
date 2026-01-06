@@ -36,8 +36,13 @@ class RemoteConfigService {
     'announcement_action_url': '',
     'announcement_action_text': '',
     'announcement_type': 'info',
-    'maintenance_mode': false,
-    'maintenance_message': 'سرویس در حال بروزرسانی است',
+    // Social links
+    'telegram_id': '@tiksar_vpn',
+    'telegram_url': 'https://t.me/tiksar_vpn',
+    'instagram_id': '@aboljahany',
+    'instagram_url': 'https://instagram.com/aboljahany',
+    'tiksar_page_id': '@tiksar_village',
+    'tiksar_page_url': 'https://instagram.com/tiksar_village',
   };
 
   Future<void> initialize() async {
@@ -103,15 +108,40 @@ class RemoteConfigService {
     );
   }
 
-  /// Check if maintenance mode is enabled
-  bool get isMaintenanceMode {
-    if (!_isSupported || _remoteConfig == null) return false;
-    return _remoteConfig!.getBool('maintenance_mode');
+  /// Get social links
+  String get telegramId {
+    if (!_isSupported || _remoteConfig == null) return '@tiksar_vpn';
+    final value = _remoteConfig!.getString('telegram_id');
+    return value.isNotEmpty ? value : '@tiksar_vpn';
   }
 
-  /// Get maintenance message
-  String get maintenanceMessage {
-    if (!_isSupported || _remoteConfig == null) return '';
-    return _remoteConfig!.getString('maintenance_message');
+  String get telegramUrl {
+    if (!_isSupported || _remoteConfig == null) return 'https://t.me/tiksar_vpn';
+    final value = _remoteConfig!.getString('telegram_url');
+    return value.isNotEmpty ? value : 'https://t.me/tiksar_vpn';
+  }
+
+  String get instagramId {
+    if (!_isSupported || _remoteConfig == null) return '@aboljahany';
+    final value = _remoteConfig!.getString('instagram_id');
+    return value.isNotEmpty ? value : '@aboljahany';
+  }
+
+  String get instagramUrl {
+    if (!_isSupported || _remoteConfig == null) return 'https://instagram.com/aboljahany';
+    final value = _remoteConfig!.getString('instagram_url');
+    return value.isNotEmpty ? value : 'https://instagram.com/aboljahany';
+  }
+
+  String get tiksarPageId {
+    if (!_isSupported || _remoteConfig == null) return '@tiksar_village';
+    final value = _remoteConfig!.getString('tiksar_page_id');
+    return value.isNotEmpty ? value : '@tiksar_village';
+  }
+
+  String get tiksarPageUrl {
+    if (!_isSupported || _remoteConfig == null) return 'https://instagram.com/tiksar_village';
+    final value = _remoteConfig!.getString('tiksar_page_url');
+    return value.isNotEmpty ? value : 'https://instagram.com/tiksar_village';
   }
 }

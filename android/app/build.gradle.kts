@@ -52,11 +52,8 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 8
-        versionName = "1.1.1"
-        
-        // Reduce Play Protect warnings
-        multiDexEnabled = true
+        versionCode = 9
+        versionName = "1.1.2"
     }
 
     signingConfigs {
@@ -73,7 +70,6 @@ android {
     buildTypes {
         release {
             // ✅ Use release signing config for production builds
-            // This prevents Google Play Protect warnings
             signingConfig = if (useReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {
@@ -81,13 +77,9 @@ android {
                 signingConfigs.getByName("debug")
             }
 
-            // Minify enabled but no obfuscation to avoid VPN issues
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
-                "proguard-rules.pro"
-            )
+            // Disable minify for VPN apps to avoid compatibility issues
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
         
         debug {
@@ -129,6 +121,5 @@ flutter {
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("androidx.multidex:multidex:2.0.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

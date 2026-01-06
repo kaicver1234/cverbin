@@ -202,7 +202,7 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'v1.1.1',
+                  'v1.1.2',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.white.withValues(alpha: 0.8),

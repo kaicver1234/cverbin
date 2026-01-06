@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to create release for (e.g., v1.1.1)'
+        description: 'Tag to create release for (e.g., v1.1.2)'
         required: true
-        default: 'v1.1.1'
+        default: 'v1.1.2'
 
 permissions:
   contents: write
@@ -37,17 +37,6 @@ jobs:
         with:
           flutter-version: '3.32.8'
           channel: 'stable'
-          cache: true
-
-      - name: Cache Gradle packages
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
 
       - name: Get dependencies
         run: flutter pub get
@@ -90,13 +79,9 @@ jobs:
 
       - name: Build universal APK
         run: flutter build apk --release
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true"
 
       - name: Build split APKs
         run: flutter build apk --split-per-abi --release
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true"
 
       - name: Rename APKs
         run: |

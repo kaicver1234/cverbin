@@ -72,10 +72,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final serversToTest = servers.take(7).toList();
       final Map<V2RayConfig, int> pingResults = {};
       
-      // Test servers one by one using V2Ray core
+      // Test ALL 7 servers - don't stop early even if some fail
       for (int i = 0; i < serversToTest.length; i++) {
         final server = serversToTest[i];
-        debugPrint('   [${i + 1}/7] Testing ${server.remark}...');
+        debugPrint('   [${i + 1}/${serversToTest.length}] Testing ${server.remark}...');
         
         try {
           // Use V2Ray core ping directly (no cache)
@@ -84,12 +84,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           if (ping != null && ping > 0 && ping < 10000) {
             debugPrint('   ✓ ${server.remark}: ${ping}ms');
             pingResults[server] = ping;
-            
-            // If we found a very fast server (< 150ms), we can stop early
-            if (ping < 150 && pingResults.length >= 2) {
-              debugPrint('   ⚡ Found fast server, stopping early');
-              break;
-            }
           } else {
             debugPrint('   ✗ ${server.remark}: no response');
           }
@@ -98,7 +92,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       }
       
-      debugPrint('⚡ Got ${pingResults.length} successful ping results');
+      debugPrint('⚡ Got ${pingResults.length} successful ping results out of ${serversToTest.length}');
       
       // Find fastest server
       V2RayConfig? fastestServer;
@@ -111,13 +105,16 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       });
       
-      // Use fastest server or fallback to first
-      final serverToConnect = fastestServer ?? servers.first;
+      // Use fastest server or fallback to first working server
+      V2RayConfig serverToConnect;
       
       if (fastestServer != null) {
+        serverToConnect = fastestServer;
         debugPrint('⚡ Fastest server: ${serverToConnect.remark} (${lowestPing}ms)');
       } else {
-        debugPrint('⚡ No ping response, using first server: ${serverToConnect.remark}');
+        // No server responded, use first server as fallback
+        serverToConnect = servers.first;
+        debugPrint('⚠️ No ping response from any server, using first server: ${serverToConnect.remark}');
       }
       
       _selectedConfig = serverToConnect;

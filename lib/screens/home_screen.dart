@@ -14,6 +14,7 @@ import '../screens/ip_info_screen.dart';
 import '../screens/speedtest_screen.dart';
 import '../screens/host_checker_screen.dart';
 import '../widgets/announcement_banner.dart';
+import '../services/remote_config_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -981,7 +982,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               border: Border.all(color: const Color(0xFF10b981).withOpacity(0.3)),
             ),
             child: Text(
-              'v1.1.1',
+              'v1.1.2',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.white.withOpacity(0.7),
@@ -1048,17 +1049,25 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           _buildSocialLink(
             icon: Icons.send_rounded,
             title: AppLocalizations.of(context).translate('about.telegram'),
-            subtitle: '@tiksar_vpn',
+            subtitle: RemoteConfigService().telegramId,
             color: const Color(0xFF0088CC),
-            url: 'https://t.me/tiksar_vpn',
+            url: RemoteConfigService().telegramUrl,
           ),
           const SizedBox(height: 10),
           _buildSocialLink(
             icon: Icons.camera_alt_rounded,
             title: AppLocalizations.of(context).translate('about.instagram'),
-            subtitle: '@aboljahany',
+            subtitle: RemoteConfigService().instagramId,
             color: const Color(0xFFE1306C),
-            url: 'https://instagram.com/aboljahany',
+            url: RemoteConfigService().instagramUrl,
+          ),
+          const SizedBox(height: 10),
+          _buildSocialLink(
+            icon: Icons.location_on_rounded,
+            title: AppLocalizations.of(context).translate('about.tiksar_village_page'),
+            subtitle: RemoteConfigService().tiksarPageId,
+            color: const Color(0xFF8B5CF6),
+            url: RemoteConfigService().tiksarPageUrl,
           ),
           const SizedBox(height: 28),
           // Copyright

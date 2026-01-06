@@ -17,6 +17,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
   late AnimationController _controller;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
   Timer? _refreshTimer;
 
   @override
@@ -25,13 +26,18 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
     WidgetsBinding.instance.addObserver(this);
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 500),
     );
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -0.5),
+      begin: const Offset(0, -1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(_controller);
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6)),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    );
     
     _loadBanner();
     _startTimer();
@@ -39,7 +45,6 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Only run timer when app is in foreground
     if (state == AppLifecycleState.resumed) {
       _refreshBanner();
       _startTimer();
@@ -75,28 +80,20 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
   }
 
   Future<void> _refreshBanner() async {
-    // Refresh remote config
     await RemoteConfigService().refresh();
-    
     final banner = RemoteConfigService().getAnnouncementBanner();
     
     if (!mounted) return;
     
-    // If banner is disabled, hide it
     if (!banner.enabled || banner.message.isEmpty) {
       if (_banner != null && !_isDismissed) {
         _controller.reverse().then((_) {
-          if (mounted) {
-            setState(() {
-              _banner = null;
-            });
-          }
+          if (mounted) setState(() => _banner = null);
         });
       }
       return;
     }
     
-    // If banner content changed, update it
     if (_banner == null || _banner!.message != banner.message) {
       setState(() {
         _banner = banner;
@@ -126,7 +123,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
       case 'error':
         return Icons.error_outline_rounded;
       case 'success':
-        return Icons.celebration_rounded;
+        return Icons.check_circle_rounded;
       default:
         return Icons.campaign_rounded;
     }
@@ -152,130 +149,98 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
     }
 
     final color = _getColor(_banner!.type);
-    final icon = _getIcon(_banner!.type);
+    final hasAction = _banner!.actionUrl != null && _banner!.actionUrl!.isNotEmpty;
 
     return SlideTransition(
       position: _slideAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                color.withOpacity(0.15),
-                color.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: color.withOpacity(0.25)),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Padding(
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(14),
-            child: Row(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withOpacity(0.15),
+                  color.withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withOpacity(0.25)),
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Icon
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        color.withOpacity(0.25),
-                        color.withOpacity(0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withOpacity(0.2)),
-                  ),
-                  child: Icon(icon, color: color, size: 22),
-                ),
-                const SizedBox(width: 12),
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+                // Top row: Message + Close button
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
                         _banner!.message,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          height: 1.5,
+                          height: 1.4,
                         ),
                       ),
-                      if (_banner!.actionUrl != null && _banner!.actionUrl!.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        GestureDetector(
-                          onTap: () => _launchUrl(_banner!.actionUrl!),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  color.withOpacity(0.25),
-                                  color.withOpacity(0.15),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: color.withOpacity(0.3)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _banner!.actionText ?? 'مشاهده',
-                                  style: TextStyle(
-                                    color: color,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(Icons.arrow_forward_rounded, color: color, size: 14),
-                              ],
-                            ),
-                          ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: _dismiss,
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: Colors.white.withOpacity(0.4),
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+                // Action button below message
+                if (hasAction) ...[
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => _launchUrl(_banner!.actionUrl!),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _banner!.actionText ?? 'مشاهده',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-                // Close button
-                GestureDetector(
-                  onTap: _dismiss,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.close_rounded,
-                      color: Colors.white.withOpacity(0.4),
-                      size: 16,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  String _getTitle(String type) {
+    switch (type) {
+      case 'warning':
+        return 'هشدار';
+      case 'error':
+        return 'خطا';
+      case 'success':
+        return 'موفقیت';
+      default:
+        return 'اطلاعیه';
+    }
   }
 }
