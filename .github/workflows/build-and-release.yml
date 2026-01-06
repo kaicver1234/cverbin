@@ -34,9 +34,9 @@ jobs:
 
       - name: Clear Gradle caches
         run: |
-          rm -rf ~/.gradle/caches/
-          rm -rf android/.gradle/
-        shell: bash
+          if exist "%USERPROFILE%\.gradle\caches" rmdir /s /q "%USERPROFILE%\.gradle\caches"
+          if exist "android\.gradle" rmdir /s /q "android\.gradle"
+        shell: cmd
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -50,10 +50,8 @@ jobs:
 
       - name: Clean Gradle cache
         run: |
-          cd android
-          ./gradlew clean --no-daemon
-          cd ..
-        shell: bash
+          cd android && gradlew.bat clean --no-daemon
+        shell: cmd
 
       - name: Setup Keystore (if available)
         env:
