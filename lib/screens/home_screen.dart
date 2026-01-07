@@ -76,6 +76,31 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (provider.serverConfigs.isEmpty) {
       await provider.fetchServers();
     }
+    // Preload flags in background
+    _preloadFlags();
+  }
+  
+  /// Preload country flags for faster display in server selection
+  Future<void> _preloadFlags() async {
+    if (!mounted) return;
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    final configs = provider.serverConfigs;
+    
+    final countryCodes = configs
+        .map((c) => c.countryCode)
+        .where((code) => code != null && code.isNotEmpty)
+        .toSet();
+    
+    for (final code in countryCodes) {
+      if (!mounted) break;
+      final url = 'https://flagcdn.com/w80/${code!.toLowerCase()}.png';
+      try {
+        await precacheImage(
+          CachedNetworkImageProvider(url),
+          context,
+        ).timeout(const Duration(seconds: 2), onTimeout: () {});
+      } catch (_) {}
+    }
   }
   
   @override
@@ -1068,10 +1093,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   ),
                   const SizedBox(height: 10),
                   _buildSocialLink(
-                    icon: Icons.public,
+                    icon: Icons.photo_camera_back_outlined,
                     title: AppLocalizations.of(context).translate('about.tiksar_village_page'),
                     subtitle: remoteConfig.tiksarPageId,
-                    color: const Color(0xFF10b981),
+                    color: const Color(0xFFC13584),
                     url: remoteConfig.tiksarPageUrl,
                   ),
                 ],

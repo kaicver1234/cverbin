@@ -62,8 +62,15 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
     super.dispose();
   }
 
-  void _loadBanner() {
+  void _loadBanner() async {
+    // Wait for remote config to initialize
+    await RemoteConfigService().initialize();
+    
+    if (!mounted) return;
+    
     final banner = RemoteConfigService().getAnnouncementBanner();
+    debugPrint('📢 Banner loaded: enabled=${banner.enabled}, message=${banner.message}');
+    
     if (banner.enabled && banner.message.isNotEmpty) {
       setState(() {
         _banner = banner;
@@ -74,8 +81,11 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
   }
 
   Future<void> _refreshBanner() async {
+    await RemoteConfigService().initialize();
     await RemoteConfigService().refresh();
     final banner = RemoteConfigService().getAnnouncementBanner();
+    
+    debugPrint('📢 Banner refreshed: enabled=${banner.enabled}, message=${banner.message}');
     
     if (!mounted) return;
     

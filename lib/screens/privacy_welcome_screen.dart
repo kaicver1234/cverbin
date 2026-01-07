@@ -288,7 +288,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'امکانات پیشرفته برای امنیت شما',
+              tr.translate('privacy_welcome.features_subtitle'),
               style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.5)),
             ),
             const SizedBox(height: 32),

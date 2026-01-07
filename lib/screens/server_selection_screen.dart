@@ -32,6 +32,35 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       duration: const Duration(milliseconds: 1000),
     );
     _pageController = PageController(initialPage: 0);
+    
+    // Preload flags when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _preloadFlags();
+    });
+  }
+
+  /// Preload all country flags in background
+  Future<void> _preloadFlags() async {
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    final configs = provider.serverConfigs;
+    
+    // Get unique country codes
+    final countryCodes = configs
+        .map((c) => c.countryCode)
+        .where((code) => code != null && code.isNotEmpty)
+        .toSet();
+    
+    // Preload each flag
+    for (final code in countryCodes) {
+      if (!mounted) break;
+      final url = 'https://flagcdn.com/w80/${code!.toLowerCase()}.png';
+      try {
+        await precacheImage(
+          CachedNetworkImageProvider(url),
+          context,
+        ).timeout(const Duration(seconds: 3), onTimeout: () {});
+      } catch (_) {}
+    }
   }
 
   @override

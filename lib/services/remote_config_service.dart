@@ -63,7 +63,7 @@ class RemoteConfigService {
 
       await _remoteConfig!.setConfigSettings(RemoteConfigSettings(
         fetchTimeout: const Duration(seconds: 10),
-        minimumFetchInterval: const Duration(minutes: 5),
+        minimumFetchInterval: const Duration(seconds: 30), // Faster refresh for testing
       ));
 
       await _remoteConfig!.setDefaults(_defaults.map(
