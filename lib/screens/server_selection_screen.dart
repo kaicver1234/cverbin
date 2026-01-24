@@ -828,8 +828,6 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     }
 
     final Map<String, int> results = {};
-    int successCount = 0;
-    int completedCount = 0;
     
     try {
       debugPrint('🚀 Starting parallel ping test for ${configs.length} servers...');
@@ -853,27 +851,34 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
             
             if (!mounted) return;
             
-            // Update results immediately as each ping completes
-            results[config.id] = pingValue;
-            if (pingValue < 99999) successCount++;
-            completedCount++;
-            
-            // Update UI in real-time
-            setState(() {
-              _pingResults = Map.from(results);
+            // Thread-safe update: use synchronized block
+            synchronized(() {
+              results[config.id] = pingValue;
+              
+              // Update UI in real-time
+              if (mounted) {
+                setState(() {
+                  _pingResults = Map.from(results);
+                });
+                
+                // Sort servers by ping in real-time
+                _sortServersByPing(provider!, results);
+              }
             });
             
-            // Sort servers by ping in real-time
-            _sortServersByPing(provider, results);
-            
-            debugPrint('✓ ${config.remark}: ${pingValue}ms ($completedCount/${configs.length})');
+            debugPrint('✓ ${config.remark}: ${pingValue}ms (${results.length}/${configs.length})');
           } catch (e) {
             if (!mounted) return;
-            results[config.id] = 99999;
-            completedCount++;
-            setState(() => _pingResults = Map.from(results));
-            _sortServersByPing(provider!, results);
-            debugPrint('✗ ${config.remark}: timeout ($completedCount/${configs.length})');
+            
+            synchronized(() {
+              results[config.id] = 99999;
+              if (mounted) {
+                setState(() => _pingResults = Map.from(results));
+                _sortServersByPing(provider!, results);
+              }
+            });
+            
+            debugPrint('✗ ${config.remark}: timeout (${results.length}/${configs.length})');
           }
         }).toList();
         
@@ -881,14 +886,16 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
         await Future.wait(futures);
         
         // Small delay between batches to prevent overwhelming
-        if (batchEnd < configs.length) {
+        if (batchEnd < configs.length && mounted) {
           await Future.delayed(const Duration(milliseconds: 100));
         }
       }
 
       if (!mounted) return;
 
-      debugPrint('✅ Ping test completed: $successCount/$completedCount successful');
+      final successCount = results.values.where((ping) => ping < 99999).length;
+      debugPrint('✅ Ping test completed: $successCount/${configs.length} successful');
+      
       _showSnackBar(
         '${AppLocalizations.of(context).translate('server_selection.servers_updated')} ($successCount/${configs.length})',
         const Color(0xFF10B981),
@@ -904,6 +911,13 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     } finally {
       if (mounted) setState(() => _isTesting = false);
     }
+  }
+
+  // Helper method for thread-safe operations
+  void synchronized(Function() action) {
+    // In Dart, single-threaded event loop ensures this is safe
+    // But we wrap it for clarity and future-proofing
+    action();
   }
 
   void _sortServersByPing(V2RayProvider provider, Map<String, int> pingResults) {
