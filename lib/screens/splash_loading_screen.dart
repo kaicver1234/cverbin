@@ -40,12 +40,30 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
   // Colors from HTML
   static const Color gold = Color(0xFFFBBF24);
   static const Color goldDark = Color(0xFFF59E0B);
+  
+  // Pre-build next screen to prevent lag
+  bool _isNextScreenReady = false;
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
     _startAnimations();
+    _prebuildNextScreen();
+  }
+  
+  // Pre-build the next screen in background to eliminate lag
+  void _prebuildNextScreen() {
+    // Start building next screen at 2000ms (before zoom/fade starts at 2800ms)
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) {
+        // Trigger a build of the next screen widget tree
+        // This warms up the widget and makes transition instant
+        setState(() {
+          _isNextScreenReady = true;
+        });
+      }
+    });
   }
 
   void _setupAnimations() {
@@ -180,14 +198,22 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
     _glowController.stop();
     _shineController.stop();
     
+    // Use instant replacement since screen is already pre-built
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => widget.nextScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
+          // Faster fade transition (200ms instead of 400ms)
+          return FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOut,
+            ),
+            child: child,
+          );
         },
-        transitionDuration: const Duration(milliseconds: 400),
+        transitionDuration: const Duration(milliseconds: 200),
       ),
     );
   }
@@ -210,60 +236,82 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF0F1629), // 0%
-                Color(0xFF0A0E1A), // 50%
-                Color(0xFF050709), // 100%
-              ],
-              stops: [0.0, 0.5, 1.0],
-            ),
-          ),
-          child: Stack(
-            children: [
-              // Particles - isolated repaint boundary
-              const RepaintBoundary(
-                child: _ParticlesWidget(),
-              ),
-              
-              // Main content with zoom/fade
-              Center(
-                child: AnimatedBuilder(
-                  animation: Listenable.merge([_zoomFadeController, _glowController]),
-                  builder: (context, _) {
-                    return Opacity(
-                      opacity: _fadeAnim.value,
-                      child: Transform.scale(
-                        scale: _zoomAnim.value,
-                        child: _buildLogoContent(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              
-              // Version at bottom: 40px from bottom
+        body: Stack(
+          children: [
+            // Pre-build next screen offscreen (invisible) to warm it up
+            if (_isNextScreenReady)
               Positioned(
-                bottom: 40,
-                left: 0,
-                right: 0,
-                child: Text(
-                  'v1.1.2',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.25),
+                left: -10000, // Way offscreen
+                top: -10000,
+                child: Opacity(
+                  opacity: 0,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      width: 1,
+                      height: 1,
+                      child: widget.nextScreen,
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
+            
+            // Splash screen content
+            Container(
+              width: double.infinity,
+              height: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF0F1629), // 0%
+                    Color(0xFF0A0E1A), // 50%
+                    Color(0xFF050709), // 100%
+                  ],
+                  stops: [0.0, 0.5, 1.0],
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Particles - isolated repaint boundary
+                  const RepaintBoundary(
+                    child: _ParticlesWidget(),
+                  ),
+                  
+                  // Main content with zoom/fade
+                  Center(
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([_zoomFadeController, _glowController]),
+                      builder: (context, _) {
+                        return Opacity(
+                          opacity: _fadeAnim.value,
+                          child: Transform.scale(
+                            scale: _zoomAnim.value,
+                            child: _buildLogoContent(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  
+                  // Version at bottom: 40px from bottom
+                  Positioned(
+                    bottom: 40,
+                    left: 0,
+                    right: 0,
+                    child: Text(
+                      'v1.1.2',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.25),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

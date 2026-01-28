@@ -66,13 +66,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Clear ping cache to get fresh results
       _v2rayService.clearPingCache();
       
-      debugPrint('⚡ Found ${servers.length} servers, testing first 7 in parallel...');
+      debugPrint('⚡ Smart Connect: Testing first 10 servers in parallel...');
       
-      // Test first 7 servers
-      final serversToTest = servers.take(7).toList();
+      // Test first 10 servers (increased from 7)
+      final serversToTest = servers.take(10).toList();
       final Map<V2RayConfig, int> pingResults = {};
       
-      // Test ALL 7 servers in PARALLEL for faster results
+      // Test ALL 10 servers in PARALLEL for faster results
       final futures = serversToTest.asMap().entries.map((entry) async {
         final index = entry.key;
         final server = entry.value;
@@ -80,18 +80,18 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         
         try {
           // Use V2Ray core ping directly (no cache)
-          // Timeout is handled in getServerDelayDirect (5 seconds)
+          // Timeout is handled in getServerDelayDirect (11 seconds)
           final ping = await _v2rayService.getServerDelayDirect(server);
           
           if (ping != null && ping > 0 && ping < 10000) {
-            debugPrint('   ✓ ${server.remark}: ${ping}ms');
+            debugPrint('   ✅ ${server.remark}: ${ping}ms');
             return MapEntry(server, ping);
           } else {
-            debugPrint('   ✗ ${server.remark}: no response or timeout');
+            debugPrint('   ❌ ${server.remark}: no response or timeout');
             return null;
           }
         } catch (e) {
-          debugPrint('   ✗ ${server.remark}: error - $e');
+          debugPrint('   ❌ ${server.remark}: error - $e');
           return null;
         }
       }).toList();
@@ -100,7 +100,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       List<MapEntry<V2RayConfig, int>?> results;
       try {
         results = await Future.wait(futures).timeout(
-          const Duration(seconds: 20), // 7 servers * ~3s each (with retry)
+          const Duration(seconds: 13), // Slightly more than individual 11s timeout
           onTimeout: () {
             debugPrint('⚠️ Overall ping timeout, using partial results');
             return List.filled(futures.length, null);
@@ -118,7 +118,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       }
       
-      debugPrint('⚡ Got ${pingResults.length} successful ping results');
+      debugPrint('⚡ Got ${pingResults.length}/${serversToTest.length} successful ping results');
       
       // Find fastest server
       V2RayConfig? fastestServer;
@@ -135,9 +135,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final serverToConnect = fastestServer ?? servers.first;
       
       if (fastestServer != null) {
-        debugPrint('⚡ Fastest server: ${serverToConnect.remark} (${lowestPing}ms)');
+        debugPrint('🎯 Fastest server: ${serverToConnect.remark} (${lowestPing}ms)');
       } else {
-        debugPrint('⚡ No ping response, using first server: ${serverToConnect.remark}');
+        debugPrint('⚠️ No ping response, using first server: ${serverToConnect.remark}');
       }
       
       _selectedConfig = serverToConnect;
