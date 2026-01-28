@@ -801,21 +801,12 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
 
   Future<void> _testAllServerPings() async {
     if (_isTesting || !mounted) return;
-    
     setState(() {
       _isTesting = true;
       _pingResults.clear();
-      _sortedConfigs = null; // Reset sorting
     });
 
-    V2RayProvider? provider;
-    try {
-      provider = Provider.of<V2RayProvider>(context, listen: false);
-    } catch (e) {
-      debugPrint('❌ Could not get provider: $e');
-      if (mounted) setState(() => _isTesting = false);
-      return;
-    }
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
     
     final configs = provider.serverConfigs;
     if (configs.isEmpty) {
@@ -829,163 +820,93 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       return;
     }
 
-    // Clear ping cache before starting fresh test
-    provider.v2rayService.clearPingCache();
-    
     final Map<String, int> results = {};
-    int successCount = 0;
-    int failedCount = 0;
     
     try {
-      debugPrint('🚀 Starting batch ping test for ${configs.length} servers');
-      debugPrint('📊 Testing 10 servers at a time with 11s timeout each');
+      debugPrint('🚀 Starting optimized ping test for ${configs.length} servers...');
       
-      // Test servers in batches of 10 for optimal performance
-      const batchSize = 10;
-      final totalBatches = (configs.length / batchSize).ceil();
+      // Test all servers in parallel with larger batches for faster results
+      const batchSize = 20; // Increased from 10 to 20 for faster testing
       
-      for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-        if (!mounted) {
-          debugPrint('⚠️ Screen unmounted, stopping ping test');
-          return;
-        }
+      for (int batchStart = 0; batchStart < configs.length; batchStart += batchSize) {
+        if (!mounted) return;
         
-        final batchStart = batchIndex * batchSize;
         final batchEnd = (batchStart + batchSize).clamp(0, configs.length);
         final batch = configs.sublist(batchStart, batchEnd);
         
-        debugPrint('');
-        debugPrint('📦 Batch ${batchIndex + 1}/$totalBatches: Testing servers ${batchStart + 1}-$batchEnd');
+        debugPrint('📦 Testing batch ${batchStart ~/ batchSize + 1}: servers ${batchStart + 1}-$batchEnd');
         
-        // Test all servers in this batch simultaneously
-        final futures = batch.asMap().entries.map((entry) {
-          final index = entry.key;
-          final config = entry.value;
-          
-          return Future(() async {
-            try {
-              debugPrint('   [${batchStart + index + 1}/${configs.length}] Testing ${config.remark}...');
-              
-              // Use V2Ray core ping with 11 seconds timeout
-              final ping = await provider!.v2rayService.getServerDelay(config);
-              
-              if (!mounted) return null;
-              
-              final pingValue = ping ?? 99999;
-              
-              // Update results
-              results[config.id] = pingValue;
-              
-              // Update UI in real-time
-              if (mounted) {
-                setState(() {
-                  _pingResults = Map.from(results);
-                });
-                
-                // Sort servers by ping in real-time
-                _sortServersByPing(provider, results);
-              }
-              
-              if (pingValue < 99999) {
-                debugPrint('   ✅ ${config.remark}: ${pingValue}ms');
-                return true;
-              } else {
-                debugPrint('   ❌ ${config.remark}: timeout');
-                return false;
-              }
-            } catch (e) {
-              if (!mounted) return null;
-              
-              debugPrint('   ❌ ${config.remark}: error - $e');
-              
-              // Mark as timeout
-              results[config.id] = 99999;
-              
-              if (mounted) {
-                setState(() {
-                  _pingResults = Map.from(results);
-                });
-                _sortServersByPing(provider!, results);
-              }
-              
-              return false;
+        // Test all servers in this batch simultaneously with timeout
+        final futures = batch.map((config) async {
+          try {
+            // Add timeout to prevent hanging on slow servers
+            final ping = await provider.v2rayService.getServerDelay(config)
+                .timeout(
+                  const Duration(seconds: 10), // 10 second timeout per server
+                  onTimeout: () => null,
+                );
+            final pingValue = ping ?? 99999;
+            
+            if (!mounted) return;
+            
+            results[config.id] = pingValue;
+            
+            // Update UI every 5 servers for better performance
+            if (results.length % 5 == 0 && mounted) {
+              setState(() {
+                _pingResults = Map.from(results);
+              });
+              _sortServersByPing(provider, results);
             }
-          });
+            
+            debugPrint('✓ ${config.remark}: ${pingValue}ms (${results.length}/${configs.length})');
+          } catch (e) {
+            if (!mounted) return;
+            
+            results[config.id] = 99999;
+            
+            if (results.length % 5 == 0 && mounted) {
+              setState(() => _pingResults = Map.from(results));
+              _sortServersByPing(provider, results);
+            }
+            
+            debugPrint('✗ ${config.remark}: timeout (${results.length}/${configs.length})');
+          }
         }).toList();
         
-        // Wait for all servers in this batch to complete
-        try {
-          final batchResults = await Future.wait(futures).timeout(
-            const Duration(seconds: 13), // Slightly more than individual timeout
-            onTimeout: () {
-              debugPrint('⚠️ Batch ${batchIndex + 1} overall timeout, moving to next batch');
-              return List.filled(futures.length, null);
-            },
-          );
-          
-          // Count successes and failures in this batch
-          for (final result in batchResults) {
-            if (result == true) {
-              successCount++;
-            } else if (result == false) {
-              failedCount++;
-            }
-          }
-          
-          debugPrint('✅ Batch ${batchIndex + 1}/$totalBatches completed');
-          debugPrint('   Progress: ${results.length}/${configs.length} tested, $successCount successful, $failedCount failed');
-          
-        } catch (e) {
-          debugPrint('⚠️ Batch ${batchIndex + 1} error: $e');
-          failedCount += batch.length;
-        }
+        // Wait for all pings in this batch to complete
+        await Future.wait(futures);
         
-        // Tiny delay to let UI update (optional, can be removed)
-        if (batchEnd < configs.length && mounted) {
-          await Future.delayed(const Duration(milliseconds: 50));
-        }
+        // No delay between batches - removed for faster testing
       }
 
       if (!mounted) return;
 
-      // Final summary
-      debugPrint('');
-      debugPrint('🎯 ═══════════════════════════════════════');
-      debugPrint('🎯 Ping Test Completed!');
-      debugPrint('🎯 Total: ${configs.length} servers');
-      debugPrint('🎯 ✅ Successful: $successCount');
-      debugPrint('🎯 ❌ Failed/Timeout: $failedCount');
-      debugPrint('🎯 ═══════════════════════════════════════');
+      // Final UI update
+      setState(() => _pingResults = Map.from(results));
+      _sortServersByPing(provider, results);
+
+      final successCount = results.values.where((ping) => ping < 99999).length;
+      debugPrint('✅ Ping test completed: $successCount/${configs.length} successful');
       
-      // Show success message
-      if (mounted) {
-        _showSnackBar(
-          '✅ Test completed: $successCount/${configs.length} servers responded',
-          successCount > 0 ? const Color(0xFF10B981) : Colors.orange,
-        );
-      }
-      
+      _showSnackBar(
+        '${AppLocalizations.of(context).translate('server_selection.servers_updated')} ($successCount/${configs.length})',
+        const Color(0xFF10B981),
+      );
     } catch (e) {
-      debugPrint('❌ Critical error in ping test: $e');
+      debugPrint('❌ Error testing pings: $e');
       if (mounted) {
         _showSnackBar(
-          'Error: ${e.toString()}',
+          AppLocalizations.of(context).translate('server_selection.error_updating'),
           Colors.red,
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isTesting = false);
-        debugPrint('🏁 Ping test finished, UI updated');
-      }
+      if (mounted) setState(() => _isTesting = false);
     }
   }
 
-  // Helper method removed - not needed in Dart's single-threaded model
-
   void _sortServersByPing(V2RayProvider provider, Map<String, int> pingResults) {
-    if (!mounted) return;
-    
     final smartConnect = V2RayConfig.smartConnect();
     final serverConfigs = List<V2RayConfig>.from(provider.serverConfigs);
     
@@ -997,8 +918,6 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       return pingA.compareTo(pingB);
     });
     
-    if (mounted) {
-      setState(() => _sortedConfigs = [smartConnect, ...serverConfigs]);
-    }
+    setState(() => _sortedConfigs = [smartConnect, ...serverConfigs]);
   }
 }
