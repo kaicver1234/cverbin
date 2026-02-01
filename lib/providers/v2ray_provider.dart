@@ -66,59 +66,95 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Clear ping cache to get fresh results
       _v2rayService.clearPingCache();
       
-      debugPrint('⚡ Found ${servers.length} servers, testing first 7 in parallel...');
+      debugPrint('⚡ Smart Connect: Testing ALL 7 servers using V2Ray core...');
       
       // Test first 7 servers
       final serversToTest = servers.take(7).toList();
       final Map<V2RayConfig, int> pingResults = {};
       
-      // Test ALL 7 servers in PARALLEL for faster results
-      final futures = serversToTest.asMap().entries.map((entry) async {
-        final index = entry.key;
-        final server = entry.value;
-        debugPrint('   [${index + 1}/${serversToTest.length}] Testing ${server.remark}...');
+      // تست به صورت batch های کوچک (2 تا 2 تا) برای دقت بیشتر
+      const batchSize = 2;
+      
+      for (int i = 0; i < serversToTest.length; i += batchSize) {
+        final batchEnd = (i + batchSize).clamp(0, serversToTest.length);
+        final batch = serversToTest.sublist(i, batchEnd);
         
-        try {
-          // Use V2Ray core ping directly (no cache)
-          // Timeout is handled in getServerDelayDirect (5 seconds)
-          final ping = await _v2rayService.getServerDelayDirect(server);
+        debugPrint('   📦 Testing batch ${i ~/ batchSize + 1}: servers ${i + 1}-$batchEnd');
+        
+        // تست این batch به صورت موازی
+        final batchFutures = batch.asMap().entries.map((entry) async {
+          final server = entry.value;
+          final globalIndex = i + entry.key;
+          debugPrint('      📡 [${globalIndex + 1}/7] Testing ${server.remark}...');
           
-          if (ping != null && ping > 0 && ping < 10000) {
-            debugPrint('   ✓ ${server.remark}: ${ping}ms');
-            return MapEntry(server, ping);
-          } else {
-            debugPrint('   ✗ ${server.remark}: no response or timeout');
+          try {
+            // Use V2Ray core ping directly with 7 second timeout
+            final ping = await _v2rayService.getServerDelayDirect(server);
+            
+            if (ping != null && ping > 0 && ping < 10000) {
+              debugPrint('      ✓ ${server.remark}: ${ping}ms');
+              return MapEntry(server, ping);
+            } else {
+              debugPrint('      ✗ ${server.remark}: timeout or invalid');
+              return null;
+            }
+          } catch (e) {
+            debugPrint('      ✗ ${server.remark}: error - $e');
             return null;
           }
+        }).toList();
+        
+        // منتظر این batch بمون
+        try {
+          final batchResults = await Future.wait(batchFutures).timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              debugPrint('      ⚠️ Batch timeout, continuing...');
+              return List.filled(batchFutures.length, null);
+            },
+          );
+          
+          // جمع‌آوری نتایج موفق
+          for (final result in batchResults) {
+            if (result != null) {
+              pingResults[result.key] = result.value;
+            }
+          }
+          
         } catch (e) {
-          debugPrint('   ✗ ${server.remark}: error - $e');
-          return null;
+          debugPrint('      ⚠️ Batch error: $e, continuing...');
         }
-      }).toList();
-      
-      // Wait for all pings to complete with overall timeout
-      List<MapEntry<V2RayConfig, int>?> results;
-      try {
-        results = await Future.wait(futures).timeout(
-          const Duration(seconds: 8),
-          onTimeout: () {
-            debugPrint('⚠️ Overall ping timeout, using partial results');
-            return List.filled(futures.length, null);
-          },
-        );
-      } catch (e) {
-        debugPrint('⚠️ Future.wait error: $e');
-        results = [];
-      }
-      
-      // Collect successful results
-      for (final result in results) {
-        if (result != null) {
-          pingResults[result.key] = result.value;
+        
+        // تاخیر کوچک بین batch ها (200ms)
+        if (batchEnd < serversToTest.length) {
+          await Future.delayed(const Duration(milliseconds: 200));
         }
       }
       
-      debugPrint('⚡ Got ${pingResults.length} successful ping results');
+      debugPrint('⚡ Smart Connect: Got ${pingResults.length}/7 successful responses');
+      
+      // اگه هیچ نتیجه‌ای نگرفتیم، یه بار دیگه تلاش کن
+      if (pingResults.isEmpty) {
+        debugPrint('⚠️ No results in first attempt, retrying first 3 servers...');
+        
+        for (int i = 0; i < 3 && i < serversToTest.length; i++) {
+          final server = serversToTest[i];
+          try {
+            debugPrint('   🔄 Retry [${i + 1}/3]: ${server.remark}...');
+            final ping = await _v2rayService.getServerDelayDirect(server);
+            
+            if (ping != null && ping > 0 && ping < 10000) {
+              debugPrint('   ✓ ${server.remark}: ${ping}ms');
+              pingResults[server] = ping;
+              // ادامه بده تا همه 3 تا رو امتحان کنه
+            }
+          } catch (e) {
+            debugPrint('   ✗ Retry failed: $e');
+          }
+          
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+      }
       
       // Find fastest server
       V2RayConfig? fastestServer;
@@ -135,9 +171,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final serverToConnect = fastestServer ?? servers.first;
       
       if (fastestServer != null) {
-        debugPrint('⚡ Fastest server: ${serverToConnect.remark} (${lowestPing}ms)');
+        debugPrint('⚡ Smart Connect: Fastest server found!');
+        debugPrint('   🏆 ${serverToConnect.remark} - ${lowestPing}ms');
       } else {
-        debugPrint('⚡ No ping response, using first server: ${serverToConnect.remark}');
+        debugPrint('⚡ Smart Connect: No ping responses, using first server: ${serverToConnect.remark}');
       }
       
       _selectedConfig = serverToConnect;

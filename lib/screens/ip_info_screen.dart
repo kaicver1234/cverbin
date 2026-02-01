@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../widgets/cyber_glow_background.dart';
@@ -19,30 +20,30 @@ class _IpInfoScreenState extends State<IpInfoScreen>
   bool _isLoading = true;
   Map<String, dynamic>? _ipData;
   String? _errorMessage;
-  late AnimationController _backgroundController;
-  late AnimationController _contentController;
+  late AnimationController _pulseController;
+  late AnimationController _rotateController;
 
   @override
   void initState() {
     super.initState();
     
-    _backgroundController = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
     
-    _contentController = AnimationController(
+    _rotateController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..forward();
+      duration: const Duration(seconds: 20),
+    )..repeat();
     
     _fetchIpInfo();
   }
 
   @override
   void dispose() {
-    _backgroundController.dispose();
-    _contentController.dispose();
+    _pulseController.dispose();
+    _rotateController.dispose();
     super.dispose();
   }
 
@@ -100,81 +101,98 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           textDirection: languageProvider.textDirection,
           child: CyberGlowBackground(
             child: SafeArea(
-                child: Column(
-                  children: [
-                    // App Bar
-                    _buildAppBar(context),
-                    
-                    // Content
-                    Expanded(
-                      child: _isLoading
-                          ? _buildLoadingState()
-                          : _errorMessage != null
-                              ? _buildErrorState()
-                              : _buildIpInfoContent(),
-                    ),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  _buildAppBar(context),
+                  Expanded(
+                    child: _isLoading
+                        ? _buildLoadingState()
+                        : _errorMessage != null
+                            ? _buildErrorState()
+                            : _buildIpInfoContent(),
+                  ),
+                ],
               ),
             ),
-          );
+          ),
+        );
       },
     );
   }
 
   Widget _buildAppBar(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              padding: const EdgeInsets.all(10),
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  width: 1,
                 ),
               ),
               child: const Icon(
-                Icons.arrow_back,
+                Icons.arrow_back_ios_new,
                 color: Colors.white,
-                size: 22,
+                size: 18,
               ),
             ),
-          ).animate().fadeIn().slideX(),
+          ).animate().fadeIn().slideX(begin: -0.2),
           
           const SizedBox(width: 16),
           
           Expanded(
-            child: Text(
-              'IP Information',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: -0.5,
-              ),
-            ).animate().fadeIn().slideX(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'IP Information',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                Text(
+                  'Your network details',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ).animate().fadeIn().slideX(begin: -0.1),
           ),
           
-          // Refresh Button
           GestureDetector(
             onTap: _isLoading ? null : _fetchIpInfo,
             child: Container(
-              padding: const EdgeInsets.all(10),
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF10B981), Color(0xFF059669)],
                 ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Icon(
-                Icons.refresh,
-                color: Colors.white.withValues(alpha: 0.9),
+                Icons.refresh_rounded,
+                color: Colors.white.withValues(alpha: 0.95),
                 size: 22,
               ),
             ),
@@ -189,43 +207,69 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.5),
-                  blurRadius: 30,
-                  spreadRadius: 5,
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              return Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFF10B981).withValues(alpha: 0.3 + _pulseController.value * 0.3),
+                      Color(0xFF059669).withValues(alpha: 0.2 + _pulseController.value * 0.2),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFF10B981).withValues(alpha: 0.3 + _pulseController.value * 0.3),
+                      blurRadius: 40 + _pulseController.value * 20,
+                      spreadRadius: 5 + _pulseController.value * 5,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: const Center(
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 3,
-              ),
-            ),
-          ).animate()
-              .scale(duration: 800.ms, curve: Curves.elasticOut)
-              .fadeIn(),
+                child: Center(
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           
-          const SizedBox(height: 30),
+          const SizedBox(height: 32),
           
           Text(
-            'Fetching IP Information...',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 16,
+            'Scanning Network...',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
-          ).animate()
-              .fadeIn(delay: 200.ms)
-              .slideY(begin: 0.3, end: 0),
+          ).animate(onPlay: (controller) => controller.repeat())
+              .shimmer(duration: 1500.ms, color: const Color(0xFF10B981)),
+          
+          const SizedBox(height: 8),
+          
+          Text(
+            'Fetching your IP details',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 14,
+            ),
+          ),
         ],
       ),
     );
@@ -233,86 +277,94 @@ class _IpInfoScreenState extends State<IpInfoScreen>
 
   Widget _buildErrorState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(30),
-            decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.red.withValues(alpha: 0.3),
-                width: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.red.withValues(alpha: 0.3),
+                  width: 2,
+                ),
               ),
-            ),
-            child: const Icon(
-              Icons.error_outline,
-              size: 60,
-              color: Colors.red,
-            ),
-          ).animate()
-              .scale(duration: 600.ms, curve: Curves.elasticOut)
-              .fadeIn(),
-          
-          const SizedBox(height: 24),
-          
-          Text(
-            'Error Occurred',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ).animate().fadeIn(delay: 200.ms),
-          
-          const SizedBox(height: 12),
-          
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              _errorMessage ?? 'Unknown error',
+              child: const Icon(
+                Icons.wifi_off_rounded,
+                size: 56,
+                color: Colors.red,
+              ),
+            ).animate()
+                .scale(duration: 600.ms, curve: Curves.elasticOut)
+                .shake(),
+            
+            const SizedBox(height: 24),
+            
+            const Text(
+              'Connection Failed',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ).animate().fadeIn(delay: 200.ms),
+            
+            const SizedBox(height: 12),
+            
+            Text(
+              _errorMessage ?? 'Unable to fetch IP information',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
+                height: 1.5,
               ),
-            ),
-          ).animate().fadeIn(delay: 300.ms),
-          
-          const SizedBox(height: 30),
-          
-          GestureDetector(
-            onTap: _fetchIpInfo,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                ),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF6366F1).withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+            ).animate().fadeIn(delay: 300.ms),
+            
+            const SizedBox(height: 32),
+            
+            GestureDetector(
+              onTap: _fetchIpInfo,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF10B981), Color(0xFF059669)],
                   ),
-                ],
-              ),
-              child: const Text(
-                'RETRY',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'TRY AGAIN',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ).animate()
-              .fadeIn(delay: 400.ms)
-              .scale(delay: 400.ms),
-        ],
+            ).animate()
+                .fadeIn(delay: 400.ms)
+                .slideY(begin: 0.3, end: 0),
+          ],
+        ),
       ),
     );
   }
@@ -322,48 +374,49 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // IP Address Card
-          _buildMainIpCard(),
+          // Hero IP Card
+          _buildHeroIpCard(),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           
-          // Location Card
-          _buildInfoCard(
-            title: 'Location Information',
-            icon: Icons.language,
+          // Quick Stats Row
+          _buildQuickStats(),
+          
+          const SizedBox(height: 16),
+          
+          // Location Details
+          _buildModernCard(
+            title: 'Location',
+            icon: Icons.location_on_rounded,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF10B981), Color(0xFF059669)],
+            ),
             items: [
-              _InfoItem('IP Address', _ipData!['query'] ?? 'Unknown', showCopy: true),
-              _InfoItem('Country', '${_ipData!['country'] ?? 'Unknown'} ${_ipData!['countryCode'] != null ? '(${_ipData!['countryCode']})' : ''}'),
-              _InfoItem('Continent', '${_ipData!['continent'] ?? 'Unknown'} ${_ipData!['continentCode'] != null ? '(${_ipData!['continentCode']})' : ''}'),
-              _InfoItem('Region', _ipData!['regionName'] ?? 'Unknown'),
-              _InfoItem('City', _ipData!['city'] ?? 'Unknown'),
-              if (_ipData!['district'] != null && _ipData!['district'].toString().isNotEmpty)
-                _InfoItem('District', _ipData!['district'] ?? 'Unknown'),
-              _InfoItem('ZIP Code', _ipData!['zip'] ?? 'N/A'),
-              _InfoItem('Timezone', _ipData!['timezone'] ?? 'Unknown'),
-              _InfoItem('UTC Offset', '${_ipData!['offset'] ?? 'N/A'}'),
-              _InfoItem('Currency', _ipData!['currency'] ?? 'Unknown'),
-              _InfoItem('Coordinates', '${_ipData!['lat']?.toStringAsFixed(4) ?? 'N/A'}, ${_ipData!['lon']?.toStringAsFixed(4) ?? 'N/A'}'),
+              _InfoItem(Icons.public, 'Country', '${_ipData!['country']} (${_ipData!['countryCode']})'),
+              _InfoItem(Icons.map_rounded, 'Region', _ipData!['regionName'] ?? 'Unknown'),
+              _InfoItem(Icons.location_city, 'City', _ipData!['city'] ?? 'Unknown'),
+              _InfoItem(Icons.access_time, 'Timezone', _ipData!['timezone'] ?? 'Unknown'),
+              _InfoItem(Icons.my_location, 'Coordinates', '${_ipData!['lat']?.toStringAsFixed(4)}, ${_ipData!['lon']?.toStringAsFixed(4)}'),
             ],
             delay: 200,
           ),
           
           const SizedBox(height: 16),
           
-          // Network Card
-          _buildInfoCard(
-            title: 'Network Details',
-            icon: Icons.router_outlined,
+          // Network Details
+          _buildModernCard(
+            title: 'Network',
+            icon: Icons.router_rounded,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+            ),
             items: [
-              _InfoItem('ISP', _ipData!['isp'] ?? 'Unknown'),
-              _InfoItem('Organization', _ipData!['org'] ?? 'Unknown'),
-              _InfoItem('AS Number', _ipData!['as'] ?? 'Unknown'),
-              _InfoItem('AS Name', _ipData!['asname'] ?? 'Unknown'),
-              if (_ipData!['reverse'] != null && _ipData!['reverse'].toString().isNotEmpty)
-                _InfoItem('Reverse DNS', _ipData!['reverse'] ?? 'N/A'),
+              _InfoItem(Icons.business, 'ISP', _ipData!['isp'] ?? 'Unknown'),
+              _InfoItem(Icons.corporate_fare, 'Organization', _ipData!['org'] ?? 'Unknown'),
+              _InfoItem(Icons.tag, 'AS Number', _ipData!['as'] ?? 'Unknown'),
             ],
             delay: 300,
           ),
@@ -374,106 +427,226 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     );
   }
 
-  Widget _buildMainIpCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+  Widget _buildHeroIpCard() {
+    return AnimatedBuilder(
+      animation: _rotateController,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF10B981).withValues(alpha: 0.15),
+                Color(0xFF059669).withValues(alpha: 0.05),
+              ],
             ),
-            child: Icon(
-              Icons.public,
-              size: 40,
-              color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: const Color(0xFF10B981).withValues(alpha: 0.3),
+              width: 1.5,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Your IP Address',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
             children: [
+              // Animated Globe Icon
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF10B981).withValues(alpha: 0.3),
+                      Color(0xFF059669).withValues(alpha: 0.2),
+                    ],
+                  ),
+                ),
+                child: Transform.rotate(
+                  angle: _rotateController.value * 2 * math.pi,
+                  child: Icon(
+                    Icons.language_rounded,
+                    size: 40,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
               Text(
-                _ipData!['query'] ?? 'Unknown',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
+                'Your IP Address',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(width: 12),
-              GestureDetector(
-                onTap: () => _copyToClipboard(_ipData!['query'] ?? ''),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+              
+              const SizedBox(height: 8),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _ipData!['query'] ?? 'Unknown',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.copy,
-                    size: 18,
-                    color: Colors.white.withValues(alpha: 0.7),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () => _copyToClipboard(_ipData!['query'] ?? ''),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.copy_rounded,
+                        size: 18,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
                   ),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.location_on_rounded,
+                      size: 16,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_ipData!['city']}, ${_ipData!['country']}',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+        );
+      },
+    ).animate()
+        .fadeIn()
+        .slideY(begin: 0.2, end: 0)
+        .scale(begin: const Offset(0.9, 0.9), curve: Curves.elasticOut);
+  }
+
+  Widget _buildQuickStats() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.dns_rounded,
+            label: 'ISP',
+            value: _ipData!['isp']?.toString().split(' ').first ?? 'N/A',
+            color: const Color(0xFF10B981),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.schedule_rounded,
+            label: 'Timezone',
+            value: _ipData!['timezone']?.toString().split('/').last ?? 'N/A',
+            color: const Color(0xFF6366F1),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.flag_rounded,
+            label: 'Country',
+            value: _ipData!['countryCode'] ?? 'N/A',
+            color: const Color(0xFFF59E0B),
+          ),
+        ),
+      ],
+    ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.2, end: 0);
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
           Text(
-            '${_ipData!['city'] ?? 'Unknown'}, ${_ipData!['country'] ?? 'Unknown'}',
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 14,
+              fontSize: 11,
             ),
           ),
         ],
       ),
-    ).animate()
-        .fadeIn()
-        .slideY(begin: 0.3, end: 0)
-        .scale(curve: Curves.elasticOut);
-  }
-  
-  void _copyToClipboard(String text) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('IP address copied: $text'),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 2),
-      ),
     );
   }
 
-  Widget _buildInfoCard({
+  Widget _buildModernCard({
     required String title,
     required IconData icon,
+    required Gradient gradient,
     required List<_InfoItem> items,
     required int delay,
   }) {
@@ -490,7 +663,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
+              gradient: gradient.scale(0.3),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(20),
               ),
@@ -498,16 +671,12 @@ class _IpInfoScreenState extends State<IpInfoScreen>
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    icon,
-                    color: Colors.white.withValues(alpha: 0.8),
-                    size: 20,
-                  ),
+                  child: Icon(icon, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -515,7 +684,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -524,7 +693,9 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              children: items.map((item) => _buildInfoRow(item)).toList(),
+              children: items.asMap().entries.map((entry) {
+                return _buildModernInfoRow(entry.value, entry.key);
+              }).toList(),
             ),
           ),
         ],
@@ -534,47 +705,42 @@ class _IpInfoScreenState extends State<IpInfoScreen>
         .slideX(begin: 0.2, end: 0);
   }
 
-  Widget _buildInfoRow(_InfoItem item) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+  Widget _buildModernInfoRow(_InfoItem item, int index) {
+    return Container(
+      margin: EdgeInsets.only(bottom: index < 4 ? 12 : 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            item.label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 14,
-            ),
+          Icon(
+            item.icon,
+            size: 18,
+            color: Colors.white.withValues(alpha: 0.6),
           ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Flexible(
-                  child: Text(
-                    item.value,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                Text(
+                  item.label,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 12,
                   ),
                 ),
-                if (item.showCopy) ...[
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _copyToClipboard(item.value),
-                    child: Icon(
-                      Icons.copy,
-                      size: 16,
-                      color: Colors.white.withValues(alpha: 0.5),
-                    ),
+                const SizedBox(height: 2),
+                Text(
+                  item.value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
-                ],
+                ),
               ],
             ),
           ),
@@ -582,14 +748,48 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       ),
     );
   }
+  
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Text('Copied: $text'),
+          ],
+        ),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 }
 
 class _InfoItem {
+  final IconData icon;
   final String label;
   final String value;
-  final bool showCopy;
 
-  _InfoItem(this.label, this.value, {this.showCopy = false});
+  _InfoItem(this.icon, this.label, this.value);
 }
 
-
+extension GradientExtension on Gradient {
+  Gradient scale(double opacity) {
+    if (this is LinearGradient) {
+      final linear = this as LinearGradient;
+      return LinearGradient(
+        colors: linear.colors.map((c) => c.withValues(alpha: opacity)).toList(),
+        begin: linear.begin,
+        end: linear.end,
+      );
+    }
+    return this;
+  }
+}

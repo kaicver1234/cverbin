@@ -543,7 +543,7 @@ class V2RayService extends ChangeNotifier {
         final delay = await _flutterV2ray
             .getServerDelay(config: parser.getFullConfiguration())
             .timeout(
-              const Duration(seconds: 8),
+              const Duration(seconds: 7),
               onTimeout: () {
                 debugPrint('⚠️ Ping timeout for ${config.remark}');
                 return -1; // Return -1 instead of throwing
@@ -605,10 +605,11 @@ class V2RayService extends ChangeNotifier {
 
       debugPrint('🔍 V2Ray core ping: ${config.remark}...');
       
+      // استفاده از هسته V2Ray با timeout 7 ثانیه
       final delay = await _flutterV2ray
           .getServerDelay(config: parser.getFullConfiguration())
           .timeout(
-            const Duration(seconds: 5),
+            const Duration(seconds: 7),
             onTimeout: () {
               debugPrint('⚠️ V2Ray ping timeout for ${config.remark}');
               return -1;

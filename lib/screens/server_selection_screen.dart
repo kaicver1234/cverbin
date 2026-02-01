@@ -840,62 +840,60 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     final Map<String, int> results = {};
     
     try {
-      debugPrint('🚀 Starting parallel ping test for ${configs.length} servers...');
+      debugPrint('🚀 Starting fast V2Ray ping test for ${configs.length} servers...');
       
-      // Test all servers in parallel with batches to avoid overwhelming the system
-      const batchSize = 10; // Test 10 servers at a time
+      // پاک کردن cache قبلی
+      provider.v2rayService.clearPingCache();
       
-      for (int batchStart = 0; batchStart < configs.length; batchStart += batchSize) {
+      // تست سرورها به صورت موازی با batch های کوچک (3 تا 3 تا)
+      const batchSize = 3;
+      
+      for (int i = 0; i < configs.length; i += batchSize) {
         if (!mounted) return;
         
-        final batchEnd = (batchStart + batchSize).clamp(0, configs.length);
-        final batch = configs.sublist(batchStart, batchEnd);
+        final batchEnd = (i + batchSize).clamp(0, configs.length);
+        final batch = configs.sublist(i, batchEnd);
         
-        debugPrint('📦 Testing batch ${batchStart ~/ batchSize + 1}: servers ${batchStart + 1}-$batchEnd');
+        debugPrint('📦 Testing batch ${i ~/ batchSize + 1}: servers ${i + 1}-$batchEnd');
         
-        // Test all servers in this batch simultaneously
+        // تست همزمان سرورهای این batch
         final futures = batch.map((config) async {
           try {
-            final ping = await provider!.v2rayService.getServerDelay(config);
+            final ping = await provider!.v2rayService.getServerDelayDirect(config);
             final pingValue = ping ?? 99999;
             
             if (!mounted) return;
             
-            // Thread-safe update: use synchronized block
-            synchronized(() {
-              results[config.id] = pingValue;
-              
-              // Update UI in real-time
-              if (mounted) {
-                setState(() {
-                  _pingResults = Map.from(results);
-                });
-                
-                // Sort servers by ping in real-time
-                _sortServersByPing(provider!, results);
-              }
-            });
+            results[config.id] = pingValue;
             
-            debugPrint('✓ ${config.remark}: ${pingValue}ms (${results.length}/${configs.length})');
+            // به‌روزرسانی UI
+            if (mounted) {
+              setState(() {
+                _pingResults = Map.from(results);
+              });
+              _sortServersByPing(provider, results);
+            }
+            
+            debugPrint(pingValue < 99999 
+                ? '✓ ${config.remark}: ${pingValue}ms' 
+                : '✗ ${config.remark}: timeout');
           } catch (e) {
             if (!mounted) return;
             
-            synchronized(() {
-              results[config.id] = 99999;
-              if (mounted) {
-                setState(() => _pingResults = Map.from(results));
-                _sortServersByPing(provider!, results);
-              }
-            });
+            results[config.id] = 99999;
+            if (mounted) {
+              setState(() => _pingResults = Map.from(results));
+              _sortServersByPing(provider!, results);
+            }
             
-            debugPrint('✗ ${config.remark}: timeout (${results.length}/${configs.length})');
+            debugPrint('✗ ${config.remark}: error');
           }
         }).toList();
         
-        // Wait for all pings in this batch to complete
+        // منتظر تموم شدن این batch
         await Future.wait(futures);
         
-        // Small delay between batches to prevent overwhelming
+        // تاخیر کوچک بین batch ها (فقط 100ms)
         if (batchEnd < configs.length && mounted) {
           await Future.delayed(const Duration(milliseconds: 100));
         }
@@ -904,7 +902,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       if (!mounted) return;
 
       final successCount = results.values.where((ping) => ping < 99999).length;
-      debugPrint('✅ Ping test completed: $successCount/${configs.length} successful');
+      debugPrint('✅ Fast ping test completed: $successCount/${configs.length} successful');
       
       _showSnackBar(
         '${AppLocalizations.of(context).translate('server_selection.servers_updated')} ($successCount/${configs.length})',
