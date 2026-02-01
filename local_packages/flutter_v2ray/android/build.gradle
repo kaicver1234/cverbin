@@ -26,14 +26,16 @@ android {
         namespace 'com.github.blueboytm.flutter_v2ray'
     }
 
-    compileSdkVersion 34
+    compileSdk 34
+    
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
     }
 
     defaultConfig {
-        minSdkVersion 21
+        minSdk 21
     }
 
     dependencies {
@@ -61,6 +63,7 @@ android {
 dependencies {
     implementation(name: "libv2ray", ext: "aar")
     implementation 'androidx.appcompat:appcompat:1.6.1'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }
 
 rootProject.allprojects {
