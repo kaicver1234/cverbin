@@ -23,3 +23,5 @@ plugins {
 }
 
 include(":app")
+include(":flutter_v2ray")
+project(":flutter_v2ray").projectDir = file("../local_packages/flutter_v2ray/android")
