@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class PingResult {
@@ -67,9 +68,9 @@ class NativePingService {
       // Set up method call handler for continuous ping results
       _channel.setMethodCallHandler(_handleMethodCall);
       _isInitialized = true;
-      // NativePingService initialized successfully
+      debugPrint('NativePingService initialized successfully');
     } catch (e) {
-      // Error initializing NativePingService
+      debugPrint('Error initializing NativePingService: $e');
     }
   }
 
@@ -92,7 +93,7 @@ class NativePingService {
           controller.add(result);
         }
       } catch (e) {
-        // Error handling continuous ping result
+        debugPrint('Error handling continuous ping result: $e');
       }
     }
   }
@@ -265,7 +266,7 @@ class NativePingService {
 
       await _channel.invokeMethod('startContinuousPing', arguments);
     } catch (e) {
-      // Error starting continuous ping
+      debugPrint('Error starting continuous ping: $e');
 
       // If native ping fails, add error to stream
       final controller = _continuousPingControllers[pingId];
@@ -287,7 +288,7 @@ class NativePingService {
         _continuousPingControllers.remove(pingId);
       }
     } catch (e) {
-      // Error stopping continuous ping
+      debugPrint('Error stopping continuous ping: $e');
     }
   }
 
@@ -307,7 +308,7 @@ class NativePingService {
       final String? networkType = await _channel.invokeMethod('getNetworkType');
       return networkType ?? 'Unknown';
     } catch (e) {
-      // Error getting network type
+      debugPrint('Error getting network type: $e');
       return 'Unknown';
     }
   }
@@ -363,19 +364,7 @@ class NativePingService {
       _pingInProgress.clear();
       _isInitialized = false;
     } catch (e) {
-      // Error during cleanup
+      debugPrint('Error during cleanup: $e');
     }
-  }
-
-  /// Test connectivity to a list of common servers
-  static Future<Map<String, PingResult>> testConnectivity() async {
-    final testHosts = [
-      (host: 'google.com', port: 80),
-      (host: 'cloudflare.com', port: 80),
-      (host: '1.1.1.1', port: 53),
-      (host: '8.8.8.8', port: 53),
-    ];
-
-    return await pingMultipleHosts(hosts: testHosts, timeoutMs: 3000);
   }
 }

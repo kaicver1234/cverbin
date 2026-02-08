@@ -8,7 +8,7 @@ import '../models/subscription.dart';
 import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
 import '../services/analytics_service.dart';
-import '../services/ping_test_service.dart';
+import '../services/ping_service.dart';
 
 class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final V2RayService _v2rayService = V2RayService();
@@ -32,6 +32,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get wasUsingSmartConnect => _wasUsingSmartConnect;
   
   // Smart Connect: Find and connect to fastest server (tests first 15 servers)
+  // Uses native ping for accurate results
   Future<void> smartConnect() async {
     // Prevent multiple simultaneous calls
     if (_isConnecting) {
@@ -46,6 +47,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
     
     try {
+      // Initialize native ping service
+      await NativePingService.initialize();
+      
       // Get server configs
       var servers = serverConfigs;
       
@@ -64,36 +68,84 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         return;
       }
       
-      // Clear ping cache to get fresh results
-      _v2rayService.clearPingCache();
+      debugPrint('⚡ Smart Connect: Testing first 15 servers using native ping...');
+      debugPrint('⚡ Total servers available: ${servers.length}');
       
-      debugPrint('⚡ Smart Connect: Testing first 15 servers using v2rayNG method...');
-      
-      // Test first 15 servers using professional PingTestService (v2rayNG style)
+      // Test first 15 servers using native ping
       final serversToTest = servers.take(15).toList();
       
-      // Create ping test service instance
-      final pingTestService = PingTestService(_v2rayService);
+      // Prepare hosts for native ping (extract host and port from each config)
+      final hostsToTest = <({String host, int port})>[];
+      final serverMap = <String, V2RayConfig>{};
       
-      // Start ping test (v2rayNG style: all servers at once, CPU * 4 threads)
-      final pingResults = await pingTestService.testServers(serversToTest);
+      for (final server in serversToTest) {
+        try {
+          // Extract host and port from server config
+          final host = _extractHost(server);
+          final port = _extractPort(server);
+          
+          if (host != null && port != null && host.isNotEmpty) {
+            final key = '$host:$port';
+            hostsToTest.add((host: host, port: port));
+            serverMap[key] = server;
+            debugPrint('   📍 ${server.remark} -> $host:$port');
+          } else {
+            debugPrint('   ⚠️ Invalid host/port for ${server.remark}');
+          }
+        } catch (e) {
+          debugPrint('   ⚠️ Failed to extract host/port from ${server.remark}: $e');
+        }
+      }
       
-      // Cleanup
-      pingTestService.dispose();
+      if (hostsToTest.isEmpty) {
+        debugPrint('❌ No valid hosts to test, using first server as fallback');
+        _selectedConfig = servers.first;
+        notifyListeners();
+        _isConnecting = false;
+        await connectToServer(servers.first);
+        return;
+      }
       
-      debugPrint('⚡ Smart Connect: Got ${pingResults.length}/15 responses');
+      debugPrint('⚡ Smart Connect: Testing ${hostsToTest.length} valid servers...');
+      
+      // Use native ping service with timeout
+      final pingResults = await NativePingService.pingMultipleHosts(
+        hosts: hostsToTest,
+        timeoutMs: 5000,
+        useIcmp: true,
+        useTcp: true,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('⚠️ Ping timeout after 30 seconds');
+          return <String, PingResult>{};
+        },
+      );
+      
+      debugPrint('⚡ Smart Connect: Got ${pingResults.length}/${hostsToTest.length} responses');
       
       // Find fastest server from results
       V2RayConfig? fastestServer;
       int lowestPing = 999999;
+      int successfulPings = 0;
       
-      for (final server in serversToTest) {
-        final ping = pingResults[server.id];
-        if (ping != null && ping > 0 && ping < 10000 && ping < lowestPing) {
-          lowestPing = ping;
-          fastestServer = server;
+      pingResults.forEach((key, result) {
+        if (result.success && result.latency > 0 && result.latency < 10000) {
+          successfulPings++;
+          if (result.latency < lowestPing) {
+            final server = serverMap[key];
+            if (server != null) {
+              lowestPing = result.latency;
+              fastestServer = server;
+              debugPrint('   ✅ $key: ${result.latency}ms (${result.method})');
+            }
+          }
+        } else if (!result.success) {
+          debugPrint('   ❌ $key: Failed - ${result.error}');
         }
-      }
+      });
+      
+      debugPrint('⚡ Smart Connect: $successfulPings/${hostsToTest.length} servers responded');
       
       // Use fastest server or fallback to first
       final serverToConnect = fastestServer ?? servers.first;
@@ -102,7 +154,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         debugPrint('⚡ Smart Connect: Fastest server found!');
         debugPrint('   🏆 ${serverToConnect.remark} - ${lowestPing}ms');
       } else {
-        debugPrint('⚡ Smart Connect: No ping responses, using first server: ${serverToConnect.remark}');
+        debugPrint('⚡ Smart Connect: No successful pings, using first server: ${serverToConnect.remark}');
       }
       
       _selectedConfig = serverToConnect;
@@ -118,13 +170,77 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     } catch (e, stackTrace) {
       debugPrint('❌ Smart Connect error: $e');
       debugPrint('❌ Stack trace: $stackTrace');
-      _setError('Connection failed: $e');
+      
+      // Fallback: try to connect to first server
+      try {
+        final servers = serverConfigs;
+        if (servers.isNotEmpty) {
+          debugPrint('⚠️ Fallback: Connecting to first server');
+          _selectedConfig = servers.first;
+          _isConnecting = false;
+          await connectToServer(servers.first);
+        } else {
+          _setError('Connection failed: $e');
+        }
+      } catch (fallbackError) {
+        debugPrint('❌ Fallback connection also failed: $fallbackError');
+        _setError('Connection failed: $e');
+      }
     } finally {
       // Always ensure _isConnecting is reset
       if (_isConnecting) {
         _isConnecting = false;
         notifyListeners();
       }
+    }
+  }
+  
+  /// Extract host from V2Ray config
+  String? _extractHost(V2RayConfig config) {
+    try {
+      // Try to get from address field
+      if (config.address.isNotEmpty) {
+        return config.address;
+      }
+      
+      // Try to parse from full config
+      if (config.fullConfig.isNotEmpty) {
+        // Try to extract from JSON-like structure
+        final addressMatch = RegExp(r'"address"\s*:\s*"([^"]+)"').firstMatch(config.fullConfig);
+        if (addressMatch != null) {
+          return addressMatch.group(1);
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('Error extracting host: $e');
+      return null;
+    }
+  }
+  
+  /// Extract port from V2Ray config
+  int? _extractPort(V2RayConfig config) {
+    try {
+      // Try to get from port field
+      if (config.port > 0) {
+        return config.port;
+      }
+      
+      // Try to parse from full config
+      if (config.fullConfig.isNotEmpty) {
+        // Try to extract from JSON-like structure
+        final portMatch = RegExp(r'"port"\s*:\s*(\d+)').firstMatch(config.fullConfig);
+        if (portMatch != null) {
+          return int.tryParse(portMatch.group(1)!);
+        }
+      }
+      
+      // Default to 443 for HTTPS
+      return 443;
+    } catch (e) {
+      debugPrint('Error extracting port: $e');
+      return 443;
     }
   }
   

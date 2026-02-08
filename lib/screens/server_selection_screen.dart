@@ -6,7 +6,7 @@ import '../providers/language_provider.dart';
 import '../models/v2ray_config.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/cyber_glow_background.dart';
-import '../services/ping_test_service.dart';
+import '../services/ping_service.dart';
 
 class ServerSelectionScreen extends StatefulWidget {
   const ServerSelectionScreen({super.key});
@@ -25,9 +25,10 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   late PageController _pageController;
   int _currentTab = 0; // 0 = Free, 1 = Premium
   
-  // Professional ping test service (v2rayNG style)
-  PingTestService? _pingTestService;
+  // Native ping service (faster and more accurate)
   String _testStatusText = '';
+  int _testedCount = 0;
+  int _totalCount = 0;
 
   @override
   void initState() {
@@ -38,28 +39,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     );
     _pageController = PageController(initialPage: 0);
     
-    // Initialize ping test service (v2rayNG style)
-    final provider = Provider.of<V2RayProvider>(context, listen: false);
-    _pingTestService = PingTestService(provider.v2rayService);
-    
-    // Listen to ping test progress (v2rayNG format: "left / count")
-    _pingTestService!.progressStream.listen((progress) {
-      if (mounted) {
-        setState(() {
-          _testStatusText = progress; // progress is already a String
-        });
-      }
-    });
-    
-    // Listen to ping test results
-    _pingTestService!.resultStream.listen((result) {
-      if (mounted) {
-        setState(() {
-          _pingResults[result.configId] = result.delay;
-        });
-        _sortServersByPing(provider, _pingResults);
-      }
-    });
+    // Initialize native ping service
+    NativePingService.initialize();
     
     // Preload flags when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -95,7 +76,6 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   void dispose() {
     _refreshAnimController.dispose();
     _pageController.dispose();
-    _pingTestService?.dispose(); // Cleanup ping test service
     _sortedConfigs = null;
     _pingResults.clear();
     super.dispose();
@@ -860,21 +840,16 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     return clean.trim().isEmpty ? remark : clean.trim();
   }
 
-  /// Professional ping test using v2rayNG's approach
-  /// Features:
-  /// - CPU-based parallel processing
-  /// - Progressive UI updates
-  /// - Cancellable operations
-  /// - Proper error handling
+  /// Native ping test - Fast and accurate
+  /// Uses ICMP + TCP + System ping for best results
   Future<void> _testAllServerPings() async {
     if (_isTesting || !mounted) return;
-    
-    // Cancel any ongoing test
-    _pingTestService?.cancel();
     
     setState(() {
       _isTesting = true;
       _pingResults.clear();
+      _testedCount = 0;
+      _totalCount = 0;
       _testStatusText = 'Initializing...';
     });
 
@@ -903,26 +878,99 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     }
 
     try {
-      debugPrint('🚀 Starting professional ping test (v2rayNG method)');
+      debugPrint('🚀 Starting native ping test for ${configs.length} servers');
       
-      // Clear previous cache
-      provider.v2rayService.clearPingCache();
+      setState(() {
+        _totalCount = configs.length;
+        _testStatusText = '0 / $_totalCount';
+      });
       
-      // Start ping test using professional service
-      final results = await _pingTestService!.testServers(configs);
+      // Prepare hosts for native ping
+      final hostsToTest = <({String host, int port})>[];
+      final serverMap = <String, V2RayConfig>{};
+      
+      for (final config in configs) {
+        try {
+          final host = _extractHost(config);
+          final port = _extractPort(config);
+          
+          if (host != null && port != null && host.isNotEmpty) {
+            final key = '$host:$port';
+            hostsToTest.add((host: host, port: port));
+            serverMap[key] = config;
+          }
+        } catch (e) {
+          debugPrint('⚠️ Failed to extract host/port from ${config.remark}: $e');
+        }
+      }
+      
+      if (hostsToTest.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isTesting = false;
+            _testStatusText = '';
+          });
+          _showSnackBar('No valid servers to test', Colors.orange);
+        }
+        return;
+      }
+      
+      debugPrint('📍 Testing ${hostsToTest.length} valid servers...');
+      
+      // Use native ping service
+      final pingResults = await NativePingService.pingMultipleHosts(
+        hosts: hostsToTest,
+        timeoutMs: 5000,
+        useIcmp: true,
+        useTcp: true,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('⚠️ Ping timeout after 30 seconds');
+          return <String, PingResult>{};
+        },
+      );
       
       if (!mounted) return;
       
-      // Update final results
+      // Process results
+      final results = <String, int>{};
+      int successCount = 0;
+      
+      pingResults.forEach((key, result) {
+        final server = serverMap[key];
+        if (server != null) {
+          if (result.success && result.latency > 0 && result.latency < 10000) {
+            results[server.id] = result.latency;
+            successCount++;
+            debugPrint('   ✅ ${server.remark}: ${result.latency}ms (${result.method})');
+          } else {
+            results[server.id] = 99999; // Timeout
+            debugPrint('   ❌ ${server.remark}: Failed - ${result.error}');
+          }
+        }
+      });
+      
+      // Mark untested servers as timeout
+      for (final config in configs) {
+        if (!results.containsKey(config.id)) {
+          results[config.id] = 99999;
+        }
+      }
+      
+      if (!mounted) return;
+      
+      // Update results
       setState(() {
         _pingResults = results;
+        _testedCount = configs.length;
+        _testStatusText = '$_testedCount / $_totalCount';
       });
       
       // Sort servers by ping
       _sortServersByPing(provider, results);
       
       // Show completion message
-      final successCount = results.values.where((ping) => ping < 99999).length;
       _showSnackBar(
         '${AppLocalizations.of(context).translate('server_selection.servers_updated')} ($successCount/${configs.length})',
         const Color(0xFF10B981),
@@ -945,12 +993,45 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       }
     }
   }
-
-  // Helper method for thread-safe operations
-  void synchronized(Function() action) {
-    // In Dart, single-threaded event loop ensures this is safe
-    // But we wrap it for clarity and future-proofing
-    action();
+  
+  /// Extract host from V2Ray config
+  String? _extractHost(V2RayConfig config) {
+    try {
+      if (config.address.isNotEmpty) {
+        return config.address;
+      }
+      
+      if (config.fullConfig.isNotEmpty) {
+        final addressMatch = RegExp(r'"address"\s*:\s*"([^"]+)"').firstMatch(config.fullConfig);
+        if (addressMatch != null) {
+          return addressMatch.group(1);
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  /// Extract port from V2Ray config
+  int? _extractPort(V2RayConfig config) {
+    try {
+      if (config.port > 0) {
+        return config.port;
+      }
+      
+      if (config.fullConfig.isNotEmpty) {
+        final portMatch = RegExp(r'"port"\s*:\s*(\d+)').firstMatch(config.fullConfig);
+        if (portMatch != null) {
+          return int.tryParse(portMatch.group(1)!);
+        }
+      }
+      
+      return 443;
+    } catch (e) {
+      return 443;
+    }
   }
 
   void _showDisconnectFirstDialog(BuildContext context) {

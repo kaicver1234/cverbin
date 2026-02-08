@@ -1041,7 +1041,18 @@ class V2RayService extends ChangeNotifier {
   /// Test connectivity using native ping service
   Future<Map<String, PingResult>> testConnectivity() async {
     try {
-      return await NativePingService.testConnectivity();
+      // Test common servers
+      final testHosts = [
+        (host: 'google.com', port: 80),
+        (host: 'cloudflare.com', port: 80),
+        (host: '1.1.1.1', port: 53),
+        (host: '8.8.8.8', port: 53),
+      ];
+      
+      return await NativePingService.pingMultipleHosts(
+        hosts: testHosts,
+        timeoutMs: 3000,
+      );
     } catch (e) {
       // Error testing connectivity
       return {};
