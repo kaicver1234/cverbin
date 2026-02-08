@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/language_provider.dart';
 import 'providers/v2ray_provider.dart';
 import 'providers/speed_test_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/privacy_welcome_screen.dart';
 import 'screens/language_selection_screen.dart';
@@ -109,6 +110,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: languageProvider),
         ChangeNotifierProvider(create: (_) => V2RayProvider()),
         ChangeNotifierProvider(create: (_) => SpeedTestProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, langProvider, child) {

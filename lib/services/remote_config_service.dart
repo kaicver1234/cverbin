@@ -44,8 +44,8 @@ class RemoteConfigService {
     // Social links
     'telegram_id': '@tiksar_vpn',
     'telegram_url': 'https://t.me/tiksar_vpn',
-    'instagram_id': '@aboljahany',
-    'instagram_url': 'https://instagram.com/aboljahany',
+    'instagram_id': '@aboljahani',
+    'instagram_url': 'https://instagram.com/aboljahani',
     'tiksar_page_id': '@tiksaar_leyl_gilan',
     'tiksar_page_url': 'https://instagram.com/tiksaar_leyl_gilan',
   };
@@ -139,15 +139,15 @@ class RemoteConfigService {
   }
 
   String get instagramId {
-    if (!_isSupported || _remoteConfig == null) return '@aboljahany';
+    if (!_isSupported || _remoteConfig == null) return '@aboljahani';
     final id = _remoteConfig!.getString('instagram_id');
-    return id.isNotEmpty ? id : '@aboljahany';
+    return id.isNotEmpty ? id : '@aboljahani';
   }
 
   String get instagramUrl {
-    if (!_isSupported || _remoteConfig == null) return 'https://instagram.com/aboljahany';
+    if (!_isSupported || _remoteConfig == null) return 'https://instagram.com/aboljahani';
     final url = _remoteConfig!.getString('instagram_url');
-    return url.isNotEmpty ? url : 'https://instagram.com/aboljahany';
+    return url.isNotEmpty ? url : 'https://instagram.com/aboljahani';
   }
 
   String get tiksarPageId {

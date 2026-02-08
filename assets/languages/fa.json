@@ -96,9 +96,14 @@
         "developed_with": "ساخته شده با",
         "developer": "توسط ابوالفضل جهانی",
         "connect_with_me": "در ارتباط باشید",
+        "connect_with_us": "با ما در ارتباط باشید",
         "tiksar_village_page": "پیج رسمی روستای تیکسر",
         "telegram": "تلگرام",
-        "instagram": "اینستاگرام"
+        "instagram": "اینستاگرام",
+        "secure": "امن",
+        "fast": "سریع",
+        "global": "جهانی",
+        "private": "خصوصی"
     },
     "common": {
         "ok": "تأیید",
@@ -159,5 +164,14 @@
         "test_completed": "تست تکمیل شد",
         "connection_failed": "اتصال برقرار نشد. اینترنت را بررسی کنید.",
         "test_failed": "تست سرعت ناموفق بود. دوباره تلاش کنید."
+    },
+    "theme": {
+        "title": "تم",
+        "subtitle": "تم مورد علاقه خود را انتخاب کنید",
+        "dark_green": "سبز تیره",
+        "light_mode": "حالت روشن",
+        "dark_blue": "آبی تیره",
+        "dark_purple": "بنفش تیره",
+        "dark_red": "قرمز تیره"
     }
 }

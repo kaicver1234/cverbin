@@ -137,9 +137,18 @@ public class V2rayController {
         return AppConfigs.V2RAY_STATE;
     }
 
+    public static String getConnectionState(Context context) {
+        AppConfigs.V2RAY_STATES state = AppConfigs.V2RAY_STATE;
+        if (state == AppConfigs.V2RAY_STATES.V2RAY_CONNECTED) {
+            return "V2RAY_CONNECTED";
+        } else if (state == AppConfigs.V2RAY_STATES.V2RAY_CONNECTING) {
+            return "V2RAY_CONNECTING";
+        } else {
+            return "V2RAY_DISCONNECTED";
+        }
+    }
+
     public static String getCoreVersion() {
         return Libv2ray.checkVersionX();
     }
-
-
 }

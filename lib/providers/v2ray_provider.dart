@@ -31,7 +31,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get wasUsingSmartConnect => _wasUsingSmartConnect;
   
   // Smart Connect: Find and connect to fastest server (tests first 15 servers)
-  // Uses V2Ray core delay for accurate results (like ProxyCloud)
+  // Uses V2Ray core delay for accurate results
   Future<void> smartConnect() async {
     // Prevent multiple simultaneous calls
     if (_isConnecting) {
@@ -39,7 +39,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       return;
     }
     
-    debugPrint('⚡ Smart Connect: Starting...');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('⚡ SMART CONNECT: Starting...');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     _errorMessage = '';
     _wasUsingSmartConnect = true;
     _isConnecting = true;
@@ -64,21 +66,23 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         return;
       }
       
-      debugPrint('⚡ Smart Connect: Testing first 15 servers using V2Ray core delay...');
-      debugPrint('⚡ Total servers available: ${servers.length}');
+      debugPrint('📋 Total servers available: ${servers.length}');
+      debugPrint('🎯 Testing first 15 servers using V2Ray core delay...');
       
       // Test first 15 servers using V2Ray core delay
       final serversToTest = servers.take(15).toList();
+      debugPrint('📦 Servers to test: ${serversToTest.length}');
       
-      // Test servers in parallel (batch of 5 at a time for better performance)
+      // Test servers in batches (10 at a time)
       final results = <String, int>{};
-      final batchSize = 5;
+      final batchSize = 10;
       
       for (int i = 0; i < serversToTest.length; i += batchSize) {
         final end = (i + batchSize < serversToTest.length) ? i + batchSize : serversToTest.length;
         final batch = serversToTest.sublist(i, end);
         
-        debugPrint('📊 Testing batch ${i ~/ batchSize + 1}: servers $i to ${end - 1}');
+        debugPrint('');
+        debugPrint('📊 Testing batch ${i ~/ batchSize + 1}: servers ${i + 1} to $end');
         
         // Test batch in parallel
         final batchResults = await Future.wait(
@@ -86,11 +90,21 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             try {
               final delay = await _v2rayService.getServerDelay(config).timeout(
                 const Duration(seconds: 8),
-                onTimeout: () => -1,
+                onTimeout: () {
+                  debugPrint('   ⏱️ ${config.remark}: Timeout');
+                  return -1;
+                },
               );
+              
+              if (delay != null && delay >= 0 && delay < 10000) {
+                debugPrint('   ✅ ${config.remark}: ${delay}ms');
+              } else {
+                debugPrint('   ❌ ${config.remark}: Failed');
+              }
+              
               return MapEntry(config.id, delay ?? -1);
             } catch (e) {
-              debugPrint('Error testing ${config.remark}: $e');
+              debugPrint('   ❌ ${config.remark}: Error - $e');
               return MapEntry(config.id, -1);
             }
           }),
@@ -100,9 +114,16 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         for (final entry in batchResults) {
           results[entry.key] = entry.value;
         }
+        
+        // Small delay between batches
+        if (end < serversToTest.length) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
       }
       
-      debugPrint('⚡ Smart Connect: Got ${results.length}/15 responses');
+      debugPrint('');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📊 RESULTS: Got ${results.length}/${serversToTest.length} responses');
       
       // Find fastest server from results
       V2RayConfig? fastestServer;
@@ -116,24 +137,27 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           if (delay < lowestPing) {
             lowestPing = delay;
             fastestServer = server;
-            debugPrint('   ✅ ${server.remark}: ${delay}ms');
           }
-        } else {
-          debugPrint('   ❌ ${server.remark}: Failed');
         }
       }
       
-      debugPrint('⚡ Smart Connect: $successfulPings/${serversToTest.length} servers responded');
+      debugPrint('✅ Successful pings: $successfulPings/${serversToTest.length}');
       
       // Use fastest server or fallback to first
       final serverToConnect = fastestServer ?? servers.first;
       
       if (fastestServer != null) {
-        debugPrint('⚡ Smart Connect: Fastest server found!');
-        debugPrint('   🏆 ${serverToConnect.remark} - ${lowestPing}ms');
+        debugPrint('');
+        debugPrint('🏆 FASTEST SERVER FOUND:');
+        debugPrint('   Server: ${serverToConnect.remark}');
+        debugPrint('   Ping: ${lowestPing}ms');
       } else {
-        debugPrint('⚡ Smart Connect: No successful pings, using first server: ${serverToConnect.remark}');
+        debugPrint('');
+        debugPrint('⚠️ No successful pings, using first server:');
+        debugPrint('   Server: ${serverToConnect.remark}');
       }
+      
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       _selectedConfig = serverToConnect;
       notifyListeners();
@@ -143,11 +167,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       _isConnecting = false;
       
       // Connect to the selected server
+      debugPrint('🔌 Connecting to selected server...');
       await connectToServer(serverToConnect);
       
     } catch (e, stackTrace) {
-      debugPrint('❌ Smart Connect error: $e');
+      debugPrint('');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('❌ SMART CONNECT ERROR: $e');
       debugPrint('❌ Stack trace: $stackTrace');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       // Fallback: try to connect to first server
       try {

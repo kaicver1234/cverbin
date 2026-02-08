@@ -42,42 +42,57 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, SpeedTestState state) {
     final tr = AppLocalizations.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: EdgeInsets.fromLTRB(
+        isSmallScreen ? 16 : 20,
+        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 16 : 20,
+        0,
+      ),
       child: Row(
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              padding: const EdgeInsets.all(10),
+              padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+                size: isSmallScreen ? 18 : 20,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: isSmallScreen ? 12 : 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   tr.translate('speed_test.title_ready'),
-                  style: const TextStyle(
-                    fontSize: 22,
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 18 : 22,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   _getStatusText(state, tr),
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: isSmallScreen ? 11 : 13,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -98,18 +113,21 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, SpeedTestProvider provider) {
     final state = provider.state;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenWidth < 360 || screenHeight < 700;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 24),
       child: Column(
         children: [
-          const SizedBox(height: 30),
+          SizedBox(height: isSmallScreen ? 20 : 30),
           Expanded(
             child: _buildSpeedTestContent(context, provider, state),
           ),
           if (state.testCompleted && state.step == SpeedTestStep.ready)
             _buildResultsCard(context, state),
-          const SizedBox(height: 20),
+          SizedBox(height: isSmallScreen ? 16 : 20),
         ],
       ),
     );
@@ -133,10 +151,13 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildReadyState(BuildContext context, SpeedTestProvider provider,
       SpeedTestState state, AppLocalizations tr) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        const SizedBox(height: 30),
+        SizedBox(height: isSmallScreen ? 20 : 30),
         SpeedTestProgressIndicator(
           progress: 0.0,
           color: _downloadColor,
@@ -158,11 +179,11 @@ class SpeedTestScreen extends StatelessWidget {
                         tr.translate('speed_test.tap_here'),
                         style: TextStyle(
                           color: const Color(0xFFABABAB),
-                          fontSize: 12,
+                          fontSize: isSmallScreen ? 11 : 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: isSmallScreen ? 6 : 8),
                       SpeedTestStartButton(
                         currentStep: SpeedTestStep.ready,
                         isEnabled: true,
@@ -173,7 +194,7 @@ class SpeedTestScreen extends StatelessWidget {
                 ),
         ),
         if (state.hadError) ...[
-          const SizedBox(height: 20),
+          SizedBox(height: isSmallScreen ? 16 : 20),
           _buildErrorMessage(context, state, tr),
         ],
       ],
@@ -182,10 +203,13 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildLoadingState(
       BuildContext context, SpeedTestProvider provider, SpeedTestState state) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        const SizedBox(height: 30),
+        SizedBox(height: isSmallScreen ? 20 : 30),
         GestureDetector(
           onTap: () => provider.stopTest(),
           child: SpeedTestProgressIndicator(
@@ -203,6 +227,9 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildDownloadState(
       BuildContext context, SpeedTestProvider provider, SpeedTestState state) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    
     // Use result.downloadSpeed for display (more accurate), currentSpeed for progress animation
     final displaySpeed = state.result.downloadSpeed > 0 ? state.result.downloadSpeed : state.currentSpeed;
     final speedProgress = (displaySpeed / 100).clamp(0.0, 1.0);
@@ -211,7 +238,7 @@ class SpeedTestScreen extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        const SizedBox(height: 30),
+        SizedBox(height: isSmallScreen ? 20 : 30),
         GestureDetector(
           onTap: () => provider.stopTest(),
           child: SpeedTestProgressIndicator(
@@ -231,6 +258,9 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildUploadState(
       BuildContext context, SpeedTestProvider provider, SpeedTestState state) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    
     // Use result.uploadSpeed for display (more accurate), currentSpeed for progress animation
     final displaySpeed = state.result.uploadSpeed > 0 ? state.result.uploadSpeed : state.currentSpeed;
     final speedProgress = (displaySpeed / 50).clamp(0.0, 1.0);
@@ -239,7 +269,7 @@ class SpeedTestScreen extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        const SizedBox(height: 30),
+        SizedBox(height: isSmallScreen ? 20 : 30),
         GestureDetector(
           onTap: () => provider.stopTest(),
           child: SpeedTestProgressIndicator(
@@ -289,9 +319,14 @@ class SpeedTestScreen extends StatelessWidget {
 
   Widget _buildResultsCard(BuildContext context, SpeedTestState state) {
     final tr = AppLocalizations.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      padding: EdgeInsets.symmetric(
+        vertical: isSmallScreen ? 16 : 20,
+        horizontal: isSmallScreen ? 12 : 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
@@ -305,33 +340,36 @@ class SpeedTestScreen extends StatelessWidget {
             value: state.result.downloadSpeed.toStringAsFixed(1),
             unit: tr.translate('speed_test.mbps'),
             color: _downloadColor,
+            isSmallScreen: isSmallScreen,
           ),
-          _buildDivider(),
+          _buildDivider(isSmallScreen),
           _ResultItem(
             icon: Icons.upload_rounded,
             label: tr.translate('speed_test.upload'),
             value: state.result.uploadSpeed.toStringAsFixed(1),
             unit: tr.translate('speed_test.mbps'),
             color: _uploadColor,
+            isSmallScreen: isSmallScreen,
           ),
-          _buildDivider(),
+          _buildDivider(isSmallScreen),
           _ResultItem(
             icon: Icons.network_ping,
             label: tr.translate('speed_test.ping'),
             value: state.result.ping.toString(),
             unit: tr.translate('speed_test.ms'),
             color: Colors.white,
+            isSmallScreen: isSmallScreen,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() {
+  Widget _buildDivider(bool isSmallScreen) {
     return Container(
       width: 1,
-      height: 50,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
+      height: isSmallScreen ? 40 : 50,
+      margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 6 : 8),
       color: Colors.white.withValues(alpha: 0.08),
     );
   }
@@ -343,6 +381,7 @@ class _ResultItem extends StatelessWidget {
   final String value;
   final String unit;
   final Color color;
+  final bool isSmallScreen;
 
   const _ResultItem({
     required this.icon,
@@ -350,6 +389,7 @@ class _ResultItem extends StatelessWidget {
     required this.value,
     required this.unit,
     required this.color,
+    this.isSmallScreen = false,
   });
 
   @override
@@ -357,30 +397,34 @@ class _ResultItem extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Icon(icon, color: color.withValues(alpha: 0.7), size: 20),
-          const SizedBox(height: 8),
+          Icon(icon, color: color.withValues(alpha: 0.7), size: isSmallScreen ? 18 : 20),
+          SizedBox(height: isSmallScreen ? 6 : 8),
           Text(
             label,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 10,
+              fontSize: isSmallScreen ? 9 : 10,
               fontWeight: FontWeight.w500,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: isSmallScreen ? 3 : 4),
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 24,
+              fontSize: isSmallScreen ? 20 : 24,
               fontWeight: FontWeight.w700,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           Text(
             unit,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 10,
+              fontSize: isSmallScreen ? 9 : 10,
             ),
           ),
         ],

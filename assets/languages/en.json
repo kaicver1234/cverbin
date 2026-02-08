@@ -96,9 +96,14 @@
         "developed_with": "Developed with",
         "developer": "by Abolfazl Jahani",
         "connect_with_me": "Connect With Me",
+        "connect_with_us": "Connect With Us",
         "tiksar_village_page": "Official Tiksar Village Page",
         "telegram": "Telegram",
-        "instagram": "Instagram"
+        "instagram": "Instagram",
+        "secure": "Secure",
+        "fast": "Fast",
+        "global": "Global",
+        "private": "Private"
     },
     "common": {
         "ok": "OK",
@@ -159,5 +164,14 @@
         "download_test": "Download test",
         "upload_test": "Upload test",
         "test_completed": "Test completed"
+    },
+    "theme": {
+        "title": "Theme",
+        "subtitle": "Choose your favorite theme",
+        "dark_green": "Dark Green",
+        "light_mode": "Light Mode",
+        "dark_blue": "Dark Blue",
+        "dark_purple": "Dark Purple",
+        "dark_red": "Dark Red"
     }
 }

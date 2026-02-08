@@ -86,4 +86,9 @@ class MethodChannelFlutterV2ray extends FlutterV2rayPlatform {
   Future<String> getCoreVersion() async {
     return await methodChannel.invokeMethod('getCoreVersion');
   }
+
+  @override
+  Future<String> getConnectionState() async {
+    return await methodChannel.invokeMethod('getConnectionState');
+  }
 }

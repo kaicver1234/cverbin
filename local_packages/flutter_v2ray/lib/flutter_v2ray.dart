@@ -126,6 +126,13 @@ class FlutterV2ray {
     return await FlutterV2rayPlatform.instance.getCoreVersion();
   }
 
+  /// Gets the current connection state of the V2Ray service.
+  /// Returns a [Future] that completes with a [String] representing the connection state.
+  /// Possible values: "V2RAY_CONNECTED", "V2RAY_DISCONNECTED", "V2RAY_CONNECTING"
+  Future<String> getConnectionState() async {
+    return await FlutterV2rayPlatform.instance.getConnectionState();
+  }
+
   /// parse V2RayURL object from V2Ray share link
   ///
   /// like vmess://, vless://, trojan://, ss://, socks://

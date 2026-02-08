@@ -13,6 +13,7 @@ import '../screens/server_selection_screen.dart';
 import '../screens/ip_info_screen.dart';
 import '../screens/speedtest_screen.dart';
 import '../screens/host_checker_screen.dart';
+import '../screens/theme_selection_screen.dart';
 import '../widgets/announcement_banner.dart';
 import '../services/remote_config_service.dart';
 
@@ -872,6 +873,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         'subtitle': AppLocalizations.of(context).translate('tools.host_checker_desc'),
         'screen': const HostCheckerScreen(),
       },
+      {
+        'icon': Icons.palette_outlined,
+        'label': AppLocalizations.of(context).translate('theme.title'),
+        'subtitle': AppLocalizations.of(context).translate('theme.subtitle'),
+        'screen': const ThemeSelectionScreen(),
+      },
     ];
 
     return ListView.builder(
@@ -947,115 +954,113 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildAboutTab(BuildContext context) {
+    final remoteConfig = RemoteConfigService();
+    final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
+    final description = remoteConfig.getAboutDescription(languageProvider.currentLanguage.code);
+    
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         children: [
           const SizedBox(height: 20),
-          // Logo
-          Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF10b981).withValues(alpha: 0.3),
-                  blurRadius: 25,
-                  spreadRadius: 2,
+          
+          // Logo with animated glow effect
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              TweenAnimationBuilder(
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: const Duration(seconds: 2),
+                builder: (context, value, child) {
+                  return Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10b981).withValues(alpha: 0.3 * value),
+                          blurRadius: 50,
+                          spreadRadius: 10,
+                        ),
+                        BoxShadow(
+                          color: const Color(0xFF06b6d4).withValues(alpha: 0.2 * value),
+                          blurRadius: 70,
+                          spreadRadius: 15,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF10b981).withValues(alpha: 0.3),
+                      const Color(0xFF06b6d4).withValues(alpha: 0.2),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: const Color(0xFF10b981).withValues(alpha: 0.3),
+                    width: 2,
+                  ),
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: Image.asset('assets/images/apk.png', fit: BoxFit.cover),
-            ),
+                child: ClipOval(
+                  child: Image.asset('assets/images/apk.png', fit: BoxFit.cover),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          // App Name
-          RichText(
-            text: TextSpan(
-              style: GoogleFonts.poppins(fontSize: 26, fontWeight: FontWeight.w700),
-              children: const [
-                TextSpan(text: 'Tiksar', style: TextStyle(color: Colors.white)),
-                TextSpan(text: 'VPN', style: TextStyle(color: Color(0xFFa78bfa))),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Version
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFF10b981).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF10b981).withValues(alpha: 0.3)),
-            ),
+          
+          const SizedBox(height: 28),
+          
+          // App Name with gradient animation
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFFa78bfa), Color(0xFF6366f1)],
+            ).createShader(bounds),
             child: Text(
-              'v1.1.3',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.7),
-                fontWeight: FontWeight.w500,
+              'TiksarVPN',
+              style: GoogleFonts.poppins(
+                fontSize: 38,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.5,
               ),
             ),
           ),
-          const SizedBox(height: 28),
-          // Description
-          Builder(
-            builder: (context) {
-              final remoteConfig = RemoteConfigService();
-              final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
-              final description = remoteConfig.getAboutDescription(languageProvider.currentLanguage.code);
-              
-              return Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                ),
-                child: Text(
-                  description,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13,
-                    height: 1.6,
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          // Developer
+          
+          const SizedBox(height: 12),
+          
+          // Version with icon
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFFf472b6).withValues(alpha: 0.1),
-                  const Color(0xFFa78bfa).withValues(alpha: 0.05),
+                  const Color(0xFF10b981).withValues(alpha: 0.2),
+                  const Color(0xFF06b6d4).withValues(alpha: 0.15),
                 ],
               ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFf472b6).withValues(alpha: 0.2)),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF10b981).withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  AppLocalizations.of(context).translate('about.developed_with'),
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
-                ),
-                const SizedBox(width: 6),
-                const _BeatingHeart(),
+                Icon(Icons.verified, color: const Color(0xFF10b981), size: 16),
                 const SizedBox(width: 6),
                 Text(
-                  AppLocalizations.of(context).translate('about.developer'),
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
+                  'Version 1.1.3',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1063,56 +1068,147 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          // Social Links (from Remote Config)
-          Builder(
-            builder: (context) {
-              final remoteConfig = RemoteConfigService();
-              return Column(
-                children: [
-                  _buildSocialLink(
-                    icon: Icons.send_rounded,
-                    title: AppLocalizations.of(context).translate('about.telegram'),
-                    subtitle: remoteConfig.telegramId,
-                    color: const Color(0xFF0088CC),
-                    url: remoteConfig.telegramUrl,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSocialLink(
-                    icon: Icons.camera_alt_rounded,
-                    title: AppLocalizations.of(context).translate('about.instagram'),
-                    subtitle: remoteConfig.instagramId,
-                    color: const Color(0xFFE1306C),
-                    url: remoteConfig.instagramUrl,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSocialLink(
-                    icon: Icons.photo_library_outlined,
-                    title: AppLocalizations.of(context).translate('about.tiksar_village_page'),
-                    subtitle: remoteConfig.tiksarPageId,
-                    color: const Color(0xFFC13584),
-                    url: remoteConfig.tiksarPageUrl,
-                  ),
+          
+          const SizedBox(height: 32),
+          
+          // Description with subtle background
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.06),
+                  Colors.white.withValues(alpha: 0.02),
                 ],
-              );
-            },
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Text(
+              description,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 15,
+                height: 1.8,
+              ),
+            ),
           ),
+          
           const SizedBox(height: 28),
-          // Copyright
-          Text(
-            AppLocalizations.of(context).translate('about.copyright'),
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
+          
+          // Developer with beating heart
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF6366f1).withValues(alpha: 0.15),
+                  const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF6366f1).withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  AppLocalizations.of(context).translate('about.developed_with'),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const _BeatingHeart(),
+                const SizedBox(width: 8),
+                Text(
+                  AppLocalizations.of(context).translate('about.developer'),
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
+          
+          const SizedBox(height: 36),
+          
+          // Social Links with hover effect
+          _buildAnimatedSocialLink(
+            icon: Icons.send_rounded,
+            title: remoteConfig.telegramId,
+            color: const Color(0xFF0088CC),
+            url: remoteConfig.telegramUrl,
+          ),
+          const SizedBox(height: 12),
+          _buildAnimatedSocialLink(
+            icon: Icons.camera_alt_rounded,
+            title: remoteConfig.instagramId,
+            color: const Color(0xFFE1306C),
+            url: remoteConfig.instagramUrl,
+          ),
+          const SizedBox(height: 12),
+          _buildAnimatedSocialLink(
+            icon: Icons.location_city_rounded,
+            title: remoteConfig.tiksarPageId,
+            color: const Color(0xFF833AB4),
+            url: remoteConfig.tiksarPageUrl,
+          ),
+          
+          const SizedBox(height: 36),
+          
+          // Features with gradient backgrounds
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildAnimatedFeature(Icons.security, const Color(0xFF10b981)),
+              _buildAnimatedFeature(Icons.flash_on, const Color(0xFFfbbf24)),
+              _buildAnimatedFeature(Icons.public, const Color(0xFF3b82f6)),
+              _buildAnimatedFeature(Icons.verified_user, const Color(0xFFa78bfa)),
+            ],
+          ),
+          
+          const SizedBox(height: 40),
+          
+          // Copyright with icon
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.copyright,
+                color: Colors.white.withValues(alpha: 0.4),
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                AppLocalizations.of(context).translate('about.copyright'),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          
           const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildSocialLink({
+  Widget _buildAnimatedSocialLink({
     required IconData icon,
     required String title,
-    required String subtitle,
     required Color color,
     required String url,
   }) {
@@ -1124,39 +1220,111 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         } catch (_) {}
       },
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.06),
+              Colors.white.withValues(alpha: 0.02),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-                  Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
+                gradient: LinearGradient(
+                  colors: [
+                    color,
+                    color.withValues(alpha: 0.7),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
+              child: Icon(icon, color: Colors.white, size: 24),
             ),
-            Icon(Icons.arrow_forward_ios, color: Colors.white.withValues(alpha: 0.3), size: 14),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white.withValues(alpha: 0.5),
+                size: 14,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildAnimatedFeature(IconData icon, Color color) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 800),
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: 0.8 + (0.2 * value),
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.2),
+                  color.withValues(alpha: 0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: color.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.2 * value),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: color, size: 30),
+          ),
+        );
+      },
+    );
+  }
+
+
 
   Widget _buildBottomNav() {
     return Container(
@@ -1255,7 +1423,7 @@ class _BeatingHeartState extends State<_BeatingHeart>
           scale: _animation.value,
           child: const Icon(
             Icons.favorite,
-            color: Color(0xFFf472b6),
+            color: Color(0xFFef4444),
             size: 16,
           ),
         );
