@@ -8,7 +8,6 @@ import '../models/subscription.dart';
 import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
 import '../services/analytics_service.dart';
-import '../services/ping_service.dart';
 
 class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final V2RayService _v2rayService = V2RayService();
@@ -32,7 +31,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get wasUsingSmartConnect => _wasUsingSmartConnect;
   
   // Smart Connect: Find and connect to fastest server (tests first 15 servers)
-  // Uses native ping for accurate results
+  // Uses V2Ray core delay for accurate results (like ProxyCloud)
   Future<void> smartConnect() async {
     // Prevent multiple simultaneous calls
     if (_isConnecting) {
@@ -47,9 +46,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
     
     try {
-      // Initialize native ping service
-      await NativePingService.initialize();
-      
       // Get server configs
       var servers = serverConfigs;
       
@@ -68,84 +64,66 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         return;
       }
       
-      debugPrint('⚡ Smart Connect: Testing first 15 servers using native ping...');
+      debugPrint('⚡ Smart Connect: Testing first 15 servers using V2Ray core delay...');
       debugPrint('⚡ Total servers available: ${servers.length}');
       
-      // Test first 15 servers using native ping
+      // Test first 15 servers using V2Ray core delay
       final serversToTest = servers.take(15).toList();
       
-      // Prepare hosts for native ping (extract host and port from each config)
-      final hostsToTest = <({String host, int port})>[];
-      final serverMap = <String, V2RayConfig>{};
+      // Test servers in parallel (batch of 5 at a time for better performance)
+      final results = <String, int>{};
+      final batchSize = 5;
       
-      for (final server in serversToTest) {
-        try {
-          // Extract host and port from server config
-          final host = _extractHost(server);
-          final port = _extractPort(server);
-          
-          if (host != null && port != null && host.isNotEmpty) {
-            final key = '$host:$port';
-            hostsToTest.add((host: host, port: port));
-            serverMap[key] = server;
-            debugPrint('   📍 ${server.remark} -> $host:$port');
-          } else {
-            debugPrint('   ⚠️ Invalid host/port for ${server.remark}');
-          }
-        } catch (e) {
-          debugPrint('   ⚠️ Failed to extract host/port from ${server.remark}: $e');
+      for (int i = 0; i < serversToTest.length; i += batchSize) {
+        final end = (i + batchSize < serversToTest.length) ? i + batchSize : serversToTest.length;
+        final batch = serversToTest.sublist(i, end);
+        
+        debugPrint('📊 Testing batch ${i ~/ batchSize + 1}: servers $i to ${end - 1}');
+        
+        // Test batch in parallel
+        final batchResults = await Future.wait(
+          batch.map((config) async {
+            try {
+              final delay = await _v2rayService.getServerDelay(config).timeout(
+                const Duration(seconds: 8),
+                onTimeout: () => -1,
+              );
+              return MapEntry(config.id, delay ?? -1);
+            } catch (e) {
+              debugPrint('Error testing ${config.remark}: $e');
+              return MapEntry(config.id, -1);
+            }
+          }),
+        );
+        
+        // Add results
+        for (final entry in batchResults) {
+          results[entry.key] = entry.value;
         }
       }
       
-      if (hostsToTest.isEmpty) {
-        debugPrint('❌ No valid hosts to test, using first server as fallback');
-        _selectedConfig = servers.first;
-        notifyListeners();
-        _isConnecting = false;
-        await connectToServer(servers.first);
-        return;
-      }
-      
-      debugPrint('⚡ Smart Connect: Testing ${hostsToTest.length} valid servers...');
-      
-      // Use native ping service with timeout
-      final pingResults = await NativePingService.pingMultipleHosts(
-        hosts: hostsToTest,
-        timeoutMs: 5000,
-        useIcmp: true,
-        useTcp: true,
-      ).timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          debugPrint('⚠️ Ping timeout after 30 seconds');
-          return <String, PingResult>{};
-        },
-      );
-      
-      debugPrint('⚡ Smart Connect: Got ${pingResults.length}/${hostsToTest.length} responses');
+      debugPrint('⚡ Smart Connect: Got ${results.length}/15 responses');
       
       // Find fastest server from results
       V2RayConfig? fastestServer;
       int lowestPing = 999999;
       int successfulPings = 0;
       
-      pingResults.forEach((key, result) {
-        if (result.success && result.latency > 0 && result.latency < 10000) {
+      for (final server in serversToTest) {
+        final delay = results[server.id];
+        if (delay != null && delay >= 0 && delay < 10000) {
           successfulPings++;
-          if (result.latency < lowestPing) {
-            final server = serverMap[key];
-            if (server != null) {
-              lowestPing = result.latency;
-              fastestServer = server;
-              debugPrint('   ✅ $key: ${result.latency}ms (${result.method})');
-            }
+          if (delay < lowestPing) {
+            lowestPing = delay;
+            fastestServer = server;
+            debugPrint('   ✅ ${server.remark}: ${delay}ms');
           }
-        } else if (!result.success) {
-          debugPrint('   ❌ $key: Failed - ${result.error}');
+        } else {
+          debugPrint('   ❌ ${server.remark}: Failed');
         }
-      });
+      }
       
-      debugPrint('⚡ Smart Connect: $successfulPings/${hostsToTest.length} servers responded');
+      debugPrint('⚡ Smart Connect: $successfulPings/${serversToTest.length} servers responded');
       
       // Use fastest server or fallback to first
       final serverToConnect = fastestServer ?? servers.first;
@@ -192,55 +170,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         _isConnecting = false;
         notifyListeners();
       }
-    }
-  }
-  
-  /// Extract host from V2Ray config
-  String? _extractHost(V2RayConfig config) {
-    try {
-      // Try to get from address field
-      if (config.address.isNotEmpty) {
-        return config.address;
-      }
-      
-      // Try to parse from full config
-      if (config.fullConfig.isNotEmpty) {
-        // Try to extract from JSON-like structure
-        final addressMatch = RegExp(r'"address"\s*:\s*"([^"]+)"').firstMatch(config.fullConfig);
-        if (addressMatch != null) {
-          return addressMatch.group(1);
-        }
-      }
-      
-      return null;
-    } catch (e) {
-      debugPrint('Error extracting host: $e');
-      return null;
-    }
-  }
-  
-  /// Extract port from V2Ray config
-  int? _extractPort(V2RayConfig config) {
-    try {
-      // Try to get from port field
-      if (config.port > 0) {
-        return config.port;
-      }
-      
-      // Try to parse from full config
-      if (config.fullConfig.isNotEmpty) {
-        // Try to extract from JSON-like structure
-        final portMatch = RegExp(r'"port"\s*:\s*(\d+)').firstMatch(config.fullConfig);
-        if (portMatch != null) {
-          return int.tryParse(portMatch.group(1)!);
-        }
-      }
-      
-      // Default to 443 for HTTPS
-      return 443;
-    } catch (e) {
-      debugPrint('Error extracting port: $e');
-      return 443;
     }
   }
   

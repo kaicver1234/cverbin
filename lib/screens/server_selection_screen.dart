@@ -6,7 +6,6 @@ import '../providers/language_provider.dart';
 import '../models/v2ray_config.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/cyber_glow_background.dart';
-import '../services/ping_service.dart';
 
 class ServerSelectionScreen extends StatefulWidget {
   const ServerSelectionScreen({super.key});
@@ -19,13 +18,13 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     with TickerProviderStateMixin {
   bool _isTesting = false;
   bool _isRefreshing = false;
-  Map<String, int> _pingResults = {};
+  final Map<String, int> _pingResults = {};
   List<V2RayConfig>? _sortedConfigs;
   late AnimationController _refreshAnimController;
   late PageController _pageController;
   int _currentTab = 0; // 0 = Free, 1 = Premium
   
-  // Native ping service (faster and more accurate)
+  // V2Ray core delay test (like ProxyCloud)
   String _testStatusText = '';
   int _testedCount = 0;
   int _totalCount = 0;
@@ -38,9 +37,6 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       duration: const Duration(milliseconds: 1000),
     );
     _pageController = PageController(initialPage: 0);
-    
-    // Initialize native ping service
-    NativePingService.initialize();
     
     // Preload flags when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -840,8 +836,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     return clean.trim().isEmpty ? remark : clean.trim();
   }
 
-  /// Native ping test - Fast and accurate
-  /// Uses ICMP + TCP + System ping for best results
+  /// Test all servers using V2Ray core delay (like ProxyCloud)
+  /// This is more accurate for V2Ray servers
   Future<void> _testAllServerPings() async {
     if (_isTesting || !mounted) return;
     
@@ -853,7 +849,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       _testStatusText = 'Initializing...';
     });
 
-    V2RayProvider? provider;
+    final V2RayProvider provider;
     try {
       provider = Provider.of<V2RayProvider>(context, listen: false);
     } catch (e) {
@@ -878,97 +874,63 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     }
 
     try {
-      debugPrint('🚀 Starting native ping test for ${configs.length} servers');
+      debugPrint('🚀 Starting V2Ray core delay test for ${configs.length} servers');
       
       setState(() {
         _totalCount = configs.length;
         _testStatusText = '0 / $_totalCount';
       });
       
-      // Prepare hosts for native ping
-      final hostsToTest = <({String host, int port})>[];
-      final serverMap = <String, V2RayConfig>{};
-      
-      for (final config in configs) {
-        try {
-          final host = _extractHost(config);
-          final port = _extractPort(config);
-          
-          if (host != null && port != null && host.isNotEmpty) {
-            final key = '$host:$port';
-            hostsToTest.add((host: host, port: port));
-            serverMap[key] = config;
-          }
-        } catch (e) {
-          debugPrint('⚠️ Failed to extract host/port from ${config.remark}: $e');
-        }
-      }
-      
-      if (hostsToTest.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isTesting = false;
-            _testStatusText = '';
-          });
-          _showSnackBar('No valid servers to test', Colors.orange);
-        }
-        return;
-      }
-      
-      debugPrint('📍 Testing ${hostsToTest.length} valid servers...');
-      
-      // Use native ping service
-      final pingResults = await NativePingService.pingMultipleHosts(
-        hosts: hostsToTest,
-        timeoutMs: 5000,
-        useIcmp: true,
-        useTcp: true,
-      ).timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          debugPrint('⚠️ Ping timeout after 30 seconds');
-          return <String, PingResult>{};
-        },
-      );
-      
-      if (!mounted) return;
-      
-      // Process results
-      final results = <String, int>{};
+      // Test servers in batches (like ProxyCloud)
+      final int batchSize = 10; // Test 10 servers at a time
       int successCount = 0;
       
-      pingResults.forEach((key, result) {
-        final server = serverMap[key];
-        if (server != null) {
-          if (result.success && result.latency > 0 && result.latency < 10000) {
-            results[server.id] = result.latency;
+      for (int i = 0; i < configs.length; i += batchSize) {
+        if (!mounted || !_isTesting) break;
+        
+        final end = (i + batchSize < configs.length) ? i + batchSize : configs.length;
+        final batch = configs.sublist(i, end);
+        
+        debugPrint('📊 Testing batch ${i ~/ batchSize + 1}: servers $i to ${end - 1}');
+        
+        // Test batch in parallel
+        final batchResults = await Future.wait(
+          batch.map((config) => _testSingleServer(config, provider)),
+        );
+        
+        // Update results
+        for (int j = 0; j < batch.length; j++) {
+          final config = batch[j];
+          final delay = batchResults[j];
+          
+          if (delay >= 0 && delay < 10000) {
+            _pingResults[config.id] = delay;
             successCount++;
-            debugPrint('   ✅ ${server.remark}: ${result.latency}ms (${result.method})');
+            debugPrint('   ✅ ${config.remark}: ${delay}ms');
           } else {
-            results[server.id] = 99999; // Timeout
-            debugPrint('   ❌ ${server.remark}: Failed - ${result.error}');
+            _pingResults[config.id] = 99999; // Timeout
+            debugPrint('   ❌ ${config.remark}: Timeout');
           }
         }
-      });
-      
-      // Mark untested servers as timeout
-      for (final config in configs) {
-        if (!results.containsKey(config.id)) {
-          results[config.id] = 99999;
+        
+        // Update progress
+        if (mounted) {
+          setState(() {
+            _testedCount = end;
+            _testStatusText = '$_testedCount / $_totalCount';
+          });
+        }
+        
+        // Small delay between batches
+        if (end < configs.length) {
+          await Future.delayed(const Duration(milliseconds: 500));
         }
       }
       
       if (!mounted) return;
       
-      // Update results
-      setState(() {
-        _pingResults = results;
-        _testedCount = configs.length;
-        _testStatusText = '$_testedCount / $_totalCount';
-      });
-      
       // Sort servers by ping
-      _sortServersByPing(provider, results);
+      _sortServersByPing(provider, _pingResults);
       
       // Show completion message
       _showSnackBar(
@@ -994,43 +956,21 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     }
   }
   
-  /// Extract host from V2Ray config
-  String? _extractHost(V2RayConfig config) {
+  /// Test single server using V2Ray core delay
+  Future<int> _testSingleServer(V2RayConfig config, V2RayProvider provider) async {
     try {
-      if (config.address.isNotEmpty) {
-        return config.address;
-      }
+      final delay = await provider.v2rayService.getServerDelay(config).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
+          debugPrint('Timeout for ${config.remark}');
+          return -1;
+        },
+      );
       
-      if (config.fullConfig.isNotEmpty) {
-        final addressMatch = RegExp(r'"address"\s*:\s*"([^"]+)"').firstMatch(config.fullConfig);
-        if (addressMatch != null) {
-          return addressMatch.group(1);
-        }
-      }
-      
-      return null;
+      return delay ?? -1;
     } catch (e) {
-      return null;
-    }
-  }
-  
-  /// Extract port from V2Ray config
-  int? _extractPort(V2RayConfig config) {
-    try {
-      if (config.port > 0) {
-        return config.port;
-      }
-      
-      if (config.fullConfig.isNotEmpty) {
-        final portMatch = RegExp(r'"port"\s*:\s*(\d+)').firstMatch(config.fullConfig);
-        if (portMatch != null) {
-          return int.tryParse(portMatch.group(1)!);
-        }
-      }
-      
-      return 443;
-    } catch (e) {
-      return 443;
+      debugPrint('Error testing ${config.remark}: $e');
+      return -1;
     }
   }
 
