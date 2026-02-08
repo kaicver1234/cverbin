@@ -37,8 +37,8 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   easy_localization: ^3.0.7
-  flutter_v2ray:
-    path: local_packages/flutter_v2ray
+  flutter_v2ray_client:
+    path: local_packages/flutter_v2ray_client
   http: ^1.2.0
   provider: ^6.1.1
   shared_preferences: ^2.2.2
