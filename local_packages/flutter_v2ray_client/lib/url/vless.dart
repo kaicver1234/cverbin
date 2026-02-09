@@ -75,7 +75,7 @@ class VlessURL extends V2RayURL {
           extraSettings = jsonDecode(decodedExtra);
         } catch (e) {
           // If parsing fails, continue without extra settings
-          print('Failed to parse xhttp extra settings: $e');
+          // Silently ignore parsing errors
         }
       }
       
