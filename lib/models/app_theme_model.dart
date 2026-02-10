@@ -107,27 +107,27 @@ class ThemeColors {
     this.cardOpacity = 0.08,
   });
 
-  // Dark Red Theme (Default) - Bold & Powerful
+  // Dark Green Theme (Default) - Fresh & Modern
   factory ThemeColors.defaultTheme() => ThemeColors(
     backgroundColor: 0xFF050505,
     surfaceColor: 0xFFFFFFFF,
-    cardColor: 0xFFFFFFFF,
-    primaryColor: 0xFFef4444,
-    secondaryColor: 0xFFf87171,
-    accentColor: 0xFFfca5a5,
+    cardColor: 0xFF1a1a1a,
+    primaryColor: 0xFF10b981,
+    secondaryColor: 0xFF34d399,
+    accentColor: 0xFF6ee7b7,
     textPrimaryColor: 0xFFFFFFFF,
     textSecondaryColor: 0xFFFFFFFF,
-    successColor: 0xFFef4444,
-    errorColor: 0xFFdc2626,
+    successColor: 0xFF10b981,
+    errorColor: 0xFFef4444,
     warningColor: 0xFFfbbf24,
-    timerColor: 0xFFef4444,
-    downloadColor: 0xFFef4444,
-    uploadColor: 0xFFf87171,
+    timerColor: 0xFF10b981,
+    downloadColor: 0xFF10b981,
+    uploadColor: 0xFF34d399,
     borderColor: 0xFFFFFFFF,
     dividerColor: 0xFFFFFFFF,
     backgroundOpacity: 1.0,
     surfaceOpacity: 0.05,
-    cardOpacity: 0.08,
+    cardOpacity: 1.0,
   );
 
   // Light Theme - Soft & Eye-Friendly
@@ -157,7 +157,7 @@ class ThemeColors {
   factory ThemeColors.oceanTheme() => ThemeColors(
     backgroundColor: 0xFF050510,
     surfaceColor: 0xFFFFFFFF,
-    cardColor: 0xFFFFFFFF,
+    cardColor: 0xFF1a1a1a,
     primaryColor: 0xFF3b82f6,
     secondaryColor: 0xFF60a5fa,
     accentColor: 0xFF93c5fd,
@@ -173,14 +173,14 @@ class ThemeColors {
     dividerColor: 0xFFFFFFFF,
     backgroundOpacity: 1.0,
     surfaceOpacity: 0.05,
-    cardOpacity: 0.08,
+    cardOpacity: 1.0,
   );
 
   // Dark Purple Theme - Vibrant & Energetic
   factory ThemeColors.sunsetTheme() => ThemeColors(
     backgroundColor: 0xFF0a0510,
     surfaceColor: 0xFFFFFFFF,
-    cardColor: 0xFFFFFFFF,
+    cardColor: 0xFF1a1a1a,
     primaryColor: 0xFF8b5cf6,
     secondaryColor: 0xFFa78bfa,
     accentColor: 0xFFc4b5fd,
@@ -196,29 +196,29 @@ class ThemeColors {
     dividerColor: 0xFFFFFFFF,
     backgroundOpacity: 1.0,
     surfaceOpacity: 0.05,
-    cardOpacity: 0.08,
+    cardOpacity: 1.0,
   );
 
-  // Dark Green Theme - Fresh & Modern
+  // Dark Red Theme - Bold & Powerful
   factory ThemeColors.forestTheme() => ThemeColors(
     backgroundColor: 0xFF050a05,
     surfaceColor: 0xFFFFFFFF,
-    cardColor: 0xFFFFFFFF,
-    primaryColor: 0xFF10b981,
-    secondaryColor: 0xFF34d399,
-    accentColor: 0xFF6ee7b7,
+    cardColor: 0xFF1a1a1a,
+    primaryColor: 0xFFef4444,
+    secondaryColor: 0xFFf87171,
+    accentColor: 0xFFfca5a5,
     textPrimaryColor: 0xFFFFFFFF,
     textSecondaryColor: 0xFFFFFFFF,
-    successColor: 0xFF10b981,
-    errorColor: 0xFFef4444,
+    successColor: 0xFFef4444,
+    errorColor: 0xFFdc2626,
     warningColor: 0xFFfbbf24,
-    timerColor: 0xFF10b981,
-    downloadColor: 0xFF10b981,
-    uploadColor: 0xFF34d399,
+    timerColor: 0xFFef4444,
+    downloadColor: 0xFFef4444,
+    uploadColor: 0xFFf87171,
     borderColor: 0xFFFFFFFF,
     dividerColor: 0xFFFFFFFF,
     backgroundOpacity: 1.0,
     surfaceOpacity: 0.05,
-    cardOpacity: 0.08,
+    cardOpacity: 1.0,
   );
 }

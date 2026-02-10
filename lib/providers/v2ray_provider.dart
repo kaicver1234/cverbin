@@ -160,7 +160,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       _selectedConfig = serverToConnect;
-      notifyListeners();
+      // DON'T notify here - wait until connection is complete
+      // This prevents UI jumping during server selection
+      // notifyListeners();
       
       // Reset _isConnecting before calling connectToServer
       // connectToServer will set it to true again

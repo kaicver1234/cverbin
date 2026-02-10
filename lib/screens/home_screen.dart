@@ -237,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700),
                   children: [
                     TextSpan(text: 'Tiksar', style: TextStyle(color: Color(colors.textPrimaryColor))),
-                    const TextSpan(text: 'VPN', style: TextStyle(color: Color(0xFFef4444))),
+                    const TextSpan(text: 'VPN', style: TextStyle(color: Color(0xFF10b981))),
                   ],
                 ),
               ),

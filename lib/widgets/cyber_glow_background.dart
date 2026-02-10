@@ -80,68 +80,68 @@ class CyberGlowBackground extends StatelessWidget {
     List<Color> gradientColors;
     
     switch (themeId) {
-      case 'default': // Dark Red
+      case 'default': // Dark Green
         gradientColors = const [
-          Color.fromRGBO(60, 5, 15, 0.55),
-          Color.fromRGBO(70, 8, 18, 0.45),
-          Color.fromRGBO(80, 10, 22, 0.36),
-          Color.fromRGBO(90, 12, 26, 0.28),
-          Color.fromRGBO(100, 14, 30, 0.20),
-          Color.fromRGBO(110, 16, 34, 0.12),
-          Color.fromRGBO(120, 18, 38, 0.06),
-          Color.fromRGBO(130, 20, 42, 0.03),
+          Color.fromRGBO(3, 30, 18, 0.55),
+          Color.fromRGBO(4, 36, 24, 0.45),
+          Color.fromRGBO(5, 42, 28, 0.36),
+          Color.fromRGBO(6, 48, 32, 0.28),
+          Color.fromRGBO(7, 54, 36, 0.20),
+          Color.fromRGBO(8, 60, 40, 0.12),
+          Color.fromRGBO(9, 66, 44, 0.06),
+          Color.fromRGBO(10, 72, 48, 0.03),
           Colors.transparent,
         ];
         break;
       case 'ocean': // Dark Blue
         gradientColors = const [
-          Color.fromRGBO(5, 15, 60, 0.55),
-          Color.fromRGBO(8, 18, 70, 0.45),
-          Color.fromRGBO(10, 22, 80, 0.36),
-          Color.fromRGBO(12, 26, 90, 0.28),
-          Color.fromRGBO(14, 30, 100, 0.20),
-          Color.fromRGBO(16, 34, 110, 0.12),
-          Color.fromRGBO(18, 38, 120, 0.06),
-          Color.fromRGBO(20, 42, 130, 0.03),
+          Color.fromRGBO(3, 12, 30, 0.55),
+          Color.fromRGBO(4, 15, 36, 0.45),
+          Color.fromRGBO(5, 18, 42, 0.36),
+          Color.fromRGBO(6, 20, 48, 0.28),
+          Color.fromRGBO(7, 23, 54, 0.20),
+          Color.fromRGBO(8, 26, 60, 0.12),
+          Color.fromRGBO(9, 28, 66, 0.06),
+          Color.fromRGBO(10, 30, 72, 0.03),
           Colors.transparent,
         ];
         break;
       case 'sunset': // Dark Purple
         gradientColors = const [
-          Color.fromRGBO(40, 5, 50, 0.55),
-          Color.fromRGBO(50, 8, 60, 0.45),
-          Color.fromRGBO(60, 10, 70, 0.36),
-          Color.fromRGBO(70, 12, 80, 0.28),
-          Color.fromRGBO(80, 14, 90, 0.20),
-          Color.fromRGBO(90, 16, 100, 0.12),
-          Color.fromRGBO(100, 18, 110, 0.06),
-          Color.fromRGBO(110, 20, 120, 0.03),
+          Color.fromRGBO(20, 3, 28, 0.55),
+          Color.fromRGBO(25, 4, 34, 0.45),
+          Color.fromRGBO(30, 5, 40, 0.36),
+          Color.fromRGBO(35, 6, 46, 0.28),
+          Color.fromRGBO(40, 7, 52, 0.20),
+          Color.fromRGBO(45, 8, 58, 0.12),
+          Color.fromRGBO(50, 9, 64, 0.06),
+          Color.fromRGBO(55, 10, 70, 0.03),
           Colors.transparent,
         ];
         break;
-      case 'forest': // Dark Green
+      case 'forest': // Dark Red
         gradientColors = const [
-          Color.fromRGBO(5, 60, 15, 0.55),
-          Color.fromRGBO(8, 70, 18, 0.45),
-          Color.fromRGBO(10, 80, 22, 0.36),
-          Color.fromRGBO(12, 90, 26, 0.28),
-          Color.fromRGBO(14, 100, 30, 0.20),
-          Color.fromRGBO(16, 110, 34, 0.12),
-          Color.fromRGBO(18, 120, 38, 0.06),
-          Color.fromRGBO(20, 130, 42, 0.03),
+          Color.fromRGBO(30, 3, 8, 0.55),
+          Color.fromRGBO(36, 4, 10, 0.45),
+          Color.fromRGBO(42, 5, 12, 0.36),
+          Color.fromRGBO(48, 6, 14, 0.28),
+          Color.fromRGBO(54, 7, 16, 0.20),
+          Color.fromRGBO(60, 8, 18, 0.12),
+          Color.fromRGBO(66, 9, 20, 0.06),
+          Color.fromRGBO(72, 10, 22, 0.03),
           Colors.transparent,
         ];
         break;
-      default:
+      default: // Dark Green (fallback)
         gradientColors = const [
-          Color.fromRGBO(60, 5, 15, 0.55),
-          Color.fromRGBO(70, 8, 18, 0.45),
-          Color.fromRGBO(80, 10, 22, 0.36),
-          Color.fromRGBO(90, 12, 26, 0.28),
-          Color.fromRGBO(100, 14, 30, 0.20),
-          Color.fromRGBO(110, 16, 34, 0.12),
-          Color.fromRGBO(120, 18, 38, 0.06),
-          Color.fromRGBO(130, 20, 42, 0.03),
+          Color.fromRGBO(3, 30, 18, 0.55),
+          Color.fromRGBO(4, 36, 24, 0.45),
+          Color.fromRGBO(5, 42, 28, 0.36),
+          Color.fromRGBO(6, 48, 32, 0.28),
+          Color.fromRGBO(7, 54, 36, 0.20),
+          Color.fromRGBO(8, 60, 40, 0.12),
+          Color.fromRGBO(9, 66, 44, 0.06),
+          Color.fromRGBO(10, 72, 48, 0.03),
           Colors.transparent,
         ];
     }
