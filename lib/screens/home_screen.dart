@@ -237,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700),
                   children: [
                     TextSpan(text: 'Tiksar', style: TextStyle(color: Color(colors.textPrimaryColor))),
-                    const TextSpan(text: 'VPN', style: TextStyle(color: Color(0xFF10b981))),
+                    const TextSpan(text: 'VPN', style: TextStyle(color: Color(0xFFef4444))),
                   ],
                 ),
               ),
@@ -410,7 +410,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             SizedBox(height: screenHeight < 700 ? 16 : 20),
             _buildConnectionButton(provider),
             SizedBox(height: screenHeight < 700 ? 16 : 24),
-            _buildStatusSection(provider),
+            // Fixed height container to prevent layout shift
+            SizedBox(
+              height: 80, // Fixed height for status section
+              child: _buildStatusSection(provider),
+            ),
             SizedBox(height: screenHeight < 700 ? 16 : 24),
             _buildServerCard(provider),
             if (provider.activeConfig != null) ...[
@@ -453,22 +457,23 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Glow effect
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
-            width: glowSize,
-            height: glowSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: glowColor.withValues(alpha: isConnected || _isConnecting ? 0.4 : 0.2),
-                  blurRadius: 60,
-                  spreadRadius: 10,
-                ),
-              ],
+          // Glow effect - only show when connected or connecting
+          if (isConnected || _isConnecting)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              width: glowSize,
+              height: glowSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: glowColor.withValues(alpha: isConnected || _isConnecting ? 0.4 : 0.2),
+                    blurRadius: 60,
+                    spreadRadius: 10,
+                  ),
+                ],
+              ),
             ),
-          ),
           // 3 expanding rings for connecting state
           if (_isConnecting) ...[
             _ExpandingRing(buttonSize: buttonSize, color: glowColor, delayMs: 0),
@@ -494,13 +499,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 color: buttonColor.withValues(alpha: 0.5),
                 width: 2,
               ),
-              boxShadow: [
+              boxShadow: (isConnected || _isConnecting) ? [
                 BoxShadow(
                   color: buttonColor.withValues(alpha: 0.35),
                   blurRadius: 30,
                   spreadRadius: 2,
                 ),
-              ],
+              ] : [], // No shadow when disconnected
             ),
             child: Center(
               child: Icon(
@@ -520,75 +525,77 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final screenHeight = MediaQuery.of(context).size.height;
     final timerFontSize = screenHeight < 700 ? 28.0 : 34.0;
     
-    if (!isConnected && !_isConnecting) {
-      return const SizedBox.shrink();
-    }
-    
-    return Column(
-      children: [
-        // Status badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-          decoration: BoxDecoration(
-            color: isConnected 
-                ? const Color(0xFF10b981).withValues(alpha: 0.12)
-                : const Color(0xFFfbbf24).withValues(alpha: 0.12),
-            border: Border.all(
-              color: isConnected 
-                  ? const Color(0xFF10b981).withValues(alpha: 0.3)
-                  : const Color(0xFFfbbf24).withValues(alpha: 0.3),
-            ),
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isConnected ? const Color(0xFF10b981) : const Color(0xFFfbbf24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (isConnected ? const Color(0xFF10b981) : const Color(0xFFfbbf24)).withValues(alpha: 0.5),
-                      blurRadius: 8,
-                    ),
-                  ],
+    // Always return a container with fixed height to prevent layout shift
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (isConnected || _isConnecting) ...[
+            // Status badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: isConnected 
+                    ? const Color(0xFF10b981).withValues(alpha: 0.12)
+                    : const Color(0xFFfbbf24).withValues(alpha: 0.12),
+                border: Border.all(
+                  color: isConnected 
+                      ? const Color(0xFF10b981).withValues(alpha: 0.3)
+                      : const Color(0xFFfbbf24).withValues(alpha: 0.3),
                 ),
+                borderRadius: BorderRadius.circular(30),
               ),
-              const SizedBox(width: 8),
-              Text(
-                isConnected 
-                    ? AppLocalizations.of(context).translate('home.connected')
-                    : AppLocalizations.of(context).translate('home.connecting'),
-                style: TextStyle(
-                  color: isConnected ? const Color(0xFF10b981) : const Color(0xFFfbbf24),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isConnected ? const Color(0xFF10b981) : const Color(0xFFfbbf24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isConnected ? const Color(0xFF10b981) : const Color(0xFFfbbf24)).withValues(alpha: 0.5),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isConnected 
+                        ? AppLocalizations.of(context).translate('home.connected')
+                        : AppLocalizations.of(context).translate('home.connecting'),
+                    style: TextStyle(
+                      color: isConnected ? const Color(0xFF10b981) : const Color(0xFFfbbf24),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isConnected) ...[
+              const SizedBox(height: 8),
+              // Timer
+              StreamBuilder(
+                stream: Stream.periodic(const Duration(seconds: 1)),
+                builder: (context, snapshot) {
+                  return Text(
+                    provider.v2rayService.getFormattedConnectedTime(),
+                    style: GoogleFonts.poppins(
+                      fontSize: timerFontSize,
+                      fontWeight: FontWeight.w700,
+                      color: _timerColor,
+                    ),
+                  );
+                },
               ),
             ],
-          ),
-        ),
-        if (isConnected) ...[
-          const SizedBox(height: 8),
-          // Timer
-          StreamBuilder(
-            stream: Stream.periodic(const Duration(seconds: 1)),
-            builder: (context, snapshot) {
-              return Text(
-                provider.v2rayService.getFormattedConnectedTime(),
-                style: GoogleFonts.poppins(
-                  fontSize: timerFontSize,
-                  fontWeight: FontWeight.w700,
-                  color: _timerColor,
-                ),
-              );
-            },
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -1093,7 +1100,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 Icon(Icons.verified, color: Color(colors.primaryColor), size: isSmallScreen ? 14 : 16),
                 SizedBox(width: isSmallScreen ? 5 : 6),
                 Text(
-                  'Version 1.1.3',
+                  'Version 1.1.4',
                   style: TextStyle(
                     color: Color(colors.textPrimaryColor).withValues(alpha: 0.8),
                     fontSize: isSmallScreen ? 12 : 13,

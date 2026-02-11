@@ -29,10 +29,10 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
       'gradient': [const Color(0xFF6366F1), const Color(0xFF8B5CF6)],
     },
     {
-      'language': const AppLanguage(name: 'فارسی', code: 'fa', flag: '🦁', direction: 'rtl'),
+      'language': const AppLanguage(name: 'فارسی', code: 'fa', flag: '🇮🇷', direction: 'rtl'),
       'name': 'Persian',
       'nativeName': 'فارسی',
-      'flag': '🦁',
+      'flag': '🇮🇷',
       'gradient': [const Color(0xFF10B981), const Color(0xFF059669)],
     },
   ];
