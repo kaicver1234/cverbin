@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/v2ray_config.dart';
+import '../utils/country_flags.dart';
 import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 
 class ServerService {
@@ -156,11 +157,7 @@ class ServerService {
 
           // If no country code from line prefix, try to extract from remark
           if (countryCode == null && parser.remark.isNotEmpty) {
-            // Try patterns: [CC], (CC), CC-, -CC-, CC|, |CC|
-            final remarkMatch = RegExp(r'[\[\(]([A-Z]{2})[\]\)]|^([A-Z]{2})[-\s]|[-\s]([A-Z]{2})[-\s]|[\|\s]([A-Z]{2})[\|\s]').firstMatch(parser.remark.toUpperCase());
-            if (remarkMatch != null) {
-              countryCode = remarkMatch.group(1) ?? remarkMatch.group(2) ?? remarkMatch.group(3) ?? remarkMatch.group(4);
-            }
+            countryCode = _extractCountryCodeFromRemark(parser.remark);
           }
 
           // Use the parsed address and port from the V2RayURL parser
@@ -193,5 +190,10 @@ class ServerService {
       // Error parsing URI config: $e
       return null;
     }
+  }
+
+  // Extract country code from remark string
+  String? _extractCountryCodeFromRemark(String remark) {
+    return CountryFlags.extractCountryCode(remark);
   }
 }

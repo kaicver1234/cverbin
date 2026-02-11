@@ -208,7 +208,7 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
                   return Opacity(
                     opacity: _versionAnim.value,
                     child: const Text(
-                      'v1.1.3',
+                      'v1.1.4',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,

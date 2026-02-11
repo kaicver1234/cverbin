@@ -6,6 +6,7 @@ import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../models/v2ray_config.dart';
 import '../utils/app_localizations.dart';
+import '../utils/country_flags.dart';
 import '../widgets/cyber_glow_background.dart';
 
 class ServerSelectionScreen extends StatefulWidget {
@@ -72,13 +73,13 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     // Get unique country codes
     final countryCodes = configs
         .map((c) => c.countryCode)
-        .where((code) => code != null && code.isNotEmpty)
+        .where((code) => code != null && CountryFlags.isValidCountryCode(code))
         .toSet();
     
     // Preload each flag
     for (final code in countryCodes) {
       if (!mounted) break;
-      final url = 'https://flagcdn.com/w80/${code!.toLowerCase()}.png';
+      final url = CountryFlags.getFlagUrl(code, width: 80);
       try {
         await precacheImage(
           CachedNetworkImageProvider(url),
@@ -736,7 +737,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   }
 
   Widget _buildCountryFlag(String? countryCode) {
-    if (countryCode == null || countryCode.isEmpty) {
+    if (countryCode == null || !CountryFlags.isValidCountryCode(countryCode)) {
       return Container(
         width: 40,
         height: 28,
@@ -764,17 +765,27 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: CachedNetworkImage(
-          imageUrl: 'https://flagcdn.com/w80/${countryCode.toLowerCase()}.png',
+          imageUrl: CountryFlags.getFlagUrl(countryCode, width: 80),
           fit: BoxFit.cover,
           memCacheWidth: 80,
           memCacheHeight: 60,
           maxWidthDiskCache: 80,
           maxHeightDiskCache: 60,
-          fadeInDuration: Duration.zero,
-          fadeOutDuration: Duration.zero,
+          fadeInDuration: const Duration(milliseconds: 100),
+          fadeOutDuration: const Duration(milliseconds: 100),
           placeholderFadeInDuration: Duration.zero,
           placeholder: (context, url) => Container(
             color: Colors.white.withValues(alpha: 0.1),
+            child: const Center(
+              child: SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white24),
+                ),
+              ),
+            ),
           ),
           errorWidget: (context, url, error) => Container(
             color: Colors.white.withValues(alpha: 0.1),
@@ -889,9 +900,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   }
 
   String? _extractCountryCode(String remark) {
-    final regex = RegExp(r'\[([A-Z]{2})\]');
-    final match = regex.firstMatch(remark);
-    return match?.group(1);
+    return CountryFlags.extractCountryCode(remark);
   }
 
   String _cleanServerName(String remark) {

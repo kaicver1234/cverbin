@@ -10,6 +10,7 @@ import '../providers/theme_provider.dart';
 import '../widgets/cyber_glow_background.dart';
 import '../models/app_language.dart';
 import '../utils/app_localizations.dart';
+import '../utils/country_flags.dart';
 import '../screens/server_selection_screen.dart';
 import '../screens/ip_info_screen.dart';
 import '../screens/speedtest_screen.dart';
@@ -90,12 +91,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     
     final countryCodes = configs
         .map((c) => c.countryCode)
-        .where((code) => code != null && code.isNotEmpty)
+        .where((code) => code != null && CountryFlags.isValidCountryCode(code))
         .toSet();
     
     for (final code in countryCodes) {
       if (!mounted) break;
-      final url = 'https://flagcdn.com/w80/${code!.toLowerCase()}.png';
+      final url = CountryFlags.getFlagUrl(code, width: 80);
       try {
         await precacheImage(
           CachedNetworkImageProvider(url),
@@ -734,7 +735,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildServerIcon(String? countryCode, bool isSmartConnect, double size) {
-    if (countryCode != null) {
+    if (countryCode != null && CountryFlags.isValidCountryCode(countryCode)) {
       return Container(
         width: size,
         height: size,
@@ -747,13 +748,28 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: CachedNetworkImage(
-            imageUrl: 'https://flagcdn.com/w160/${countryCode.toLowerCase()}.png',
+            imageUrl: CountryFlags.getFlagUrl(countryCode, width: 160),
             fit: BoxFit.cover,
             memCacheWidth: 160,
             memCacheHeight: 120,
             maxWidthDiskCache: 160,
             maxHeightDiskCache: 120,
-            placeholder: (context, url) => Container(color: Colors.white.withValues(alpha: 0.1)),
+            fadeInDuration: const Duration(milliseconds: 100),
+            fadeOutDuration: const Duration(milliseconds: 100),
+            placeholderFadeInDuration: Duration.zero,
+            placeholder: (context, url) => Container(
+              color: Colors.white.withValues(alpha: 0.1),
+              child: const Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white24),
+                  ),
+                ),
+              ),
+            ),
             errorWidget: (context, url, error) => Container(
               color: const Color(0xFF6366F1).withValues(alpha: 0.2),
               child: Icon(Icons.public, color: const Color(0xFF6366F1), size: size * 0.46),
@@ -792,12 +808,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   String? _extractCountryCode(String remark) {
-    // Try to extract country code from remark: [CC], (CC), CC-, -CC-
-    final match = RegExp(r'[\[\(]([A-Z]{2})[\]\)]|^([A-Z]{2})[-\s]', caseSensitive: false).firstMatch(remark.toUpperCase());
-    if (match != null) {
-      return match.group(1) ?? match.group(2);
-    }
-    return null;
+    return CountryFlags.extractCountryCode(remark);
   }
 
 
