@@ -96,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     
     for (final code in countryCodes) {
       if (!mounted) break;
-      final url = CountryFlags.getFlagUrl(code, width: 80);
+      final url = CountryFlags.getFlagUrl(code);
       try {
         await precacheImage(
           CachedNetworkImageProvider(url),
@@ -748,11 +748,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: CachedNetworkImage(
-            imageUrl: CountryFlags.getFlagUrl(countryCode, width: 160),
+            imageUrl: CountryFlags.getFlagUrl(countryCode),
             fit: BoxFit.cover,
-            memCacheWidth: 160,
+            // Home screen: larger flag (52x52 container)
+            memCacheWidth: 120,
             memCacheHeight: 120,
-            maxWidthDiskCache: 160,
+            maxWidthDiskCache: 120,
             maxHeightDiskCache: 120,
             fadeInDuration: const Duration(milliseconds: 100),
             fadeOutDuration: const Duration(milliseconds: 100),

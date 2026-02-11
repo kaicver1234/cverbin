@@ -79,7 +79,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     // Preload each flag
     for (final code in countryCodes) {
       if (!mounted) break;
-      final url = CountryFlags.getFlagUrl(code, width: 80);
+      final url = CountryFlags.getFlagUrl(code);
       try {
         await precacheImage(
           CachedNetworkImageProvider(url),
@@ -765,12 +765,13 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: CachedNetworkImage(
-          imageUrl: CountryFlags.getFlagUrl(countryCode, width: 80),
+          imageUrl: CountryFlags.getFlagUrl(countryCode),
           fit: BoxFit.cover,
+          // Server selection: smaller flag (40x28 container)
           memCacheWidth: 80,
-          memCacheHeight: 60,
+          memCacheHeight: 56,
           maxWidthDiskCache: 80,
-          maxHeightDiskCache: 60,
+          maxHeightDiskCache: 56,
           fadeInDuration: const Duration(milliseconds: 100),
           fadeOutDuration: const Duration(milliseconds: 100),
           placeholderFadeInDuration: Duration.zero,

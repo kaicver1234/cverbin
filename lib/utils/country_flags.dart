@@ -263,13 +263,17 @@ class CountryFlags {
     return allCountryCodes[code.toUpperCase()] ?? code.toUpperCase();
   }
 
-  /// Get flag URL for a country code
-  static String getFlagUrl(String? code, {int width = 160}) {
+  /// Base URL for flag images on your host
+  static const String _flagBaseUrl = 'https://sub.tiksar.ir/flag';
+
+  /// Get flag URL for a country code from your host
+  /// Returns URL in format: https://sub.tiksar.ir/flag/us.png
+  static String getFlagUrl(String? code) {
     if (code == null || code.length != 2) {
-      return 'https://flagcdn.com/w$width/un.png'; // UN flag as default
+      return '$_flagBaseUrl/un.png'; // UN flag as default
     }
     final validCode = code.toLowerCase();
-    return 'https://flagcdn.com/w$width/$validCode.png';
+    return '$_flagBaseUrl/$validCode.png';
   }
 
   /// Get flag emoji from country code
