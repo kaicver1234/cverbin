@@ -51,23 +51,18 @@ abstract class V2RayURL {
     },
     'sniffing': {
       'enabled': true,
-      'destOverride': ['http', 'tls', 'quic', 'fakedns'],
+      'destOverride': ['http', 'tls', 'quic'],
       'metadataOnly': false,
-      'routeOnly': false,
     },
     'streamSettings': null,
-    'allocate': {
-      'strategy': 'always',
-      'refresh': 5,
-      'concurrency': 3,
-    }
+    'allocate': null
   };
 
   /// Log configuration with minimal logging for better performance.
   Map<String, dynamic> log = {
     'access': '',
     'error': '',
-    'loglevel': 'warning',  // Changed from 'error' to 'warning' for better debugging
+    'loglevel': 'error',
     'dnsLog': false,
   };
 
@@ -126,21 +121,18 @@ abstract class V2RayURL {
   /// DNS configuration with optimized servers.
   Map<String, dynamic> dns = {
     'servers': [
-      '1.1.1.1',  // Cloudflare - faster
-      '1.0.0.1',  // Cloudflare backup
-      '8.8.8.8',  // Google
-      '8.8.4.4'   // Google backup
+      '1.1.1.1',
+      '8.8.8.8',
     ],
-    'queryStrategy': 'UseIPv4',  // Prefer IPv4 for better compatibility
-    'disableCache': false,  // Enable DNS cache for speed
+    'queryStrategy': 'UseIPv4',
+    'disableCache': false,
     'disableFallback': false,
-    'tag': 'dns_inbound',
   };
 
   /// Routing configuration with optimized strategy.
   Map<String, dynamic> routing = {
-    'domainStrategy': 'AsIs',  // Faster than UseIp
-    'domainMatcher': 'hybrid',  // Better performance
+    'domainStrategy': 'AsIs',
+    'domainMatcher': 'hybrid',
     'rules': [],
     'balancers': []
   };
@@ -178,14 +170,12 @@ abstract class V2RayURL {
     'quicSettings': null,
     'realitySettings': null,
     'grpcSettings': null,
-    'xhttpSettings': null, // Add xhttpSettings
-    'httpupgradeSettings': null, // Add httpupgradeSettings
+    'xhttpSettings': null,
+    'httpupgradeSettings': null,
     'dsSettings': null,
     'sockopt': {
-      'mark': 255,
       'tcpFastOpen': true,
-      'tproxy': 'off',
-      'tcpKeepAliveInterval': 30,
+      'tcpKeepAliveInterval': 0,
     }
   };
 
@@ -217,7 +207,7 @@ abstract class V2RayURL {
     if (transport == 'tcp') {
       streamSetting['tcpSettings'] = {
         'header': <String, dynamic>{'type': 'none', 'request': null},
-        'acceptProxyProtocol': false
+        'acceptProxyProtocol': null
       };
       if (headerType == 'http') {
         streamSetting['tcpSettings']['header']['type'] = 'http';
@@ -256,12 +246,12 @@ abstract class V2RayURL {
     } else if (transport == 'kcp') {
       streamSetting['kcpSettings'] = {
         'mtu': 1350,
-        'tti': 20,  // Reduced from 50 for faster response
-        'uplinkCapacity': 50,  // Increased from 12 for better upload
+        'tti': 50,
+        'uplinkCapacity': 12,
         'downlinkCapacity': 100,
         'congestion': false,
-        'readBufferSize': 2,  // Increased from 1 for better buffering
-        'writeBufferSize': 2,  // Increased from 1 for better buffering
+        'readBufferSize': 2,
+        'writeBufferSize': 2,
         'header': {
           'type': headerType ?? 'none',
         },
@@ -271,9 +261,9 @@ abstract class V2RayURL {
       streamSetting['wsSettings'] = {
         'path': path ?? ['/'],
         'headers': {'Host': host ?? ''},
-        'maxEarlyData': 2048,
-        'useBrowserForwarding': false,
-        'acceptProxyProtocol': false,
+        'maxEarlyData': null,
+        'useBrowserForwarding': null,
+        'acceptProxyProtocol': null,
       };
       sni = streamSetting['wsSettings']['headers']['Host'];
     } else if (transport == 'h2' || transport == 'http') {
@@ -295,10 +285,6 @@ abstract class V2RayURL {
       streamSetting['grpcSettings'] = {
         'serviceName': serviceName ?? '',
         'multiMode': mode == 'multi',
-        'idle_timeout': 60,
-        'health_check_timeout': 20,
-        'permit_without_stream': false,
-        'initial_windows_size': 65536,
       };
       sni = host ?? '';
     } else if (transport == 'xhttp') {
@@ -346,14 +332,14 @@ abstract class V2RayURL {
       'allowInsecure': allowInsecure,
       'serverName': sni,
       'alpn': alpns == '' ? null : alpns?.split(','),
-      'minVersion': '1.2',
-      'maxVersion': '1.3',
-      'preferServerCipherSuites': false,
+      'minVersion': null,
+      'maxVersion': null,
+      'preferServerCipherSuites': null,
       'cipherSuites': null,
       'fingerprint': fingerprint,
       'certificates': null,
-      'disableSystemRoot': false,
-      'enableSessionResumption': true,
+      'disableSystemRoot': null,
+      'enableSessionResumption': null,
       'show': false,
       'publicKey': publicKey,
       'shortId': shortId,

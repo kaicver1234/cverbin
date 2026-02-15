@@ -106,10 +106,8 @@ class VmessURL extends V2RayURL {
         'proxySettings': null,
         'sendThrough': null,
         'mux': {
-          'enabled': true,  // Enable mux for better performance
-          'concurrency': 16,  // Increased from 8 for better multiplexing
-          'xudpConcurrency': 16,
-          'xudpProxyUDP443': 'reject',
+          'enabled': true,
+          'concurrency': 8,
         }
       };
 }
