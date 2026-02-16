@@ -26,8 +26,8 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
       gradientEnd: Color(0xFF34D399),
     ),
     _LanguageData(
-      language: AppLanguage(name: 'فارسی', code: 'fa', flag: '🇮🇷', direction: 'rtl'),
-      name: 'فارسی',
+      language: AppLanguage(name: 'پارسی', code: 'fa', flag: '🇮🇷', direction: 'rtl'),
+      name: 'پارسی',
       nativeName: 'Persian',
       flag: '🇮🇷',
       gradientStart: Color(0xFF06B6D4),

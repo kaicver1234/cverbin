@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/speed_test_provider.dart';
 import '../models/speed_test_state.dart';
-import '../widgets/cyber_glow_background.dart';
+import '../widgets/app_background.dart';
 import '../widgets/speed_test/speed_test_progress_indicator.dart';
 import '../widgets/speed_test/speed_test_start_button.dart';
 import '../utils/app_localizations.dart';
@@ -21,19 +21,23 @@ class SpeedTestScreen extends StatelessWidget {
 
     return Directionality(
       textDirection: languageProvider.textDirection,
-      child: CyberGlowBackground(
-        child: SafeArea(
-          child: Consumer<SpeedTestProvider>(
-            builder: (context, provider, child) {
-              return Column(
-                children: [
-                  _buildHeader(context, provider.state),
-                  Expanded(
-                    child: _buildContent(context, provider),
-                  ),
-                ],
-              );
-            },
+      child: AppBackground(
+        useSecondaryBackground: true,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: Consumer<SpeedTestProvider>(
+              builder: (context, provider, child) {
+                return Column(
+                  children: [
+                    _buildHeader(context, provider.state),
+                    Expanded(
+                      child: _buildContent(context, provider),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),

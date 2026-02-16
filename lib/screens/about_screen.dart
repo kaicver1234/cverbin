@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/language_provider.dart';
 import '../widgets/cyber_glow_background.dart';
+import '../widgets/app_background.dart';
 import '../utils/app_localizations.dart';
 import '../services/remote_config_service.dart';
 
@@ -74,33 +75,36 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
       builder: (context, languageProvider, child) {
         return Directionality(
           textDirection: languageProvider.textDirection,
-          child: CyberGlowBackground(
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(context),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 20),
-                          _buildLogoSection(context),
-                          const SizedBox(height: 32),
-                          _buildDescriptionCard(context),
-                          const SizedBox(height: 16),
-                          _buildDeveloperCard(context),
-                          const SizedBox(height: 28),
-                          _buildSocialSection(context),
-                          const SizedBox(height: 32),
-                          _buildFooter(context),
-                          const SizedBox(height: 24),
-                        ],
+          child: AppBackground(
+            useSecondaryBackground: true,
+            child: CyberGlowBackground(
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    _buildHeader(context),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            _buildLogoSection(context),
+                            const SizedBox(height: 32),
+                            _buildDescriptionCard(context),
+                            const SizedBox(height: 16),
+                            _buildDeveloperCard(context),
+                            const SizedBox(height: 28),
+                            _buildSocialSection(context),
+                            const SizedBox(height: 32),
+                            _buildFooter(context),
+                            const SizedBox(height: 24),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

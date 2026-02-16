@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/language_provider.dart';
-import '../providers/theme_provider.dart';
-import '../widgets/cyber_glow_background.dart';
+import '../widgets/app_background.dart';
 
 class IpInfoScreen extends StatefulWidget {
   const IpInfoScreen({super.key});
@@ -97,26 +97,25 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
   @override
   Widget build(BuildContext context) {
     final languageProvider = Provider.of<LanguageProvider>(context);
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final colors = themeProvider.colors;
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     
     return Directionality(
       textDirection: languageProvider.textDirection,
-      child: CyberGlowBackground(
+      child: AppBackground(
+        useSecondaryBackground: true,
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: SafeArea(
             child: Column(
               children: [
-                _buildHeader(context, colors, isSmallScreen),
+                _buildHeader(context, isSmallScreen),
                 Expanded(
                   child: _isLoading
-                      ? _buildLoadingState(colors)
+                      ? _buildLoadingState()
                       : _errorMessage != null
-                          ? _buildErrorState(colors)
-                          : _buildContent(colors, isSmallScreen),
+                          ? _buildErrorState()
+                          : _buildContent(isSmallScreen),
                 ),
               ],
             ),
@@ -126,18 +125,19 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, colors, bool isSmallScreen) {
+  Widget _buildHeader(BuildContext context, bool isSmallScreen) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-        isSmallScreen ? 12 : 16,
-        8,
-        isSmallScreen ? 12 : 16,
-        isSmallScreen ? 12 : 16,
+        isSmallScreen ? 16 : 20,
+        12,
+        isSmallScreen ? 16 : 20,
+        16,
       ),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Color(colors.borderColor).withValues(alpha: 0.08),
+            color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
+            width: 1,
           ),
         ),
       ),
@@ -149,12 +149,15 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
               width: isSmallScreen ? 40 : 44,
               height: isSmallScreen ? 40 : 44,
               decoration: BoxDecoration(
-                color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity),
+                color: Colors.white.withValues(alpha: 0.05),
+                border: Border.all(
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.2),
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.arrow_back_ios_new,
-                color: Color(colors.textPrimaryColor),
+                color: const Color(0xFF00D9FF),
                 size: isSmallScreen ? 16 : 18,
               ),
             ),
@@ -166,10 +169,10 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
               children: [
                 Text(
                   'IP Information',
-                  style: TextStyle(
-                    color: Color(colors.textPrimaryColor),
-                    fontSize: isSmallScreen ? 18 : 22,
-                    fontWeight: FontWeight.bold,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: isSmallScreen ? 18 : 20,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
                   ),
                   maxLines: 1,
@@ -179,8 +182,8 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
                 Text(
                   'Your network details',
                   style: TextStyle(
-                    color: Color(colors.textSecondaryColor).withValues(alpha: 0.5),
-                    fontSize: isSmallScreen ? 11 : 13,
+                    color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
+                    fontSize: isSmallScreen ? 11 : 12,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -194,8 +197,21 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
               width: isSmallScreen ? 40 : 44,
               height: isSmallScreen ? 40 : 44,
               decoration: BoxDecoration(
-                color: Color(colors.primaryColor).withValues(alpha: _isLoading ? 0.3 : 1.0),
+                gradient: _isLoading
+                    ? LinearGradient(
+                        colors: [Colors.grey.shade700, Colors.grey.shade800],
+                      )
+                    : const LinearGradient(
+                        colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
+                      ),
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: _isLoading ? [] : [
+                  BoxShadow(
+                    color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Icon(
                 Icons.refresh_rounded,
@@ -209,7 +225,7 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
     );
   }
 
-  Widget _buildLoadingState(colors) {
+  Widget _buildLoadingState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -218,15 +234,15 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
             width: 60,
             height: 60,
             child: CircularProgressIndicator(
-              color: Color(colors.primaryColor),
+              color: const Color(0xFF00D9FF),
               strokeWidth: 3,
             ),
           ),
           const SizedBox(height: 24),
           Text(
             'Loading...',
-            style: TextStyle(
-              color: Color(colors.textPrimaryColor),
+            style: GoogleFonts.poppins(
+              color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -236,10 +252,9 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
     );
   }
 
-  Widget _buildErrorState(colors) {
-    // Determine error icon and color based on error type
+  Widget _buildErrorState() {
     IconData errorIcon = Icons.wifi_off_rounded;
-    Color iconColor = Color(colors.errorColor);
+    const Color iconColor = Color(0xFFFF6B6B);
     String errorTitle = 'Connection Failed';
     
     if (_errorMessage?.contains('internet') == true || _errorMessage?.contains('network') == true) {
@@ -262,10 +277,15 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
+                gradient: LinearGradient(
+                  colors: [
+                    iconColor.withValues(alpha: 0.2),
+                    iconColor.withValues(alpha: 0.1),
+                  ],
+                ),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: iconColor.withValues(alpha: 0.2),
+                  color: iconColor.withValues(alpha: 0.3),
                   width: 2,
                 ),
               ),
@@ -278,10 +298,10 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
             const SizedBox(height: 28),
             Text(
               errorTitle,
-              style: TextStyle(
+              style: GoogleFonts.poppins(
                 fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(colors.textPrimaryColor),
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
               textAlign: TextAlign.center,
             ),
@@ -290,7 +310,7 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
               _errorMessage ?? 'Unable to fetch IP information',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(colors.textSecondaryColor).withValues(alpha: 0.7),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 15,
                 height: 1.5,
               ),
@@ -301,31 +321,24 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(colors.primaryColor),
-                      Color(colors.secondaryColor),
-                    ],
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
                   ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(colors.primaryColor).withValues(alpha: 0.3),
-                      blurRadius: 12,
+                      color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
+                      blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.refresh_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
+                    Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
                       'Try Again',
                       style: TextStyle(
                         color: Colors.white,
@@ -337,80 +350,27 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            // Tips section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Color(colors.borderColor).withValues(alpha: 0.1),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.lightbulb_outline_rounded,
-                        size: 18,
-                        color: Color(colors.warningColor),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Troubleshooting Tips',
-                        style: TextStyle(
-                          color: Color(colors.textPrimaryColor),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTip(colors, '• Check your internet connection'),
-                  _buildTip(colors, '• Try disabling VPN temporarily'),
-                  _buildTip(colors, '• Restart your device'),
-                ],
-              ),
-            ),
           ],
         ),
       ),
     );
   }
-  
-  Widget _buildTip(colors, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Color(colors.textSecondaryColor).withValues(alpha: 0.6),
-          fontSize: 13,
-          height: 1.4,
-        ),
-      ),
-    );
-  }
 
-  Widget _buildContent(colors, bool isSmallScreen) {
+  Widget _buildContent(bool isSmallScreen) {
     if (_ipData == null) return const SizedBox();
     
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
       child: Column(
         children: [
-          _buildIpCard(colors, isSmallScreen),
-          SizedBox(height: isSmallScreen ? 12 : 16),
+          _buildIpCard(isSmallScreen),
+          SizedBox(height: isSmallScreen ? 14 : 16),
           _buildInfoSection(
-            colors,
             isSmallScreen,
             'Location',
             Icons.location_on_rounded,
+            const Color(0xFF00D9FF),
             [
               _InfoRow('Country', '${_ipData!['country']} (${_ipData!['countryCode']})'),
               _InfoRow('Region', _ipData!['regionName'] ?? 'Unknown'),
@@ -419,12 +379,12 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
               _InfoRow('Coordinates', '${_ipData!['lat']?.toStringAsFixed(4)}, ${_ipData!['lon']?.toStringAsFixed(4)}'),
             ],
           ),
-          SizedBox(height: isSmallScreen ? 12 : 16),
+          SizedBox(height: isSmallScreen ? 14 : 16),
           _buildInfoSection(
-            colors,
             isSmallScreen,
             'Network',
             Icons.router_rounded,
+            const Color(0xFF00FFA3),
             [
               _InfoRow('ISP', _ipData!['isp'] ?? 'Unknown'),
               _InfoRow('Organization', _ipData!['org'] ?? 'Unknown'),
@@ -437,51 +397,75 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
     );
   }
 
-  Widget _buildIpCard(colors, bool isSmallScreen) {
+  Widget _buildIpCard(bool isSmallScreen) {
     return Container(
-      padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
+      padding: EdgeInsets.all(isSmallScreen ? 24 : 28),
       decoration: BoxDecoration(
-        color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity),
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF0A1929).withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Color(colors.primaryColor).withValues(alpha: 0.2),
+          color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+          width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Container(
-            width: isSmallScreen ? 60 : 70,
-            height: isSmallScreen ? 60 : 70,
+            width: isSmallScreen ? 70 : 80,
+            height: isSmallScreen ? 70 : 80,
             decoration: BoxDecoration(
-              color: Color(colors.primaryColor).withValues(alpha: 0.15),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
+              ).scale(0.3),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
             child: Icon(
               Icons.language_rounded,
-              size: isSmallScreen ? 30 : 36,
-              color: Color(colors.primaryColor),
+              size: isSmallScreen ? 34 : 40,
+              color: const Color(0xFF00D9FF),
             ),
           ),
-          SizedBox(height: isSmallScreen ? 16 : 20),
+          SizedBox(height: isSmallScreen ? 20 : 24),
           Text(
             'Your IP Address',
             style: TextStyle(
-              color: Color(colors.textSecondaryColor).withValues(alpha: 0.6),
-              fontSize: isSmallScreen ? 12 : 13,
+              color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
+              fontSize: isSmallScreen ? 13 : 14,
               fontWeight: FontWeight.w500,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Flexible(
                 child: Text(
                   _ipData!['query'] ?? 'Unknown',
-                  style: TextStyle(
-                    color: Color(colors.textPrimaryColor),
-                    fontSize: isSmallScreen ? 24 : 28,
-                    fontWeight: FontWeight.bold,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: isSmallScreen ? 26 : 30,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
                   ),
                   maxLines: 1,
@@ -492,43 +476,54 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
               GestureDetector(
                 onTap: () => _copyToClipboard(_ipData!['query'] ?? ''),
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Color(colors.primaryColor).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF00D9FF).withValues(alpha: 0.2),
+                        const Color(0xFF00FFA3).withValues(alpha: 0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                    ),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.copy_rounded,
-                    size: 16,
-                    color: Color(colors.primaryColor),
+                    size: 18,
+                    color: Color(0xFF00D9FF),
                   ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: isSmallScreen ? 12 : 16),
+          SizedBox(height: isSmallScreen ? 16 : 18),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity),
-              borderRadius: BorderRadius.circular(10),
+              color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF00D9FF).withValues(alpha: 0.2),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.location_on_rounded,
-                  size: 14,
-                  color: Color(colors.textSecondaryColor).withValues(alpha: 0.7),
+                  size: 16,
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.8),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     '${_ipData!['city']}, ${_ipData!['country']}',
                     style: TextStyle(
-                      color: Color(colors.textSecondaryColor).withValues(alpha: 0.7),
-                      fontSize: isSmallScreen ? 12 : 13,
-                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: isSmallScreen ? 13 : 14,
+                      fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -542,55 +537,69 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
     );
   }
 
-  Widget _buildInfoSection(colors, bool isSmallScreen, String title, IconData icon, List<_InfoRow> rows) {
+  Widget _buildInfoSection(bool isSmallScreen, String title, IconData icon, Color accentColor, List<_InfoRow> rows) {
     return Container(
       decoration: BoxDecoration(
-        color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xFF0A1929).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Color(colors.borderColor).withValues(alpha: 0.08),
+          color: accentColor.withValues(alpha: 0.2),
+          width: 1.5,
         ),
       ),
       child: Column(
         children: [
           Container(
-            padding: EdgeInsets.all(isSmallScreen ? 14 : 16),
+            padding: EdgeInsets.all(isSmallScreen ? 16 : 18),
             decoration: BoxDecoration(
-              color: Color(colors.primaryColor).withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              gradient: LinearGradient(
+                colors: [
+                  accentColor.withValues(alpha: 0.15),
+                  accentColor.withValues(alpha: 0.05),
+                ],
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Color(colors.primaryColor).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    gradient: LinearGradient(
+                      colors: [
+                        accentColor.withValues(alpha: 0.3),
+                        accentColor.withValues(alpha: 0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.4),
+                    ),
                   ),
                   child: Icon(
                     icon,
-                    color: Color(colors.primaryColor),
-                    size: isSmallScreen ? 18 : 20,
+                    color: accentColor,
+                    size: isSmallScreen ? 20 : 22,
                   ),
                 ),
-                SizedBox(width: isSmallScreen ? 10 : 12),
+                SizedBox(width: isSmallScreen ? 12 : 14),
                 Text(
                   title,
-                  style: TextStyle(
-                    color: Color(colors.textPrimaryColor),
-                    fontSize: isSmallScreen ? 15 : 16,
-                    fontWeight: FontWeight.bold,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: isSmallScreen ? 16 : 17,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+            padding: EdgeInsets.all(isSmallScreen ? 14 : 16),
             child: Column(
               children: rows.asMap().entries.map((entry) {
                 final isLast = entry.key == rows.length - 1;
-                return _buildInfoRow(colors, isSmallScreen, entry.value, isLast);
+                return _buildInfoRow(isSmallScreen, entry.value, isLast);
               }).toList(),
             ),
           ),
@@ -599,13 +608,16 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
     );
   }
 
-  Widget _buildInfoRow(colors, bool isSmallScreen, _InfoRow row, bool isLast) {
+  Widget _buildInfoRow(bool isSmallScreen, _InfoRow row, bool isLast) {
     return Container(
       margin: EdgeInsets.only(bottom: isLast ? 0 : (isSmallScreen ? 10 : 12)),
-      padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 14),
       decoration: BoxDecoration(
-        color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity * 0.5),
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,8 +627,9 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
             child: Text(
               row.label,
               style: TextStyle(
-                color: Color(colors.textSecondaryColor).withValues(alpha: 0.6),
-                fontSize: isSmallScreen ? 12 : 13,
+                color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
+                fontSize: isSmallScreen ? 13 : 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -626,9 +639,9 @@ class _IpInfoScreenState extends State<IpInfoScreen> {
             child: Text(
               row.value,
               style: TextStyle(
-                color: Color(colors.textPrimaryColor),
-                fontSize: isSmallScreen ? 12 : 13,
-                fontWeight: FontWeight.w500,
+                color: Colors.white,
+                fontSize: isSmallScreen ? 13 : 14,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.end,
             ),

@@ -398,14 +398,24 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       debugPrint('✅ V2Ray service initialized');
       
       // STEP 2: Check if VPN is actually connected using delay check
+      // This is CRITICAL after app updates - the VPN might be disconnected
+      // but the saved state still shows connected
       bool isVpnConnected = false;
       try {
+        debugPrint('🔍 Checking actual VPN connection status...');
         final delay = await _v2rayService.getConnectedServerDelayDirect()
-            .timeout(const Duration(seconds: 3), onTimeout: () => -1);
+            .timeout(const Duration(seconds: 4), onTimeout: () => -1);
         isVpnConnected = delay >= 0 && delay < 10000;
         debugPrint('🔎 VPN delay check: ${delay}ms, connected: $isVpnConnected');
+        
+        // EXTRA CHECK: If delay check says connected, verify with core status
+        if (isVpnConnected) {
+          // Note: getCoreVersion check removed as method doesn't exist in service
+          // Core status is verified through delay check above
+        }
       } catch (e) {
-        debugPrint('⚠️ Delay check failed: $e');
+        debugPrint('⚠️ Delay check failed: $e - assuming disconnected');
+        isVpnConnected = false;
       }
       
       // STEP 3: Load saved configs for UI
@@ -442,11 +452,23 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           debugPrint('✅ VPN is connected to: ${_selectedConfig?.remark}');
         }
       } else {
-        // VPN is not connected - clear all connection states
+        // VPN is NOT connected - clear all connection states
+        // This is CRITICAL after app updates when VPN gets disconnected
+        debugPrint('❌ VPN is not connected - clearing all connection states');
+        
+        // Clear all connection flags
         for (var config in _configs) {
           config.isConnected = false;
         }
-        debugPrint('❌ VPN is not connected');
+        
+        // Clear selected config if it was marked as connected
+        if (_selectedConfig?.isConnected == true) {
+          _selectedConfig = null;
+        }
+        
+        _wasUsingSmartConnect = false;
+        
+        debugPrint('✅ Connection state cleared - UI will show disconnected');
       }
       
       notifyListeners();

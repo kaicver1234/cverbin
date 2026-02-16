@@ -14,41 +14,6 @@ class AppThemeModel {
     required this.emoji,
     required this.colors,
   });
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'nameEn': nameEn,
-    'nameFa': nameFa,
-    'emoji': emoji,
-  };
-
-  factory AppThemeModel.fromJson(Map<String, dynamic> json) {
-    final id = json['id'] as String;
-    return AppThemeModel(
-      id: id,
-      name: json['name'] as String,
-      nameEn: json['nameEn'] as String,
-      nameFa: json['nameFa'] as String,
-      emoji: json['emoji'] as String,
-      colors: _getThemeColors(id),
-    );
-  }
-
-  static ThemeColors _getThemeColors(String id) {
-    switch (id) {
-      case 'default':
-        return ThemeColors.defaultTheme();
-      case 'ocean':
-        return ThemeColors.oceanTheme();
-      case 'sunset':
-        return ThemeColors.sunsetTheme();
-      case 'forest':
-        return ThemeColors.forestTheme();
-      default:
-        return ThemeColors.defaultTheme();
-    }
-  }
 }
 
 class ThemeColors {
@@ -105,7 +70,7 @@ class ThemeColors {
     this.cardOpacity = 0.08,
   });
 
-  // Dark Green Theme (Default) - Fresh & Modern
+  // Single Default Theme
   factory ThemeColors.defaultTheme() => ThemeColors(
     backgroundColor: 0xFF050505,
     surfaceColor: 0xFFFFFFFF,
@@ -121,75 +86,6 @@ class ThemeColors {
     timerColor: 0xFF10b981,
     downloadColor: 0xFF10b981,
     uploadColor: 0xFF34d399,
-    borderColor: 0xFFFFFFFF,
-    dividerColor: 0xFFFFFFFF,
-    backgroundOpacity: 1.0,
-    surfaceOpacity: 0.05,
-    cardOpacity: 1.0,
-  );
-
-  // Dark Blue Theme - Professional & Calm
-  factory ThemeColors.oceanTheme() => ThemeColors(
-    backgroundColor: 0xFF050510,
-    surfaceColor: 0xFFFFFFFF,
-    cardColor: 0xFF1a1a1a,
-    primaryColor: 0xFF3b82f6,
-    secondaryColor: 0xFF60a5fa,
-    accentColor: 0xFF93c5fd,
-    textPrimaryColor: 0xFFFFFFFF,
-    textSecondaryColor: 0xFFFFFFFF,
-    successColor: 0xFF3b82f6,
-    errorColor: 0xFFef4444,
-    warningColor: 0xFFfbbf24,
-    timerColor: 0xFF3b82f6,
-    downloadColor: 0xFF3b82f6,
-    uploadColor: 0xFF60a5fa,
-    borderColor: 0xFFFFFFFF,
-    dividerColor: 0xFFFFFFFF,
-    backgroundOpacity: 1.0,
-    surfaceOpacity: 0.05,
-    cardOpacity: 1.0,
-  );
-
-  // Dark Purple Theme - Vibrant & Energetic
-  factory ThemeColors.sunsetTheme() => ThemeColors(
-    backgroundColor: 0xFF0a0510,
-    surfaceColor: 0xFFFFFFFF,
-    cardColor: 0xFF1a1a1a,
-    primaryColor: 0xFF8b5cf6,
-    secondaryColor: 0xFFa78bfa,
-    accentColor: 0xFFc4b5fd,
-    textPrimaryColor: 0xFFFFFFFF,
-    textSecondaryColor: 0xFFFFFFFF,
-    successColor: 0xFF8b5cf6,
-    errorColor: 0xFFef4444,
-    warningColor: 0xFFfbbf24,
-    timerColor: 0xFF8b5cf6,
-    downloadColor: 0xFF8b5cf6,
-    uploadColor: 0xFFa78bfa,
-    borderColor: 0xFFFFFFFF,
-    dividerColor: 0xFFFFFFFF,
-    backgroundOpacity: 1.0,
-    surfaceOpacity: 0.05,
-    cardOpacity: 1.0,
-  );
-
-  // Dark Red Theme - Bold & Powerful
-  factory ThemeColors.forestTheme() => ThemeColors(
-    backgroundColor: 0xFF050a05,
-    surfaceColor: 0xFFFFFFFF,
-    cardColor: 0xFF1a1a1a,
-    primaryColor: 0xFFef4444,
-    secondaryColor: 0xFFf87171,
-    accentColor: 0xFFfca5a5,
-    textPrimaryColor: 0xFFFFFFFF,
-    textSecondaryColor: 0xFFFFFFFF,
-    successColor: 0xFFef4444,
-    errorColor: 0xFFdc2626,
-    warningColor: 0xFFfbbf24,
-    timerColor: 0xFFef4444,
-    downloadColor: 0xFFef4444,
-    uploadColor: 0xFFf87171,
     borderColor: 0xFFFFFFFF,
     dividerColor: 0xFFFFFFFF,
     backgroundOpacity: 1.0,

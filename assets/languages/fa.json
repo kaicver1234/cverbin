@@ -1,16 +1,11 @@
 {
     "language": {
-        "name": "فارسی",
+        "name": "پارسی",
         "code": "fa",
         "flag": "🇮🇷",
         "direction": "rtl"
     },
-    "app": {
-        "title": "تیکسر وی‌پی‌ان",
-        "subtitle": "کلاینت وی‌پی‌ان رایگان"
-    },
     "navigation": {
-        "vpn": "وی‌پی‌ان",
         "tools": "ابزارها"
     },
     "tools": {
@@ -18,36 +13,26 @@
         "host_checker_desc": "بررسی وضعیت، زمان پاسخ و جزئیات هر میزبان وب",
         "speed_test_desc": "تست سرعت اتصال اینترنت شما"
     },
-    "settings": {
-        "title": "تنظیمات"
-    },
     "language_settings": {
         "title": "تنظیمات زبان",
-        "language": "زبان",
-        "current_language": "زبان فعلی",
-        "language_changed": "زبان با موفقیت تغییر کرد",
-        "restart_required": "لطفاً برنامه را مجدداً راه‌اندازی کنید",
-        "select_language": "انتخاب زبان"
+        "language": "زبان"
     },
     "home": {
-        "title": "تیکسر وی‌پی‌ان",
         "tap_to_connect": "برای اتصال ضربه بزنید",
-        "tap_to_stop": "برای قطع ضربه بزنید",
         "connecting": "در حال اتصال...",
         "connected": "متصل",
         "disconnected": "قطع شده",
-        "connection_failed": "اتصال ناموفق",
-        "connected_to": "متصل به",
-        "secure_connection": "اتصال امن",
         "quick_actions": "دسترسی سریع",
         "speed_test": "تست سرعت",
         "ip_info": "اطلاعات آی‌پی",
         "host_checker": "بررسی میزبان",
-        "duration": "مدت زمان",
         "upload": "آپلود",
         "download": "دانلود",
-        "ip_address": "آدرس آی‌پی",
-        "server_location_label": "موقعیت سرور"
+        "establishing_connection": "در حال برقراری اتصال...",
+        "connection_duration": "مدت زمان اتصال",
+        "current_server": "سرور فعلی",
+        "selected_server": "سرور انتخاب شده",
+        "tap_to_select": "برای انتخاب سرور ضربه بزنید"
     },
     "server_selector": {
         "connection_active": "در حال حاضر متصل هستید",
@@ -55,21 +40,17 @@
     },
     "server_selection": {
         "title": "انتخاب سرور",
-        "smart_connect": "اتصال هوشمند",
-        "smart_connect_description": "به صورت خودکار سریع‌ترین سرور را انتخاب می‌کند",
-        "finding_best_server": "در حال یافتن بهترین سرور...",
+        "auto_select": "انتخاب خودکار",
+        "auto_select_description": "سریع‌ترین سرور را انتخاب می‌کند",
         "select_server": "انتخاب یک سرور",
         "no_servers_available": "هیچ سروری موجود نیست",
         "testing_servers": "در حال تست سرورها...",
         "servers_updated": "سرورها به‌روزرسانی شدند",
-        "loaded_from_cache": "بارگذاری از حافظه (حالت آفلاین)",
         "error_updating": "خطا در به‌روزرسانی سرورها",
         "test_ping": "تست پینگ",
-        "all_servers_timeout": "همه سرورها تایم‌اوت شدند",
         "free": "رایگان",
         "premium": "ویژه",
-        "coming_soon": "به زودی",
-        "coming_soon_desc": "این ویژگی در آینده تکمیل خواهد شد"
+        "coming_soon": "به زودی"
     },
     "host_checker": {
         "title": "بررسی میزبان",
@@ -89,27 +70,18 @@
         "enter_host_to_check": "آدرس سایت را وارد کنید یا از دکمه‌های سریع استفاده کنید"
     },
     "about": {
-        "title": "درباره ما",
-        "app_name": "تیکسر وی‌پی‌ان",
         "about_description": "تیکسر وی پی ان ابزاری قدرتمند برای دسترسی به اینترنت آزاد است. محدودیت‌ها را بشکنید و با حفظ کامل حریم خصوصی و امنیت، از دسترسی نامحدود به وب جهانی لذت ببرید.",
         "copyright": "2026 تیکسر وی‌پی‌ان",
         "developed_with": "ساخته شده با",
         "developer": "توسط ابوالفضل جهانی",
-        "connect_with_me": "در ارتباط باشید",
-        "connect_with_us": "با ما در ارتباط باشید",
         "tiksar_village_page": "پیج رسمی روستای تیکسر",
         "telegram": "تلگرام",
-        "instagram": "اینستاگرام",
-        "secure": "امن",
-        "fast": "سریع",
-        "global": "جهانی",
-        "private": "خصوصی"
+        "instagram": "اینستاگرام"
     },
     "common": {
         "ok": "تأیید",
         "please_select_server": "لطفاً ابتدا یک سرور انتخاب کنید",
         "connection_failed": "اتصال ناموفق",
-        "no_servers_available": "هیچ سروری موجود نیست",
         "loading_servers": "در حال بارگذاری سرورها..."
     },
     "privacy_welcome": {
@@ -120,7 +92,6 @@
         "secure": "امن",
         "fast": "سریع",
         "global": "جهانی",
-        "why_choose_us": "چرا ما را انتخاب کنید؟",
         "military_grade_encryption": "رمزنگاری پیشرفته",
         "military_grade_desc": "داده‌های شما با رمزنگاری AES-256 محافظت می‌شود",
         "lightning_fast": "سرعت بسیار بالا",
@@ -129,48 +100,24 @@
         "global_network_desc": "از هر کجای دنیا متصل شوید",
         "no_logs": "عدم ذخیره اطلاعات",
         "no_logs_desc": "ما هرگز فعالیت شما را ردیابی یا ذخیره نمی‌کنیم",
-        "features_subtitle": "امکانات پیشرفته برای امنیت شما",
         "ready_to_start": "آماده شروع!",
-        "one_tap_away": "اتصال امن شما فقط\nیک ضربه فاصله دارد",
-        "no_registration": "نیازی به ثبت نام نیست"
+        "one_tap_away": "اتصال امن شما فقط\nیک ضربه فاصله دارد"
     },
     "speed_test": {
         "title_ready": "تست سرعت",
         "subtitle_ready": "برای شروع ضربه بزنید",
-        "title_testing": "در حال تست...",
-        "subtitle_testing": "لطفاً صبر کنید",
-        "title_completed": "تست تکمیل شد",
-        "subtitle_completed": "نتایج آماده است",
-        "title_error": "تست ناموفق",
         "subtitle_error": "دوباره تلاش کنید",
-        "go": "شروع",
-        "testing_speed": "در حال تست سرعت",
-        "completed_test": "تست تکمیل شد",
-        "encountered_error": "خطا رخ داد",
-        "to_speed_test": "تست سرعت",
         "tap_here": "برای شروع ضربه بزنید",
         "download": "دانلود",
         "upload": "آپلود",
         "ping": "پینگ",
-        "jitter": "جیتر",
         "mbps": "Mbps",
         "ms": "ms",
-        "stop": "توقف",
-        "retry": "تلاش مجدد",
-        "error_message": "تست سرعت ناموفق بود. لطفاً دوباره تلاش کنید.",
         "measuring_latency": "در حال اندازه‌گیری تأخیر...",
         "download_test": "تست دانلود",
         "upload_test": "تست آپلود",
         "test_completed": "تست تکمیل شد",
-        "connection_failed": "اتصال برقرار نشد. اینترنت را بررسی کنید.",
-        "test_failed": "تست سرعت ناموفق بود. دوباره تلاش کنید."
-    },
-    "theme": {
-        "title": "تم",
-        "subtitle": "تم مورد علاقه خود را انتخاب کنید",
-        "dark_green": "سبز تیره",
-        "dark_blue": "آبی تیره",
-        "dark_purple": "بنفش تیره",
-        "dark_red": "قرمز تیره"
+        "test_failed": "تست سرعت ناموفق بود. دوباره تلاش کنید.",
+        "connection_failed": "اتصال برقرار نشد. اینترنت را بررسی کنید."
     }
 }
