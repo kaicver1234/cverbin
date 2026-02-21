@@ -25,8 +25,8 @@ class _SplashLoadingScreenState extends State<SplashLoadingScreen>
   final List<Animation<double>> _letterOpacityAnims = [];
   final List<Animation<double>> _letterTranslateAnims = [];
 
-  static const Color green = Color(0xFF10B981);
-  static const Color cyan = Color(0xFF06B6D4);
+  static const Color cyan = Color(0xFF00D9FF);
+  static const Color green = Color(0xFF00FFA3);
 
   @override
   void initState() {

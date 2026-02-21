@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import '../models/app_theme_model.dart';
 
 class ThemeProvider with ChangeNotifier {
-  // Single default theme - no theme switching
+  // Only default theme - no theme switching
   final AppThemeModel _currentTheme = AppThemeModel(
     id: 'default',
     name: 'Default',
-    nameEn: 'Dark Theme',
-    nameFa: 'تم تیره',
-    emoji: '💎',
+    nameEn: 'Pure Black',
+    nameFa: 'مشکی خالص',
+    emoji: '🖤',
     colors: ThemeColors.defaultTheme(),
   );
 

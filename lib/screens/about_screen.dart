@@ -128,7 +128,13 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
-              child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+              child: Consumer<LanguageProvider>(
+                builder: (context, langProvider, _) => Icon(
+                  langProvider.isRtl ? Icons.arrow_forward_ios : Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -158,7 +164,7 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF10b981).withValues(alpha: 0.4),
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
                   blurRadius: 30,
                   spreadRadius: 2,
                 ),
@@ -187,12 +193,12 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF10b981).withValues(alpha: 0.2),
-                  const Color(0xFF06b6d4).withValues(alpha: 0.2),
+                  const Color(0xFF00D9FF).withValues(alpha: 0.2),
+                  const Color(0xFF00FFA3).withValues(alpha: 0.2),
                 ],
               ),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF10b981).withValues(alpha: 0.3)),
+              border: Border.all(color: const Color(0xFF00D9FF).withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -201,13 +207,13 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
                   width: 6,
                   height: 6,
                   decoration: const BoxDecoration(
-                    color: Color(0xFF10b981),
+                    color: Color(0xFF00D9FF),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'v1.1.3',
+                  'v1.1.4',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.white.withValues(alpha: 0.8),
@@ -247,10 +253,10 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366f1).withValues(alpha: 0.15),
+              color: const Color(0xFF00D9FF).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.info_outline_rounded, color: Color(0xFF6366f1), size: 24),
+            child: const Icon(Icons.info_outline_rounded, color: Color(0xFF00D9FF), size: 24),
           ),
           const SizedBox(height: 16),
           Text(
@@ -331,7 +337,7 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFF10b981), Color(0xFF06b6d4)],
+                    colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
                   ),
                   borderRadius: BorderRadius.circular(2),
                 ),
@@ -428,14 +434,20 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
                 ],
               ),
             ),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8),
+            Consumer<LanguageProvider>(
+              builder: (context, langProvider, _) => Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  langProvider.isRtl ? Icons.arrow_back_ios_rounded : Icons.arrow_forward_ios_rounded,
+                  color: Colors.white.withValues(alpha: 0.4),
+                  size: 14,
+                ),
               ),
-              child: Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.4), size: 14),
             ),
           ],
         ),

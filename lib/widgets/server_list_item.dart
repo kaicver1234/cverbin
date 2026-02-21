@@ -51,9 +51,21 @@ class _ServerListItemState extends State<ServerListItem> {
   ) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: isSelected ? 4 : 1,
-      color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+      elevation: 0,
+      color: isSelected 
+          ? const Color(0xFF00D9FF).withValues(alpha: 0.08) 
+          : const Color(0xFF121212),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isSelected 
+              ? const Color(0xFF00D9FF).withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.06),
+          width: 1,
+        ),
+      ),
       child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () async {
           await provider.selectConfig(widget.config);
         },

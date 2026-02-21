@@ -5,6 +5,9 @@ import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/language_provider.dart';
+import '../providers/theme_provider.dart';
+import '../models/app_theme_model.dart';
+import '../widgets/cyber_glow_background.dart';
 import '../widgets/app_background.dart';
 import '../utils/app_localizations.dart';
 
@@ -101,7 +104,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
         AppLocalizations.of(context)
             .translate('host_checker.is_online')
             .replaceAll('{host}', uri.host),
-        const Color(0xFF10B981),
+        const Color(0xFF00FFA3),
       );
     } catch (e) {
       if (!mounted) return;
@@ -160,28 +163,30 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<LanguageProvider>(
-      builder: (context, languageProvider, child) {
+    return Consumer2<LanguageProvider, ThemeProvider>(
+      builder: (context, languageProvider, themeProvider, child) {
         return Directionality(
           textDirection: languageProvider.textDirection,
           child: AppBackground(
             useSecondaryBackground: true,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _buildAppBar(context),
-                  Expanded(
-                    child: CustomScrollView(
-                      controller: _scrollController,
-                      physics: const BouncingScrollPhysics(),
-                      slivers: [
-                        SliverToBoxAdapter(child: _buildSearchSection()),
-                        SliverToBoxAdapter(child: _buildQuickAccessSection()),
-                        _buildResultsSection(),
-                      ],
+            child: CyberGlowBackground(
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    _buildAppBar(context, themeProvider.colors),
+                    Expanded(
+                      child: CustomScrollView(
+                        controller: _scrollController,
+                        physics: const BouncingScrollPhysics(),
+                        slivers: [
+                          SliverToBoxAdapter(child: _buildSearchSection(themeProvider.colors)),
+                          SliverToBoxAdapter(child: _buildQuickAccessSection(themeProvider.colors)),
+                          _buildResultsSection(themeProvider.colors),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -190,24 +195,16 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
+  Widget _buildAppBar(BuildContext context, ThemeColors colors) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     
     return Container(
       padding: EdgeInsets.fromLTRB(
         isSmallScreen ? 16 : 20,
-        12,
+        isSmallScreen ? 12 : 16,
         isSmallScreen ? 16 : 20,
-        16,
-      ),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
-            width: 1,
-          ),
-        ),
+        isSmallScreen ? 12 : 16,
       ),
       child: Row(
         children: [
@@ -217,16 +214,16 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
               width: isSmallScreen ? 40 : 44,
               height: isSmallScreen ? 40 : 44,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                border: Border.all(
-                  color: const Color(0xFF00D9FF).withValues(alpha: 0.2),
-                ),
+                color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Color(colors.borderColor).withValues(alpha: 0.1)),
               ),
-              child: Icon(
-                Icons.arrow_back_ios_new,
-                color: const Color(0xFF00D9FF),
-                size: isSmallScreen ? 16 : 18,
+              child: Consumer<LanguageProvider>(
+                builder: (context, langProvider, _) => Icon(
+                  langProvider.isRtl ? Icons.arrow_forward_ios : Icons.arrow_back_ios_new,
+                  color: Color(colors.textPrimaryColor),
+                  size: isSmallScreen ? 18 : 20,
+                ),
               ),
             ),
           ).animate().fadeIn().slideX(),
@@ -238,9 +235,9 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                 Text(
                   AppLocalizations.of(context).translate('host_checker.title'),
                   style: GoogleFonts.poppins(
-                    fontSize: isSmallScreen ? 18 : 20,
+                    fontSize: isSmallScreen ? 18 : 22,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: Color(colors.textPrimaryColor),
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -248,7 +245,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                   AppLocalizations.of(context).translate('host_checker.start_checking'),
                   style: TextStyle(
                     fontSize: isSmallScreen ? 11 : 12,
-                    color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
+                    color: Color(colors.textSecondaryColor).withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -261,13 +258,13 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                 width: isSmallScreen ? 40 : 44,
                 height: isSmallScreen ? 40 : 44,
                 decoration: BoxDecoration(
-                  color: Colors.red.shade400.withValues(alpha: 0.15),
+                  color: Color(colors.errorColor).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade400.withValues(alpha: 0.3)),
+                  border: Border.all(color: Color(colors.errorColor).withValues(alpha: 0.3)),
                 ),
                 child: Icon(
                   Icons.delete_sweep_rounded,
-                  color: Colors.red.shade400,
+                  color: Color(colors.errorColor),
                   size: isSmallScreen ? 20 : 22,
                 ),
               ),
@@ -277,14 +274,14 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
     );
   }
 
-  Widget _buildSearchSection() {
+  Widget _buildSearchSection(ThemeColors colors) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     
     return Container(
       margin: EdgeInsets.fromLTRB(
         isSmallScreen ? 16 : 20,
-        12,
+        8,
         isSmallScreen ? 16 : 20,
         isSmallScreen ? 12 : 16,
       ),
@@ -293,54 +290,49 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
         builder: (context, child) {
           return Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 18),
+              borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
               boxShadow: _isChecking
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF00D9FF).withValues(alpha: 0.4 * _glowController.value),
-                        blurRadius: 24,
-                        spreadRadius: 2,
+                        color: Color(colors.primaryColor).withValues(alpha: 0.3 * _glowController.value),
+                        blurRadius: isSmallScreen ? 16 : 20,
+                        spreadRadius: isSmallScreen ? 1 : 2,
                       ),
                     ]
-                  : [],
+                  : null,
             ),
             child: child,
           );
         },
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0A1929).withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 18),
-            border: Border.all(
-              color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
-              width: 1.5,
-            ),
+            color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity),
+            borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
+            border: Border.all(color: Color(colors.borderColor).withValues(alpha: 0.12)),
           ),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _hostController,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                  style: TextStyle(
+                    color: Color(colors.textPrimaryColor),
+                    fontSize: isSmallScreen ? 14 : 16,
                   ),
                   decoration: InputDecoration(
                     hintText: AppLocalizations.of(context).translate('host_checker.enter_host'),
                     hintStyle: TextStyle(
-                      color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
-                      fontWeight: FontWeight.w400,
+                      color: Color(colors.textSecondaryColor).withValues(alpha: 0.35),
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
-                      horizontal: isSmallScreen ? 18 : 20,
-                      vertical: isSmallScreen ? 16 : 18,
+                      horizontal: isSmallScreen ? 16 : 20,
+                      vertical: isSmallScreen ? 14 : 18,
                     ),
                     prefixIcon: Icon(
                       Icons.language_rounded,
-                      color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
-                      size: isSmallScreen ? 22 : 24,
+                      color: Color(colors.textSecondaryColor).withValues(alpha: 0.5),
+                      size: isSmallScreen ? 20 : 22,
                     ),
                   ),
                   onSubmitted: (value) => _checkHost(value),
@@ -351,32 +343,28 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.all(6),
-                  padding: EdgeInsets.all(isSmallScreen ? 14 : 16),
+                  padding: EdgeInsets.all(isSmallScreen ? 12 : 14),
                   decoration: BoxDecoration(
-                    gradient: _isChecking
-                        ? LinearGradient(
-                            colors: [Colors.grey.shade800, Colors.grey.shade900],
-                          )
-                        : const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
-                          ),
+                    gradient: LinearGradient(
+                      colors: _isChecking
+                          ? [const Color(0xFF4B5563), const Color(0xFF374151)]
+                          : [Color(colors.primaryColor), Color(colors.secondaryColor)],
+                    ),
                     borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 14),
                     boxShadow: _isChecking
-                        ? []
+                        ? null
                         : [
                             BoxShadow(
-                              color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
-                              blurRadius: 16,
+                              color: Color(colors.primaryColor).withValues(alpha: 0.4),
+                              blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
                           ],
                   ),
                   child: _isChecking
                       ? SizedBox(
-                          width: isSmallScreen ? 20 : 22,
-                          height: isSmallScreen ? 20 : 22,
+                          width: isSmallScreen ? 18 : 20,
+                          height: isSmallScreen ? 18 : 20,
                           child: const CircularProgressIndicator(
                             color: Colors.white,
                             strokeWidth: 2.5,
@@ -385,7 +373,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                       : Icon(
                           Icons.search_rounded,
                           color: Colors.white,
-                          size: isSmallScreen ? 22 : 24,
+                          size: isSmallScreen ? 20 : 22,
                         ),
                 ),
               ),
@@ -393,10 +381,10 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
           ),
         ),
       ),
-    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, end: 0);
+    ).animate().fadeIn().slideY(begin: 0.1, end: 0);
   }
 
-  Widget _buildQuickAccessSection() {
+  Widget _buildQuickAccessSection(ThemeColors colors) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     
@@ -415,7 +403,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
             child: Text(
               AppLocalizations.of(context).translate('host_checker.quick_check'),
               style: GoogleFonts.poppins(
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
+                color: Color(colors.textSecondaryColor).withValues(alpha: 0.6),
                 fontSize: isSmallScreen ? 12 : 13,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
@@ -444,7 +432,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                     ),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: (host['color'] as Color).withValues(alpha: 0.3),
+                      color: (host['color'] as Color).withValues(alpha: 0.25),
                     ),
                   ),
                   child: Row(
@@ -459,7 +447,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                       Text(
                         host['name'],
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.85),
+                          color: Color(colors.textPrimaryColor).withValues(alpha: 0.85),
                           fontSize: isSmallScreen ? 12 : 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -477,14 +465,14 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
     );
   }
 
-  Widget _buildResultsSection() {
+  Widget _buildResultsSection(ThemeColors colors) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     
     if (_results.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: _buildEmptyState(),
+        child: _buildEmptyState(colors),
       );
     }
 
@@ -492,14 +480,14 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
       padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 20),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, index) => _buildResultCard(_results[index], index),
+          (context, index) => _buildResultCard(_results[index], index, colors),
           childCount: _results.length,
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(ThemeColors colors) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     
@@ -514,21 +502,21 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
               height: isSmallScreen ? 90 : 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [
-                    Color(0xFF00D9FF),
-                    Color(0xFF00FFA3),
+                    Color(colors.primaryColor).withValues(alpha: 0.2),
+                    Color(colors.secondaryColor).withValues(alpha: 0.1),
                   ],
-                ).scale(0.2),
+                ),
                 border: Border.all(
-                  color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                  color: Color(colors.primaryColor).withValues(alpha: 0.3),
                   width: 2,
                 ),
               ),
               child: Icon(
                 Icons.dns_rounded,
                 size: isSmallScreen ? 40 : 45,
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.7),
+                color: Color(colors.primaryColor).withValues(alpha: 0.7),
               ),
             ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
                   begin: const Offset(1, 1),
@@ -539,7 +527,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
             Text(
               AppLocalizations.of(context).translate('host_checker.no_results'),
               style: GoogleFonts.poppins(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Color(colors.textPrimaryColor).withValues(alpha: 0.7),
                 fontSize: isSmallScreen ? 15 : 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -548,7 +536,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
             Text(
               AppLocalizations.of(context).translate('host_checker.enter_host_to_check'),
               style: TextStyle(
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
+                color: Color(colors.textSecondaryColor).withValues(alpha: 0.4),
                 fontSize: isSmallScreen ? 12 : 13,
               ),
               textAlign: TextAlign.center,
@@ -559,69 +547,57 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
     );
   }
 
-  Widget _buildResultCard(HostCheckResult result, int index) {
+  Widget _buildResultCard(HostCheckResult result, int index, ThemeColors colors) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     final isSuccess = result.isSuccess;
-    final statusColor = isSuccess ? const Color(0xFF00FFA3) : const Color(0xFFFF6B6B);
+    final statusColor = isSuccess ? Color(colors.successColor) : Color(colors.errorColor);
 
     return Container(
-      margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 14),
+      margin: EdgeInsets.only(bottom: isSmallScreen ? 10 : 12),
       child: Material(
         color: Colors.transparent,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0A1929).withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 18),
-            border: Border.all(
-              color: statusColor.withValues(alpha: 0.4),
-              width: 1.5,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                statusColor.withValues(alpha: 0.12),
+                statusColor.withValues(alpha: 0.05),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: statusColor.withValues(alpha: 0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(isSmallScreen ? 14 : 16),
+            border: Border.all(color: statusColor.withValues(alpha: 0.25)),
           ),
           child: Padding(
-            padding: EdgeInsets.all(isSmallScreen ? 16 : 18),
+            padding: EdgeInsets.all(isSmallScreen ? 14 : 16),
             child: Row(
               children: [
-                // Status Icon with glow
+                // Status Icon
                 Container(
-                  width: isSmallScreen ? 48 : 52,
-                  height: isSmallScreen ? 48 : 52,
+                  width: isSmallScreen ? 44 : 48,
+                  height: isSmallScreen ? 44 : 48,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
                       colors: [
-                        statusColor.withValues(alpha: 0.3),
+                        statusColor.withValues(alpha: 0.2),
                         statusColor.withValues(alpha: 0.1),
                       ],
                     ),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: statusColor.withValues(alpha: 0.5),
-                      width: 2,
+                      color: statusColor.withValues(alpha: 0.3),
+                      width: 1.5,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        spreadRadius: 1,
-                      ),
-                    ],
                   ),
                   child: Icon(
                     isSuccess ? Icons.check_circle_rounded : Icons.cancel_rounded,
                     color: statusColor,
-                    size: isSmallScreen ? 26 : 28,
+                    size: isSmallScreen ? 24 : 26,
                   ),
                 ),
-                SizedBox(width: isSmallScreen ? 14 : 16),
+                SizedBox(width: isSmallScreen ? 12 : 14),
                 // Info
                 Expanded(
                   child: Column(
@@ -630,34 +606,32 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                       Text(
                         result.host,
                         style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: isSmallScreen ? 15 : 16,
+                          color: Color(colors.textPrimaryColor),
+                          fontSize: isSmallScreen ? 14 : 15,
                           fontWeight: FontWeight.w600,
-                          letterSpacing: -0.3,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: isSmallScreen ? 6 : 8),
+                      SizedBox(height: isSmallScreen ? 5 : 6),
                       Wrap(
                         spacing: isSmallScreen ? 6 : 8,
                         runSpacing: 4,
                         children: [
                           _buildStatusBadge(result.status, statusColor, isSmallScreen),
                           if (result.statusCode > 0)
-                            _buildInfoChip(Icons.code, '${result.statusCode}', isSmallScreen),
+                            _buildInfoChip(Icons.code, '${result.statusCode}', colors, isSmallScreen),
                           if (result.responseTime > 0)
-                            _buildInfoChip(Icons.timer_outlined, '${result.responseTime}ms', isSmallScreen),
+                            _buildInfoChip(Icons.timer_outlined, '${result.responseTime}ms', colors, isSmallScreen),
                         ],
                       ),
                       if (result.error != null) ...[
-                        SizedBox(height: isSmallScreen ? 6 : 8),
+                        SizedBox(height: isSmallScreen ? 5 : 6),
                         Text(
                           result.error!,
                           style: TextStyle(
-                            color: statusColor.withValues(alpha: 0.7),
-                            fontSize: isSmallScreen ? 11 : 12,
-                            fontWeight: FontWeight.w500,
+                            color: statusColor.withValues(alpha: 0.8),
+                            fontSize: isSmallScreen ? 10 : 11,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -666,37 +640,29 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                     ],
                   ),
                 ),
-                // Time badge
+                // Time
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Container(
-                      padding: EdgeInsets.all(isSmallScreen ? 8 : 9),
+                      padding: EdgeInsets.all(isSmallScreen ? 6 : 7),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            statusColor.withValues(alpha: 0.2),
-                            statusColor.withValues(alpha: 0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: statusColor.withValues(alpha: 0.3),
-                        ),
+                        color: statusColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         isSuccess ? Icons.wifi : Icons.wifi_off,
                         color: statusColor,
-                        size: isSmallScreen ? 18 : 20,
+                        size: isSmallScreen ? 16 : 18,
                       ),
                     ),
-                    SizedBox(height: isSmallScreen ? 6 : 8),
+                    SizedBox(height: isSmallScreen ? 5 : 6),
                     Text(
                       _formatTime(result.timestamp),
                       style: TextStyle(
-                        color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
-                        fontSize: isSmallScreen ? 11 : 12,
-                        fontWeight: FontWeight.w600,
+                        color: Color(colors.textSecondaryColor).withValues(alpha: 0.35),
+                        fontSize: isSmallScreen ? 10 : 11,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -706,50 +672,43 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
           ),
         ),
       ),
-    ).animate(delay: Duration(milliseconds: 80 * index))
-        .fadeIn(duration: 400.ms)
-        .slideX(begin: 0.2, end: 0, curve: Curves.easeOutCubic);
+    ).animate(delay: Duration(milliseconds: 60 * index)).fadeIn().slideX(begin: 0.15, end: 0);
   }
 
   Widget _buildStatusBadge(String status, Color color, bool isSmallScreen) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 8 : 10,
-        vertical: isSmallScreen ? 4 : 5,
+        horizontal: isSmallScreen ? 7 : 8,
+        vertical: isSmallScreen ? 3 : 4,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            color.withValues(alpha: 0.3),
-            color.withValues(alpha: 0.2),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         status,
         style: TextStyle(
           color: color,
-          fontSize: isSmallScreen ? 10 : 11,
+          fontSize: isSmallScreen ? 9 : 10,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
+          letterSpacing: 0.3,
         ),
       ),
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String text, bool isSmallScreen) {
+  Widget _buildInfoChip(IconData icon, String text, ThemeColors colors, bool isSmallScreen) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 7 : 8,
-        vertical: isSmallScreen ? 4 : 5,
+        horizontal: isSmallScreen ? 6 : 7,
+        vertical: isSmallScreen ? 3 : 4,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: Color(colors.surfaceColor).withValues(alpha: colors.surfaceOpacity),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+          color: Color(colors.borderColor).withValues(alpha: 0.15),
         ),
       ),
       child: Row(
@@ -757,15 +716,15 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
         children: [
           Icon(
             icon,
-            color: const Color(0xFF00D9FF).withValues(alpha: 0.7),
-            size: isSmallScreen ? 12 : 13,
+            color: Color(colors.textSecondaryColor).withValues(alpha: 0.5),
+            size: isSmallScreen ? 11 : 12,
           ),
-          SizedBox(width: isSmallScreen ? 4 : 5),
+          SizedBox(width: isSmallScreen ? 3 : 4),
           Text(
             text,
             style: TextStyle(
-              color: const Color(0xFF00D9FF).withValues(alpha: 0.8),
-              fontSize: isSmallScreen ? 11 : 12,
+              color: Color(colors.textSecondaryColor).withValues(alpha: 0.6),
+              fontSize: isSmallScreen ? 10 : 11,
               fontWeight: FontWeight.w600,
             ),
           ),

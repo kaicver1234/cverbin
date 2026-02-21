@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -32,7 +31,7 @@ class VPNGradientBackground extends StatelessWidget {
           Container(
             width: double.infinity,
             height: double.infinity,
-            color: const Color(0xFF0a0a0a),
+            color: const Color(0xFF000000),
           ),
           
           // Center dark radial gradient layer (ellipse at 50% 40%)
@@ -43,8 +42,8 @@ class VPNGradientBackground extends StatelessWidget {
                   center: const Alignment(0.0, -0.2), // 50% 40%
                   radius: 1.5,
                   colors: const [
-                    Color(0xFF0c0c12),
-                    Color(0xFF0a0a0a),
+                    Color(0xFF000000),
+                    Color(0xFF000000),
                   ],
                   stops: const [0.0, 0.7],
                   transform: const GradientRotation(0), // Keep it elliptical
@@ -85,20 +84,15 @@ class VPNGradientBackground extends StatelessWidget {
       height: 450,
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          center: const Alignment(0.0, -0.4), // at 50% 30%
-          radius: 0.9,
+          center: const Alignment(0.0, -0.4),
+          radius: 1.2,
           colors: [
             auroraColor,
+            auroraColor.withValues(alpha: auroraColor.a * 0.5),
             Colors.transparent,
           ],
-          stops: const [0.0, 0.6],
-          focal: const Alignment(0.0, -0.4),
-          focalRadius: 0.0,
+          stops: const [0.0, 0.3, 0.7],
         ),
-      ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Container(color: Colors.transparent),
       ),
     );
   }
@@ -171,12 +165,12 @@ class VPNGradientBackground extends StatelessWidget {
   Color _getTopAuroraColor() {
     switch (status) {
       case VPNBackgroundStatus.disconnected:
-        return const Color(0xFF6366F1).withValues(alpha: 0.08); // Indigo/purple
+        return const Color(0xFF00D9FF).withValues(alpha: 0.08); // Cyan
       case VPNBackgroundStatus.connected:
-        return const Color(0xFF10B981).withValues(alpha: 0.10); // Green
+        return const Color(0xFF00FFA3).withValues(alpha: 0.10); // Green-cyan
       case VPNBackgroundStatus.connecting:
       case VPNBackgroundStatus.analyzing:
-        return const Color(0xFF3B82F6).withValues(alpha: 0.10); // Blue
+        return const Color(0xFF00D9FF).withValues(alpha: 0.10); // Cyan
       case VPNBackgroundStatus.error:
         return const Color(0xFFEF4444).withValues(alpha: 0.08); // Red
       case VPNBackgroundStatus.noInternet:
@@ -188,19 +182,19 @@ class VPNGradientBackground extends StatelessWidget {
     switch (status) {
       case VPNBackgroundStatus.disconnected:
         return const _BottomGlowColors(
-          primary: Color(0xFF10B981),   // Emerald green
-          secondary: Color(0xFF06B6D4), // Cyan
+          primary: Color(0xFF00D9FF),   // Cyan
+          secondary: Color(0xFF00FFA3), // Green-cyan
         );
       case VPNBackgroundStatus.connected:
         return const _BottomGlowColors(
-          primary: Color(0xFF10B981),   // Emerald green
-          secondary: Color(0xFF34D399), // Lighter green
+          primary: Color(0xFF00FFA3),   // Green-cyan
+          secondary: Color(0xFF00D9FF), // Cyan
         );
       case VPNBackgroundStatus.connecting:
       case VPNBackgroundStatus.analyzing:
         return const _BottomGlowColors(
-          primary: Color(0xFF3B82F6),   // Blue
-          secondary: Color(0xFF60A5FA), // Lighter blue
+          primary: Color(0xFF00D9FF),   // Cyan
+          secondary: Color(0xFF00FFA3), // Green-cyan
         );
       case VPNBackgroundStatus.error:
         return const _BottomGlowColors(

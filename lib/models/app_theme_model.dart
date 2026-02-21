@@ -37,7 +37,6 @@ class ThemeColors {
   final int warningColor;
   
   // Special colors
-  final int timerColor;
   final int downloadColor;
   final int uploadColor;
   
@@ -60,7 +59,6 @@ class ThemeColors {
     required this.successColor,
     required this.errorColor,
     required this.warningColor,
-    required this.timerColor,
     required this.downloadColor,
     required this.uploadColor,
     required this.borderColor,
@@ -70,24 +68,23 @@ class ThemeColors {
     this.cardOpacity = 0.08,
   });
 
-  // Single Default Theme
+  // Default Theme - Pure Black with Cyan
   factory ThemeColors.defaultTheme() => ThemeColors(
-    backgroundColor: 0xFF050505,
+    backgroundColor: 0xFF000000,
     surfaceColor: 0xFFFFFFFF,
-    cardColor: 0xFF1a1a1a,
-    primaryColor: 0xFF10b981,
-    secondaryColor: 0xFF34d399,
-    accentColor: 0xFF6ee7b7,
+    cardColor: 0xFF121212,
+    primaryColor: 0xFF00D9FF,
+    secondaryColor: 0xFF00FFA3,
+    accentColor: 0xFF00D9FF,
     textPrimaryColor: 0xFFFFFFFF,
-    textSecondaryColor: 0xFFFFFFFF,
-    successColor: 0xFF10b981,
-    errorColor: 0xFFef4444,
-    warningColor: 0xFFfbbf24,
-    timerColor: 0xFF10b981,
-    downloadColor: 0xFF10b981,
-    uploadColor: 0xFF34d399,
+    textSecondaryColor: 0xFFE0E0E0,
+    successColor: 0xFF00FFA3,
+    errorColor: 0xFFEF4444,
+    warningColor: 0xFFFBBF24,
+    downloadColor: 0xFF00FFA3,
+    uploadColor: 0xFF00D9FF,
     borderColor: 0xFFFFFFFF,
-    dividerColor: 0xFFFFFFFF,
+    dividerColor: 0xFF2A2A2A,
     backgroundOpacity: 1.0,
     surfaceOpacity: 0.05,
     cardOpacity: 1.0,

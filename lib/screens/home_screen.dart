@@ -6,7 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/theme_provider.dart';
+import '../models/app_theme_model.dart';
 import '../widgets/app_background.dart';
+import '../widgets/cyber_glow_background.dart';
 import '../models/app_language.dart';
 import '../utils/app_localizations.dart';
 import '../utils/country_flags.dart';
@@ -27,7 +29,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   bool _isConnecting = false;
   late PageController _pageController;
-  int _currentPage = 0;
+  int _currentPage = 1; // Start from VPN tab (middle)
   
   @override
   bool get wantKeepAlive => true;
@@ -35,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(keepPage: true, viewportFraction: 1.0);
+    _pageController = PageController(initialPage: 1, keepPage: true, viewportFraction: 1.0);
     WidgetsBinding.instance.addObserver(this);
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -168,27 +170,28 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         return Directionality(
           textDirection: languageProvider.textDirection,
           child: AppBackground(
-            useSecondaryBackground: _currentPage != 0, // Use background2 for Tools and About
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(context),
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const ClampingScrollPhysics(),
-                      onPageChanged: (index) {
-                        if (mounted) setState(() => _currentPage = index);
-                      },
-                      children: [
-                        _buildVPNTab(v2rayProvider),
-                        _buildToolsTab(context),
-                        _buildAboutTab(context),
-                      ],
+            child: CyberGlowBackground(
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    _buildHeader(context),
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        physics: const ClampingScrollPhysics(),
+                        onPageChanged: (index) {
+                          if (mounted) setState(() => _currentPage = index);
+                        },
+                        children: [
+                          _buildToolsTab(context),
+                          _buildVPNTab(v2rayProvider),
+                          _buildAboutTab(context),
+                        ],
+                      ),
                     ),
-                  ),
-                  _buildBottomNav(),
-                ],
+                    _buildBottomNav(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -200,25 +203,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
-            width: 1,
-          ),
-        ),
-      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Brand Name
-          RichText(
-            text: TextSpan(
-              style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700),
-              children: const [
-                TextSpan(text: 'Tiksar', style: TextStyle(color: Colors.white)),
-                TextSpan(text: 'VPN', style: TextStyle(color: Color(0xFF00D9FF))),
-              ],
+          Text(
+            'TiksarVPN',
+            style: GoogleFonts.poppins(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
           ),
           // Language Button
@@ -228,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
+                color: Colors.white.withValues(alpha: 0.1),
                 border: Border.all(color: const Color(0xFF00D9FF).withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -245,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final colors = themeProvider.colors;
     final languages = [
-      {'name': 'پارسی', 'code': 'fa', 'flag': '🇮🇷'},
+      {'name': 'فارسی', 'code': 'fa', 'flag': '🇮🇷'},
       {'name': 'English', 'code': 'en', 'flag': '🇺🇸'},
     ];
 
@@ -376,210 +370,215 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildVPNTab(V2RayProvider provider) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
+    final verticalPadding = screenHeight < 700 ? 12.0 : 20.0;
+    final horizontalPadding = screenHeight < 700 ? 16.0 : 20.0;
+    
+    // Responsive dimensions based on screen size
     final isSmallScreen = screenHeight < 700 || screenWidth < 360;
+    final serverCardHeight = isSmallScreen ? 82.0 : 88.0;
     
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 20 : 24,
-          vertical: isSmallScreen ? 16 : 20,
-        ),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
         child: Column(
           children: [
             const AnnouncementBannerWidget(),
-            SizedBox(height: isSmallScreen ? 20 : 28),
+            SizedBox(height: screenHeight < 700 ? 16 : 20),
             
-            // Main Connection Card
-            _buildMainConnectionCard(provider, isSmallScreen),
+            // Connection button
+            _buildConnectionButton(provider),
             
-            SizedBox(height: isSmallScreen ? 20 : 24),
+            SizedBox(height: screenHeight < 700 ? 20 : 32),
             
-            // Server Selection Card
-            _buildServerSelectionCard(provider, isSmallScreen),
+            // Server selection card
+            _buildServerCard(provider, serverCardHeight, isSmallScreen),
             
-            if (provider.activeConfig != null) ...[
-              SizedBox(height: isSmallScreen ? 16 : 20),
-              _buildStatsCard(provider),
+            SizedBox(height: screenHeight < 700 ? 24 : 36),
+            
+            // Timer
+            _buildTimerSection(provider, isSmallScreen),
+            
+            SizedBox(height: screenHeight < 700 ? 16 : 20),
+            
+            // Download and Upload stats
+            _buildStatsRow(provider, isSmallScreen),
+            
+            SizedBox(height: screenHeight < 700 ? 16 : 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimerSection(V2RayProvider provider, bool isSmallScreen) {
+    final isConnected = provider.activeConfig != null;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final timerFontSize = screenHeight < 700 ? 32.0 : 38.0;
+    
+    return StreamBuilder(
+      stream: Stream.periodic(const Duration(seconds: 1)),
+      builder: (context, snapshot) {
+        return Text(
+          isConnected 
+              ? provider.v2rayService.getFormattedConnectedTime()
+              : '00:00:00',
+          style: GoogleFonts.poppins(
+            fontSize: timerFontSize,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            letterSpacing: 2,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatsRow(V2RayProvider provider, bool isSmallScreen) {
+    final v2rayService = provider.v2rayService;
+    final isConnected = provider.activeConfig != null;
+    
+    // Update every 500ms for real-time display
+    return StreamBuilder(
+      stream: Stream.periodic(const Duration(milliseconds: 500)),
+      builder: (context, snapshot) {
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 30 : 50),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Download (Left)
+              _buildStatWithCircleIcon(
+                label: 'Download',
+                value: isConnected ? v2rayService.getFormattedDownload() : '0 B',
+                color: const Color(0xFF00FFA3),
+                icon: Icons.arrow_downward_rounded,
+                isSmallScreen: isSmallScreen,
+              ),
+              
+              // Upload (Right)
+              _buildStatWithCircleIcon(
+                label: 'Upload',
+                value: isConnected ? v2rayService.getFormattedUpload() : '0 B',
+                color: const Color(0xFF00D9FF),
+                icon: Icons.arrow_upward_rounded,
+                isSmallScreen: isSmallScreen,
+              ),
             ],
-            
-            SizedBox(height: isSmallScreen ? 16 : 20),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildMainConnectionCard(V2RayProvider provider, bool isSmallScreen) {
-    final isConnected = provider.activeConfig != null;
-    
-    return Container(
-      padding: EdgeInsets.all(isSmallScreen ? 28 : 36),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A1929).withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(
-          color: isConnected 
-              ? const Color(0xFF00FFA3).withValues(alpha: 0.3)
-              : const Color(0xFF00D9FF).withValues(alpha: 0.25),
-          width: 1.5,
-        ),
-        boxShadow: isConnected ? [
-          BoxShadow(
-            color: const Color(0xFF00FFA3).withValues(alpha: 0.15),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
+  Widget _buildStatWithCircleIcon({
+    required String label,
+    required String value,
+    required Color color,
+    required IconData icon,
+    required bool isSmallScreen,
+  }) {
+    return Column(
+      children: [
+        // Circle icon
+        Container(
+          width: isSmallScreen ? 40 : 48,
+          height: isSmallScreen ? 40 : 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.15),
+            border: Border.all(
+              color: color.withValues(alpha: 0.3),
+              width: 2,
+            ),
           ),
-        ] : [],
-      ),
-      child: Column(
-        children: [
-          // Status Badge
-          _buildStatusBadge(provider, isSmallScreen),
-          
-          SizedBox(height: isSmallScreen ? 24 : 32),
-          
-          // Connection Button
-          _buildModernConnectionButton(provider, isSmallScreen),
-          
-          SizedBox(height: isSmallScreen ? 24 : 32),
-          
-          // Timer or Status Text
-          _buildConnectionInfo(provider, isSmallScreen),
-        ],
-      ),
+          child: Icon(
+            icon,
+            color: color,
+            size: isSmallScreen ? 20 : 24,
+          ),
+        ),
+        SizedBox(height: isSmallScreen ? 8 : 10),
+        // Label
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.6),
+            fontSize: isSmallScreen ? 12 : 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Value
+        Text(
+          value,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isSmallScreen ? 15 : 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatusBadge(V2RayProvider provider, bool isSmallScreen) {
+  Widget _buildConnectionButton(V2RayProvider provider) {
     final isConnected = provider.activeConfig != null;
+    final screenHeight = MediaQuery.of(context).size.height;
     
-    if (!isConnected && !_isConnecting) {
-      return Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 16 : 20,
-          vertical: isSmallScreen ? 10 : 12,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: isSmallScreen ? 8 : 10,
-              height: isSmallScreen ? 8 : 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
-            ),
-            SizedBox(width: isSmallScreen ? 8 : 10),
-            Text(
-              AppLocalizations.of(context).translate('home.disconnected'),
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: isSmallScreen ? 13 : 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
+    // Responsive sizing based on screen height
+    final double buttonSize = screenHeight < 700 ? 140 : 160;
+    final double glowSize = screenHeight < 700 ? 180 : 210;
+    final double iconSize = screenHeight < 700 ? 50 : 60;
+    
+    // Colors based on state
+    final Color buttonColor;
+    final Color glowColor;
+    final Color iconColor;
+    
+    if (_isConnecting) {
+      buttonColor = const Color(0xFF00D9FF);
+      glowColor = const Color(0xFF00D9FF);
+      iconColor = Colors.white;
+    } else if (isConnected) {
+      buttonColor = const Color(0xFF00FFA3);
+      glowColor = const Color(0xFF00FFA3);
+      iconColor = Colors.white;
+    } else {
+      buttonColor = const Color(0xFF1E3A4A);
+      glowColor = const Color(0xFF00D9FF);
+      iconColor = const Color(0xFF00D9FF);
     }
-    
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 18 : 22,
-        vertical: isSmallScreen ? 10 : 12,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isConnected
-              ? [
-                  const Color(0xFF00FFA3).withValues(alpha: 0.2),
-                  const Color(0xFF00FFA3).withValues(alpha: 0.1),
-                ]
-              : [
-                  const Color(0xFF00D9FF).withValues(alpha: 0.2),
-                  const Color(0xFF00D9FF).withValues(alpha: 0.1),
-                ],
-        ),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: isConnected
-              ? const Color(0xFF00FFA3).withValues(alpha: 0.4)
-              : const Color(0xFF00D9FF).withValues(alpha: 0.4),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: isSmallScreen ? 8 : 10,
-            height: isSmallScreen ? 8 : 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00D9FF),
-              boxShadow: [
-                BoxShadow(
-                  color: (isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00D9FF))
-                      .withValues(alpha: 0.6),
-                  blurRadius: 8,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: isSmallScreen ? 8 : 10),
-          Text(
-            isConnected
-                ? AppLocalizations.of(context).translate('home.connected')
-                : AppLocalizations.of(context).translate('home.connecting'),
-            style: TextStyle(
-              color: isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00D9FF),
-              fontSize: isSmallScreen ? 13 : 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModernConnectionButton(V2RayProvider provider, bool isSmallScreen) {
-    final isConnected = provider.activeConfig != null;
-    final buttonSize = isSmallScreen ? 140.0 : 160.0;
-    final iconSize = isSmallScreen ? 50.0 : 60.0;
     
     return GestureDetector(
       onTap: _isConnecting ? null : _handleConnectionToggle,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Outer glow ring
+          // Outer glow effect - only show when connected or connecting
           if (isConnected || _isConnecting)
-            Container(
-              width: buttonSize + 40,
-              height: buttonSize + 40,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              width: glowSize,
+              height: glowSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    (isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00D9FF))
-                        .withValues(alpha: 0.0),
-                    (isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00D9FF))
-                        .withValues(alpha: 0.15),
-                  ],
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: glowColor.withValues(alpha: 0.4),
+                    blurRadius: 80,
+                    spreadRadius: 15,
+                  ),
+                  BoxShadow(
+                    color: glowColor.withValues(alpha: 0.2),
+                    blurRadius: 120,
+                    spreadRadius: 25,
+                  ),
+                ],
               ),
             ),
           
-          // Animated pulse ring for connecting
+          // Pulsing ring for connecting state
           if (_isConnecting)
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.9, end: 1.1),
@@ -594,75 +593,70 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
-                        width: 2,
+                        color: glowColor.withValues(alpha: 0.6),
+                        width: 3,
                       ),
                     ),
                   ),
                 );
               },
               onEnd: () {
-                if (mounted && _isConnecting) setState(() {});
+                if (mounted && _isConnecting) {
+                  setState(() {}); // Trigger rebuild to restart animation
+                }
               },
             ),
           
-          // Main button
-          Container(
+          // Main button with gradient
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
             width: buttonSize,
             height: buttonSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: _isConnecting
-                    ? [
-                        const Color(0xFF00D9FF).withValues(alpha: 0.3),
-                        const Color(0xFF0088CC).withValues(alpha: 0.2),
-                      ]
-                    : isConnected
-                        ? [
-                            const Color(0xFF00FFA3).withValues(alpha: 0.3),
-                            const Color(0xFF00D9FF).withValues(alpha: 0.2),
-                          ]
-                        : [
-                            const Color(0xFF1A3A4A).withValues(alpha: 0.5),
-                            const Color(0xFF0A1929).withValues(alpha: 0.3),
-                          ],
-              ),
+              gradient: (isConnected || _isConnecting)
+                  ? RadialGradient(
+                      colors: [
+                        buttonColor,
+                        buttonColor.withValues(alpha: 0.8),
+                      ],
+                    )
+                  : null,
+              color: (isConnected || _isConnecting) ? null : buttonColor,
               border: Border.all(
-                color: _isConnecting
-                    ? const Color(0xFF00D9FF).withValues(alpha: 0.5)
-                    : isConnected
-                        ? const Color(0xFF00FFA3).withValues(alpha: 0.5)
-                        : const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                color: (isConnected || _isConnecting)
+                    ? Colors.white.withValues(alpha: 0.3)
+                    : const Color(0xFF00D9FF).withValues(alpha: 0.5),
                 width: 3,
               ),
-              boxShadow: (isConnected || _isConnecting) ? [
+              boxShadow: [
+                if (isConnected || _isConnecting)
+                  BoxShadow(
+                    color: buttonColor.withValues(alpha: 0.5),
+                    blurRadius: 40,
+                    spreadRadius: 5,
+                  ),
                 BoxShadow(
-                  color: (isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00D9FF))
-                      .withValues(alpha: 0.3),
-                  blurRadius: 40,
-                  spreadRadius: 5,
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
                 ),
-              ] : [],
+              ],
             ),
             child: Center(
               child: _isConnecting
                   ? SizedBox(
-                      width: iconSize * 0.5,
-                      height: iconSize * 0.5,
+                      width: iconSize * 0.7,
+                      height: iconSize * 0.7,
                       child: CircularProgressIndicator(
-                        color: const Color(0xFF00D9FF),
+                        color: Colors.white,
                         strokeWidth: 4,
                       ),
                     )
                   : Icon(
                       Icons.power_settings_new_rounded,
                       size: iconSize,
-                      color: isConnected
-                          ? const Color(0xFF00FFA3)
-                          : const Color(0xFF00D9FF),
+                      color: iconColor,
                     ),
             ),
           ),
@@ -671,162 +665,88 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildConnectionInfo(V2RayProvider provider, bool isSmallScreen) {
-    final isConnected = provider.activeConfig != null;
-    
-    if (!isConnected && !_isConnecting) {
-      return Text(
-        AppLocalizations.of(context).translate('home.tap_to_connect'),
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.5),
-          fontSize: isSmallScreen ? 14 : 15,
-          fontWeight: FontWeight.w500,
-        ),
-      );
-    }
-    
-    if (_isConnecting) {
-      return Column(
-        children: [
-          Text(
-            AppLocalizations.of(context).translate('home.establishing_connection'),
-            style: TextStyle(
-              color: const Color(0xFF00D9FF).withValues(alpha: 0.8),
-              fontSize: isSmallScreen ? 14 : 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: isSmallScreen ? 6 : 8),
-          SizedBox(
-            width: isSmallScreen ? 120 : 140,
-            child: LinearProgressIndicator(
-              backgroundColor: const Color(0xFF00D9FF).withValues(alpha: 0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                const Color(0xFF00D9FF).withValues(alpha: 0.6),
-              ),
-              minHeight: 3,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
-      );
-    }
-    
-    return StreamBuilder(
-      stream: Stream.periodic(const Duration(seconds: 1)),
-      builder: (context, snapshot) {
-        return Column(
-          children: [
-            Text(
-              provider.v2rayService.getFormattedConnectedTime(),
-              style: GoogleFonts.poppins(
-                fontSize: isSmallScreen ? 32 : 38,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF00FFA3),
-                letterSpacing: 1,
-              ),
-            ),
-            SizedBox(height: isSmallScreen ? 4 : 6),
-            Text(
-              AppLocalizations.of(context).translate('home.connection_duration'),
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: isSmallScreen ? 12 : 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
-  Widget _buildServerSelectionCard(V2RayProvider provider, bool isSmallScreen) {
+  Widget _buildServerCard(V2RayProvider provider, double cardHeight, bool isSmallScreen) {
     final isSmartConnect = provider.wasUsingSmartConnect;
     final selectedConfig = provider.selectedConfig ?? provider.activeConfig;
     
     String serverName;
-    String subtitle;
+    String? subtitle;
     String? countryCode;
     
     if (provider.activeConfig != null) {
       serverName = _cleanServerName(provider.activeConfig!.remark);
       countryCode = provider.activeConfig!.countryCode ?? _extractCountryCode(provider.activeConfig!.remark);
-      subtitle = AppLocalizations.of(context).translate('home.current_server');
     } else if (isSmartConnect) {
       serverName = AppLocalizations.of(context).translate('server_selection.smart_connect');
       subtitle = AppLocalizations.of(context).translate('server_selection.smart_connect_description');
     } else if (selectedConfig != null) {
       serverName = _cleanServerName(selectedConfig.remark);
       countryCode = selectedConfig.countryCode ?? _extractCountryCode(selectedConfig.remark);
-      subtitle = AppLocalizations.of(context).translate('home.selected_server');
     } else {
       serverName = AppLocalizations.of(context).translate('server_selection.select_server');
-      subtitle = AppLocalizations.of(context).translate('home.tap_to_select');
     }
     
+    final iconSize = isSmallScreen ? 48.0 : 52.0;
+    final titleFontSize = isSmallScreen ? 15.0 : 16.0;
+    final subtitleFontSize = isSmallScreen ? 12.0 : 13.0;
+    final subtitleHeight = isSmallScreen ? 16.0 : 18.0;
+    final cardPadding = isSmallScreen ? 16.0 : 18.0;
+    
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const ServerSelectionScreen()),
-      ),
+      onTap: () => _onServerCardTap(provider),
       child: Container(
-        padding: EdgeInsets.all(isSmallScreen ? 18 : 22),
+        padding: EdgeInsets.all(cardPadding),
+        height: cardHeight,
         decoration: BoxDecoration(
-          color: const Color(0xFF0A1929).withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: const Color(0xFF00D9FF).withValues(alpha: 0.25),
-            width: 1.5,
-          ),
+          color: Colors.white.withValues(alpha: 0.03),
+          border: Border.all(color: const Color(0xFF00D9FF).withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
-            // Server Icon/Flag
-            _buildServerIconLarge(countryCode, isSmartConnect && provider.activeConfig == null, isSmallScreen),
-            
-            SizedBox(width: isSmallScreen ? 14 : 18),
-            
-            // Server Info
+            // Icon/Flag
+            _buildServerIcon(countryCode, isSmartConnect && provider.activeConfig == null, iconSize),
+            SizedBox(width: isSmallScreen ? 12 : 14),
+            // Details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
-                      fontSize: isSmallScreen ? 11 : 12,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  SizedBox(height: isSmallScreen ? 4 : 6),
                   Text(
                     serverName,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: isSmallScreen ? 16 : 18,
-                      fontWeight: FontWeight.w700,
+                      fontSize: titleFontSize,
+                      fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    SizedBox(
+                      height: subtitleHeight,
+                      child: Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
+                          fontSize: subtitleFontSize,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            
-            // Arrow Icon
-            Container(
-              padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
-                size: isSmallScreen ? 16 : 18,
+            Consumer<LanguageProvider>(
+              builder: (context, langProvider, _) => Icon(
+                langProvider.isRtl ? Icons.chevron_left : Icons.chevron_right,
+                color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
+                size: isSmallScreen ? 18 : 20,
               ),
             ),
           ],
@@ -835,25 +755,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildServerIconLarge(String? countryCode, bool isSmartConnect, bool isSmallScreen) {
-    final size = isSmallScreen ? 56.0 : 64.0;
-    
+  Widget _buildServerIcon(String? countryCode, bool isSmartConnect, double size) {
     if (countryCode != null && CountryFlags.isValidCountryCode(countryCode)) {
       return Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
-            width: 2,
-          ),
+          borderRadius: BorderRadius.circular(14),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
           ],
         ),
         child: ClipRRect(
@@ -861,42 +771,30 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           child: CachedNetworkImage(
             imageUrl: CountryFlags.getFlagUrl(countryCode),
             fit: BoxFit.cover,
-            memCacheWidth: 150,
-            memCacheHeight: 150,
-            maxWidthDiskCache: 150,
-            maxHeightDiskCache: 150,
+            // Home screen: larger flag (52x52 container)
+            memCacheWidth: 120,
+            memCacheHeight: 120,
+            maxWidthDiskCache: 120,
+            maxHeightDiskCache: 120,
             fadeInDuration: const Duration(milliseconds: 100),
             fadeOutDuration: const Duration(milliseconds: 100),
             placeholderFadeInDuration: Duration.zero,
             placeholder: (context, url) => Container(
-              color: Colors.white.withValues(alpha: 0.05),
-              child: Center(
+              color: Colors.white.withValues(alpha: 0.1),
+              child: const Center(
                 child: SizedBox(
-                  width: 20,
-                  height: 20,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.white.withValues(alpha: 0.3),
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white24),
                   ),
                 ),
               ),
             ),
             errorWidget: (context, url, error) => Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF6366F1).withValues(alpha: 0.3),
-                    const Color(0xFF6366F1).withValues(alpha: 0.2),
-                  ],
-                ),
-              ),
-              child: Icon(
-                Icons.public,
-                color: const Color(0xFF6366F1),
-                size: size * 0.5,
-              ),
+              color: const Color(0xFF00D9FF).withValues(alpha: 0.2),
+              child: Icon(Icons.public, color: const Color(0xFF00D9FF), size: size * 0.46),
             ),
           ),
         ),
@@ -908,32 +806,23 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       height: size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
           colors: isSmartConnect
-              ? [
-                  const Color(0xFF00FFA3).withValues(alpha: 0.3),
-                  const Color(0xFF00D9FF).withValues(alpha: 0.2),
-                ]
-              : [
-                  const Color(0xFF6366F1).withValues(alpha: 0.3),
-                  const Color(0xFF8B5CF6).withValues(alpha: 0.2),
-                ],
+              ? [const Color(0xFF00FFA3).withValues(alpha: 0.2), const Color(0xFF00D9FF).withValues(alpha: 0.1)]
+              : [const Color(0xFF00D9FF).withValues(alpha: 0.15), const Color(0xFF00FFA3).withValues(alpha: 0.08)],
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSmartConnect
-              ? const Color(0xFF00FFA3).withValues(alpha: 0.4)
-              : const Color(0xFF6366F1).withValues(alpha: 0.4),
-          width: 2,
-        ),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Icon(
-        isSmartConnect ? Icons.auto_awesome_rounded : Icons.language_rounded,
-        color: isSmartConnect ? const Color(0xFF00FFA3) : const Color(0xFF6366F1),
+        isSmartConnect ? Icons.flash_on : Icons.language,
+        color: isSmartConnect ? const Color(0xFF00FFA3) : const Color(0xFF00D9FF),
         size: size * 0.5,
       ),
     );
+  }
+
+  void _onServerCardTap(V2RayProvider provider) {
+    // Always allow navigation to server selection screen
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const ServerSelectionScreen()));
   }
 
   String _cleanServerName(String name) {
@@ -944,97 +833,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return CountryFlags.extractCountryCode(remark);
   }
 
-
-  Widget _buildStatsCard(V2RayProvider provider) {
-    final v2rayService = provider.v2rayService;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 360;
-    
-    return StreamBuilder(
-      stream: Stream.periodic(const Duration(seconds: 2)),
-      builder: (context, snapshot) {
-        final ip = v2rayService.ipInfo?.ip ?? '...';
-        final download = v2rayService.getFormattedDownload();
-        final upload = v2rayService.getFormattedUpload();
-        
-        return Container(
-          padding: EdgeInsets.all(isSmallScreen ? 18 : 20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A1929).withValues(alpha: 0.5),
-            border: Border.all(
-              color: const Color(0xFF00D9FF).withValues(alpha: 0.2),
-              width: 1.5,
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            children: [
-              // IP Address - Large at top
-              Text(
-                ip,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: isSmallScreen ? 20 : 24,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              SizedBox(height: isSmallScreen ? 16 : 18),
-              // Download and Upload - Side by side
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSimpleStatItem(
-                      icon: Icons.arrow_downward_rounded,
-                      value: download,
-                      isSmallScreen: isSmallScreen,
-                    ),
-                  ),
-                  SizedBox(width: isSmallScreen ? 12 : 16),
-                  Expanded(
-                    child: _buildSimpleStatItem(
-                      icon: Icons.arrow_upward_rounded,
-                      value: upload,
-                      isSmallScreen: isSmallScreen,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSimpleStatItem({
-    required IconData icon,
-    required String value,
-    required bool isSmallScreen,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          icon,
-          color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
-          size: isSmallScreen ? 18 : 20,
-        ),
-        SizedBox(width: isSmallScreen ? 6 : 8),
-        Flexible(
-          child: Text(
-            value,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: isSmallScreen ? 13 : 15,
-              fontWeight: FontWeight.w600,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildToolsTab(BuildContext context) {
     return Padding(
@@ -1116,25 +914,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF0A1929).withValues(alpha: 0.4),
+              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF00D9FF).withValues(alpha: 0.25)),
+              border: Border.all(color: const Color(0xFF00D9FF).withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF00D9FF).withValues(alpha: 0.25),
-                        const Color(0xFF00D9FF).withValues(alpha: 0.15),
-                      ],
-                    ),
+                    color: const Color(0xFF00D9FF).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
-                    ),
                   ),
                   child: Icon(icon, color: const Color(0xFF00D9FF), size: 24),
                 ),
@@ -1143,29 +933,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      Text(label, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
-                          fontSize: 13,
-                        ),
-                      ),
+                      Text(subtitle, style: TextStyle(color: const Color(0xFF00D9FF).withValues(alpha: 0.5), fontSize: 13)),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
-                  size: 16,
+                Consumer<LanguageProvider>(
+                  builder: (context, langProvider, _) => Icon(
+                    langProvider.isRtl ? Icons.arrow_back_ios : Icons.arrow_forward_ios,
+                    color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                    size: 16,
+                  ),
                 ),
               ],
             ),
@@ -1312,17 +1091,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               vertical: isSmallScreen ? 14 : 18,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF0A1929).withValues(alpha: 0.4),
+              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
               border: Border.all(
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.25),
+                color: const Color(0xFF00D9FF).withValues(alpha: 0.2),
               ),
             ),
             child: Text(
               description,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.8),
+                color: const Color(0xFF00D9FF).withValues(alpha: 0.7),
                 fontSize: isSmallScreen ? 13 : 15,
                 height: isSmallScreen ? 1.6 : 1.8,
               ),
@@ -1338,10 +1117,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               vertical: isSmallScreen ? 12 : 14,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF0A1929).withValues(alpha: 0.4),
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF00FFA3).withValues(alpha: 0.15),
+                  const Color(0xFF00FFA3).withValues(alpha: 0.1),
+                ],
+              ),
               borderRadius: BorderRadius.circular(isSmallScreen ? 14 : 16),
               border: Border.all(
-                color: const Color(0xFF00FFA3).withValues(alpha: 0.3),
+                color: const Color(0xFF00FFA3).withValues(alpha: 0.25),
               ),
             ),
             child: Row(
@@ -1458,9 +1242,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           vertical: isSmallScreen ? 12 : 14,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFF0A1929).withValues(alpha: 0.4),
+          color: Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(isSmallScreen ? 14 : 16),
-          border: Border.all(color: const Color(0xFF00D9FF).withValues(alpha: 0.25)),
+          border: Border.all(color: const Color(0xFF00D9FF).withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
@@ -1470,17 +1254,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    color.withValues(alpha: 0.9),
+                    color,
                     color.withValues(alpha: 0.7),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 14),
-                border: Border.all(
-                  color: color.withValues(alpha: 0.4),
-                ),
                 boxShadow: [
                   BoxShadow(
-                    color: color.withValues(alpha: 0.25),
+                    color: color.withValues(alpha: 0.3),
                     blurRadius: isSmallScreen ? 10 : 12,
                     offset: const Offset(0, 4),
                   ),
@@ -1515,16 +1296,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 ],
               ),
             ),
-            Container(
-              padding: EdgeInsets.all(isSmallScreen ? 5 : 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.arrow_forward_ios,
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.6),
-                size: isSmallScreen ? 12 : 14,
+            Consumer<LanguageProvider>(
+              builder: (context, langProvider, _) => Container(
+                padding: EdgeInsets.all(isSmallScreen ? 5 : 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  langProvider.isRtl ? Icons.arrow_back_ios : Icons.arrow_forward_ios,
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
+                  size: isSmallScreen ? 12 : 14,
+                ),
               ),
             ),
           ],
@@ -1534,57 +1317,48 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildBottomNav() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final colors = themeProvider.colors;
+    
     return Container(
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       height: 80,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Background bar
-          Container(
-            height: 60,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0A1929).withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.15),
-                width: 1,
-              ),
-            ),
-          ),
-          // Navigation items
-          Positioned.fill(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildNavItem(
-                  index: 1,
-                  icon: Icons.build_outlined,
-                ),
-                const SizedBox(width: 80), // Space for center button
-                _buildNavItem(
-                  index: 2,
-                  icon: Icons.info_outline,
-                ),
-              ],
-            ),
-          ),
-          // Center VPN button (elevated)
-          Positioned(
-            top: 0,
-            child: _buildCenterNavItem(),
-          ),
+          // Left button (Tools)
+          _buildNavItem(0, Icons.settings_outlined, colors),
+          const SizedBox(width: 30),
+          // Center button (VPN/Home) - Larger
+          _buildNavItem(1, Icons.shield_outlined, colors, isCenter: true),
+          const SizedBox(width: 30),
+          // Right button (About)
+          _buildNavItem(2, Icons.public, colors),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem({
-    required int index,
-    required IconData icon,
-  }) {
+  Widget _buildNavItem(int index, IconData icon, ThemeColors colors, {bool isCenter = false}) {
     final isActive = _currentPage == index;
+    
+    // Sizes matching the reference image - closer together
+    final size = isCenter ? 95.0 : 75.0;
+    final iconSize = isCenter ? 40.0 : 30.0;
+    
+    // Colors: Active center is cyan, inactive are dark gray
+    final Color buttonColor;
+    if (isActive && isCenter) {
+      // Cyan/blue gradient for active center button
+      buttonColor = const Color(0xFF1E88A8); // Teal/cyan blue
+    } else if (isActive && !isCenter) {
+      // If side buttons are active, also use cyan
+      buttonColor = const Color(0xFF1E88A8);
+    } else {
+      // Inactive buttons are dark gray
+      buttonColor = const Color(0xFF6B7280);
+    }
     
     return GestureDetector(
       onTap: () {
@@ -1596,86 +1370,30 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           );
         }
       },
-      child: Container(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isActive 
-                ? const Color(0xFF00D9FF).withValues(alpha: 0.2)
-                : Colors.transparent,
-            border: isActive
-                ? Border.all(
-                    color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
-                    width: 1.5,
-                  )
-                : null,
-          ),
-          child: Icon(
-            icon,
-            color: isActive 
-                ? const Color(0xFF00D9FF)
-                : Colors.white.withValues(alpha: 0.4),
-            size: 24,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCenterNavItem() {
-    final isActive = _currentPage == 0;
-    
-    return GestureDetector(
-      onTap: () {
-        if (_currentPage != 0) {
-          _pageController.animateToPage(
-            0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
-        }
-      },
-      child: Container(
-        width: 70,
-        height: 70,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isActive
-                ? [
-                    const Color(0xFF00D9FF),
-                    const Color(0xFF0088CC),
-                  ]
-                : [
-                    const Color(0xFF4A5568),
-                    const Color(0xFF2D3748),
-                  ],
-          ),
-          border: Border.all(
-            color: isActive
-                ? const Color(0xFF00D9FF).withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.1),
-            width: 2,
-          ),
-          boxShadow: isActive
+          color: buttonColor,
+          boxShadow: (isActive && isCenter)
               ? [
                   BoxShadow(
-                    color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    spreadRadius: 2,
+                    color: const Color(0xFF1E88A8).withValues(alpha: 0.5),
+                    blurRadius: 25,
+                    spreadRadius: 3,
                   ),
                 ]
               : [],
         ),
-        child: const Icon(
-          Icons.shield_outlined,
-          color: Colors.white,
-          size: 32,
+        child: Center(
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: iconSize,
+          ),
         ),
       ),
     );

@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/remote_config_service.dart';
+import '../providers/language_provider.dart';
+import '../utils/app_localizations.dart';
 
 class AnnouncementBannerWidget extends StatefulWidget {
   const AnnouncementBannerWidget({super.key});
@@ -114,9 +117,9 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
       case 'error':
         return const Color(0xFFef4444);
       case 'success':
-        return const Color(0xFF10b981);
+        return const Color(0xFF00FFA3);
       default:
-        return const Color(0xFF6366f1);
+        return const Color(0xFF00D9FF);
     }
   }
 
@@ -159,8 +162,8 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF1a1f2e),
-                const Color(0xFF151923),
+                const Color(0xFF080808),
+                const Color(0xFF040404),
               ],
             ),
             borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 14),
@@ -240,24 +243,26 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                                   ),
                                 ],
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _banner!.actionText ?? 'مشاهده',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: isSmallScreen ? 11 : 12,
-                                      fontWeight: FontWeight.w700,
+                              child: Consumer<LanguageProvider>(
+                                builder: (context, langProvider, _) => Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _banner!.actionText ?? AppLocalizations.of(context).translate('announcement.view'),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: isSmallScreen ? 11 : 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(width: isSmallScreen ? 4 : 6),
-                                  Icon(
-                                    Icons.arrow_forward_rounded,
-                                    color: Colors.white,
-                                    size: isSmallScreen ? 14 : 16,
-                                  ),
-                                ],
+                                    SizedBox(width: isSmallScreen ? 4 : 6),
+                                    Icon(
+                                      langProvider.isRtl ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded,
+                                      color: Colors.white,
+                                      size: isSmallScreen ? 14 : 16,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),

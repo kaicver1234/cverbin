@@ -94,10 +94,12 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
                                 color: Colors.white.withValues(alpha: 0.2),
                               ),
                             ),
-                            child: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                              size: 22,
+                            child: Consumer<LanguageProvider>(
+                              builder: (context, langProvider, _) => Icon(
+                                langProvider.isRtl ? Icons.arrow_forward_ios : Icons.arrow_back_ios_new,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                           ),
                         ),
@@ -350,7 +352,7 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
               color: isSelected
                   ? AppTheme.primaryGreen.withValues(alpha: 0.1)
                   : Colors.white.withValues(alpha: 0.05),
-              elevation: isSelected ? 8 : 2,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
@@ -433,7 +435,7 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
                       else
                         Icon(
                           Icons.arrow_forward_ios,
-                          color: AppTheme.textGrey,
+                          color: AppTheme.textGrey.withValues(alpha: 0.5),
                           size: 16,
                         ),
                     ],

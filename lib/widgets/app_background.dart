@@ -18,23 +18,32 @@ class AppBackground extends StatelessWidget {
       return child;
     }
 
-    final backgroundImage = useSecondaryBackground 
-        ? 'assets/images/background2.png'
-        : 'assets/images/background.png';
-
     return Stack(
       children: [
         // Background image
         Positioned.fill(
-          child: Image.asset(
-            backgroundImage,
-            fit: BoxFit.cover,
+          child: Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/images/back.png'),
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
         ),
-        // Semi-transparent overlay for better readability
+        // Dark overlay for better text readability
         Positioned.fill(
           child: Container(
-            color: Colors.black.withValues(alpha: 0.3),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.5),
+                  Colors.black.withValues(alpha: 0.7),
+                ],
+              ),
+            ),
           ),
         ),
         // Content

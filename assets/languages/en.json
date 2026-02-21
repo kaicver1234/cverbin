@@ -5,7 +5,12 @@
         "flag": "🇺🇸",
         "direction": "ltr"
     },
+    "app": {
+        "title": "Tiksar VPN",
+        "subtitle": "Free VPN Client"
+    },
     "navigation": {
+        "vpn": "VPN",
         "tools": "Tools"
     },
     "tools": {
@@ -13,26 +18,36 @@
         "host_checker_desc": "Check status, response time and details of any web host",
         "speed_test_desc": "Test your internet connection speed"
     },
+    "settings": {
+        "title": "Settings"
+    },
     "language_settings": {
         "title": "Language Settings",
-        "language": "Language"
+        "language": "Language",
+        "current_language": "Current Language",
+        "language_changed": "Language changed successfully",
+        "restart_required": "Please restart the app to apply language changes",
+        "select_language": "Select Language"
     },
     "home": {
+        "title": "Tiksar VPN",
         "tap_to_connect": "Tap to Connect",
+        "tap_to_stop": "Tap to Stop",
         "connecting": "Connecting...",
         "connected": "Connected",
         "disconnected": "Disconnected",
+        "connection_failed": "Connection Failed",
+        "connected_to": "Connected to",
+        "secure_connection": "Secure Connection",
         "quick_actions": "Quick Actions",
         "speed_test": "Speed Test",
         "ip_info": "IP Info",
         "host_checker": "Host Checker",
+        "duration": "Duration",
         "upload": "Upload",
         "download": "Download",
-        "establishing_connection": "Establishing connection...",
-        "connection_duration": "Connection Duration",
-        "current_server": "Current Server",
-        "selected_server": "Selected Server",
-        "tap_to_select": "Tap to select a server"
+        "ip_address": "IP Address",
+        "server_location_label": "Server Location"
     },
     "server_selector": {
         "connection_active": "Already Connected",
@@ -40,17 +55,21 @@
     },
     "server_selection": {
         "title": "Select Server",
-        "auto_select": "Auto Select",
-        "auto_select_description": "Automatically selects the fastest server",
+        "smart_connect": "Smart Connect",
+        "smart_connect_description": "Automatically selects the fastest server",
+        "finding_best_server": "Finding best server...",
         "select_server": "Select a server",
         "no_servers_available": "No servers available",
         "testing_servers": "Testing servers...",
         "servers_updated": "Servers updated",
+        "loaded_from_cache": "Loaded from cache (offline mode)",
         "error_updating": "Error updating servers",
         "test_ping": "Test Ping",
+        "all_servers_timeout": "All servers timed out",
         "free": "Free",
         "premium": "Premium",
-        "coming_soon": "Coming Soon"
+        "coming_soon": "Coming Soon",
+        "coming_soon_desc": "This feature will be available in future updates"
     },
     "host_checker": {
         "title": "Host Checker",
@@ -70,18 +89,27 @@
         "enter_host_to_check": "Enter a website or use quick buttons"
     },
     "about": {
+        "title": "About",
+        "app_name": "Tiksar VPN",
         "about_description": "Tiksar VPN is a powerful tool for accessing free internet. Break through restrictions and enjoy unlimited access to the global web with complete privacy and security.",
         "copyright": "2026 TiksarVPN",
         "developed_with": "Developed with",
         "developer": "by Abolfazl Jahani",
+        "connect_with_me": "Connect With Me",
+        "connect_with_us": "Connect With Us",
         "tiksar_village_page": "Official Tiksar Village Page",
         "telegram": "Telegram",
-        "instagram": "Instagram"
+        "instagram": "Instagram",
+        "secure": "Secure",
+        "fast": "Fast",
+        "global": "Global",
+        "private": "Private"
     },
     "common": {
         "ok": "OK",
         "please_select_server": "Please select a server first",
         "connection_failed": "Connection failed",
+        "no_servers_available": "No servers available",
         "loading_servers": "Loading servers..."
     },
     "privacy_welcome": {
@@ -92,6 +120,7 @@
         "secure": "Secure",
         "fast": "Fast",
         "global": "Global",
+        "why_choose_us": "Why Choose Us?",
         "military_grade_encryption": "Advanced Encryption",
         "military_grade_desc": "Your data is protected with AES-256 encryption",
         "lightning_fast": "Lightning Fast Speeds",
@@ -100,24 +129,51 @@
         "global_network_desc": "Connect from anywhere in the world",
         "no_logs": "No Logs Policy",
         "no_logs_desc": "We never track or store your activity",
+        "features_subtitle": "Advanced features for your security",
         "ready_to_start": "Ready to Start!",
-        "one_tap_away": "Your secure connection is just\none tap away"
+        "one_tap_away": "Your secure connection is just\none tap away",
+        "no_registration": "No registration required"
     },
     "speed_test": {
         "title_ready": "Speed Test",
         "subtitle_ready": "Tap to start",
+        "title_testing": "Testing...",
+        "subtitle_testing": "Please wait",
+        "title_completed": "Test Completed",
+        "subtitle_completed": "Results ready",
+        "title_error": "Test Failed",
         "subtitle_error": "Try again",
+        "go": "GO",
+        "testing_speed": "Testing speed",
+        "completed_test": "Test completed",
+        "encountered_error": "Error occurred",
+        "to_speed_test": "Speed test",
         "tap_here": "Tap to start",
         "download": "DOWNLOAD",
+        "connection_failed": "Connection failed. Check your internet.",
+        "test_failed": "Speed test failed. Please try again.",
         "upload": "UPLOAD",
         "ping": "PING",
+        "jitter": "JITTER",
         "mbps": "Mbps",
         "ms": "ms",
+        "stop": "STOP",
+        "retry": "RETRY",
+        "error_message": "Speed test failed. Please try again.",
         "measuring_latency": "Measuring latency...",
         "download_test": "Download test",
         "upload_test": "Upload test",
-        "test_completed": "Test completed",
-        "test_failed": "Speed test failed. Please try again.",
-        "connection_failed": "Connection failed. Check your internet."
+        "test_completed": "Test completed"
+    },
+    "update": {
+        "version": "Version",
+        "new_changes": "What's New",
+        "forced_update": "Required Update",
+        "download_update": "Download Update",
+        "remind_later": "Remind Me Later",
+        "must_update": "You must update to continue"
+    },
+    "announcement": {
+        "view": "View"
     }
 }

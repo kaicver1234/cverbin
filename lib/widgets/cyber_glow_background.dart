@@ -35,9 +35,9 @@ class CyberGlowBackground extends StatelessWidget {
             backgroundColor: baseColor,
             body: Stack(
               children: [
-                // Layer 1: Base background (very dark)
+                // Layer 1: Base background (pure black)
                 const ColoredBox(
-                  color: Color(0xFF050505),
+                  color: Color(0xFF000000),
                   child: SizedBox.expand(),
                 ),
                 
@@ -76,84 +76,27 @@ class CyberGlowBackground extends StatelessWidget {
     final screenHeight = MediaQuery.sizeOf(context).height;
     final bottomHeight = screenHeight * 0.5;
     
-    // Different gradient colors based on theme
-    List<Color> gradientColors;
-    
-    switch (themeId) {
-      case 'default': // Dark Green
-        gradientColors = const [
-          Color.fromRGBO(3, 30, 18, 0.55),
-          Color.fromRGBO(4, 36, 24, 0.45),
-          Color.fromRGBO(5, 42, 28, 0.36),
-          Color.fromRGBO(6, 48, 32, 0.28),
-          Color.fromRGBO(7, 54, 36, 0.20),
-          Color.fromRGBO(8, 60, 40, 0.12),
-          Color.fromRGBO(9, 66, 44, 0.06),
-          Color.fromRGBO(10, 72, 48, 0.03),
-          Colors.transparent,
-        ];
-        break;
-      case 'ocean': // Dark Blue
-        gradientColors = const [
-          Color.fromRGBO(3, 12, 30, 0.55),
-          Color.fromRGBO(4, 15, 36, 0.45),
-          Color.fromRGBO(5, 18, 42, 0.36),
-          Color.fromRGBO(6, 20, 48, 0.28),
-          Color.fromRGBO(7, 23, 54, 0.20),
-          Color.fromRGBO(8, 26, 60, 0.12),
-          Color.fromRGBO(9, 28, 66, 0.06),
-          Color.fromRGBO(10, 30, 72, 0.03),
-          Colors.transparent,
-        ];
-        break;
-      case 'sunset': // Dark Purple
-        gradientColors = const [
-          Color.fromRGBO(20, 3, 28, 0.55),
-          Color.fromRGBO(25, 4, 34, 0.45),
-          Color.fromRGBO(30, 5, 40, 0.36),
-          Color.fromRGBO(35, 6, 46, 0.28),
-          Color.fromRGBO(40, 7, 52, 0.20),
-          Color.fromRGBO(45, 8, 58, 0.12),
-          Color.fromRGBO(50, 9, 64, 0.06),
-          Color.fromRGBO(55, 10, 70, 0.03),
-          Colors.transparent,
-        ];
-        break;
-      case 'forest': // Dark Red
-        gradientColors = const [
-          Color.fromRGBO(30, 3, 8, 0.55),
-          Color.fromRGBO(36, 4, 10, 0.45),
-          Color.fromRGBO(42, 5, 12, 0.36),
-          Color.fromRGBO(48, 6, 14, 0.28),
-          Color.fromRGBO(54, 7, 16, 0.20),
-          Color.fromRGBO(60, 8, 18, 0.12),
-          Color.fromRGBO(66, 9, 20, 0.06),
-          Color.fromRGBO(72, 10, 22, 0.03),
-          Colors.transparent,
-        ];
-        break;
-      default: // Dark Green (fallback)
-        gradientColors = const [
-          Color.fromRGBO(3, 30, 18, 0.55),
-          Color.fromRGBO(4, 36, 24, 0.45),
-          Color.fromRGBO(5, 42, 28, 0.36),
-          Color.fromRGBO(6, 48, 32, 0.28),
-          Color.fromRGBO(7, 54, 36, 0.20),
-          Color.fromRGBO(8, 60, 40, 0.12),
-          Color.fromRGBO(9, 66, 44, 0.06),
-          Color.fromRGBO(10, 72, 48, 0.03),
-          Colors.transparent,
-        ];
-    }
+    // Cyan theme gradient - subtle glow from bottom
+    const gradientColors = [
+      Color.fromRGBO(0, 217, 255, 0.12),  // Cyan glow
+      Color.fromRGBO(0, 217, 255, 0.10),
+      Color.fromRGBO(0, 217, 255, 0.08),
+      Color.fromRGBO(0, 217, 255, 0.06),
+      Color.fromRGBO(0, 217, 255, 0.04),
+      Color.fromRGBO(0, 217, 255, 0.02),
+      Color.fromRGBO(0, 217, 255, 0.01),
+      Colors.transparent,
+      Colors.transparent,
+    ];
     
     return Container(
       height: bottomHeight,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: gradientColors,
-          stops: const [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
+          stops: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
         ),
       ),
     );
@@ -168,11 +111,11 @@ class CyberGlowBackground extends StatelessWidget {
           colors: [
             Colors.transparent,
             Colors.transparent,
-            Color.fromRGBO(5, 5, 5, 0.4),
-            Color.fromRGBO(5, 5, 5, 0.75),
-            Color.fromRGBO(5, 5, 5, 0.92),
-            Color.fromRGBO(5, 5, 5, 1),
-            Color.fromRGBO(5, 5, 5, 1),
+            Color.fromRGBO(0, 0, 0, 0.3),
+            Color.fromRGBO(0, 0, 0, 0.6),
+            Color.fromRGBO(0, 0, 0, 0.85),
+            Color.fromRGBO(0, 0, 0, 1),
+            Color.fromRGBO(0, 0, 0, 1),
           ],
           stops: [0.0, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0],
         ),
@@ -182,11 +125,22 @@ class CyberGlowBackground extends StatelessWidget {
 
   Widget _buildTopDim(BuildContext context) {
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final topHeight = screenHeight * 0.5;
+    final topHeight = screenHeight * 0.3;
     
     return Container(
       height: topHeight,
-      color: const Color(0xFF050505),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF000000),
+            Color(0xFF000000),
+            Colors.transparent,
+          ],
+          stops: [0.0, 0.6, 1.0],
+        ),
+      ),
     );
   }
 }

@@ -3,14 +3,15 @@ import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/speed_test_provider.dart';
 import '../models/speed_test_state.dart';
+import '../widgets/cyber_glow_background.dart';
 import '../widgets/app_background.dart';
 import '../widgets/speed_test/speed_test_progress_indicator.dart';
 import '../widgets/speed_test/speed_test_start_button.dart';
 import '../utils/app_localizations.dart';
 
 // Colors for speed test
-const Color _downloadColor = Color(0xFF76F959);
-const Color _uploadColor = Color(0xFF72D9FF);
+const Color _downloadColor = Color(0xFF00FFA3);
+const Color _uploadColor = Color(0xFF00D9FF);
 
 class SpeedTestScreen extends StatelessWidget {
   const SpeedTestScreen({super.key});
@@ -23,9 +24,8 @@ class SpeedTestScreen extends StatelessWidget {
       textDirection: languageProvider.textDirection,
       child: AppBackground(
         useSecondaryBackground: true,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
+        child: CyberGlowBackground(
+          child: SafeArea(
             child: Consumer<SpeedTestProvider>(
               builder: (context, provider, child) {
                 return Column(
@@ -66,10 +66,12 @@ class SpeedTestScreen extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                Icons.arrow_back_ios_new,
-                color: Colors.white,
-                size: isSmallScreen ? 18 : 20,
+              child: Consumer<LanguageProvider>(
+                builder: (context, langProvider, _) => Icon(
+                  langProvider.isRtl ? Icons.arrow_forward_ios : Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                  size: isSmallScreen ? 18 : 20,
+                ),
               ),
             ),
           ),

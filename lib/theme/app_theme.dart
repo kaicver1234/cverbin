@@ -2,30 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Primary colors - Dark Theme
-  static const Color primaryGreen = Color(0xFF10B981);
-  static const Color primaryDark = Color(0xFF121212);
-  static const Color primaryDarker = Color(0xFF0A0A0A);
-  static const Color secondaryDark = Color(0xFF1E1E1E);
-  static const Color cardDark = Color(0xFF252525);
+  // Primary colors - Pure Black Theme
+  static const Color primaryCyan = Color(0xFF00D9FF);
+  static const Color primaryGreen = Color(0xFF00FFA3); // Alias for compatibility
+  static const Color primaryDark = Color(0xFF000000);
+  static const Color primaryDarker = Color(0xFF000000);
+  static const Color secondaryDark = Color(0xFF000000);
+  static const Color cardDark = Color(0xFF121212);
 
   // Accent colors
-  static const Color accentGreen = Color(0xFF34D399);
+  static const Color accentCyan = Color(0xFF00FFA3);
   static const Color disconnectedRed = Color(0xFFEF4444);
   static const Color connectingYellow = Color(0xFFF59E0B);
 
-  // Text colors - Dark Theme
+  // Text colors - High Contrast
   static const Color textLight = Color(0xFFFFFFFF);
-  static const Color textGrey = Color(0xFFAAAAAA);
+  static const Color textGrey = Color(0xFFE0E0E0);
 
   // Border colors
-  static const Color borderDark = Color(0xFF323232);
+  static const Color borderDark = Color(0xFF2A2A2A);
 
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primaryGreen, accentGreen],
+    colors: [primaryCyan, accentCyan],
   );
 
   static const LinearGradient darkGradient = LinearGradient(
@@ -60,10 +61,10 @@ class AppTheme {
 
     return ThemeData.dark().copyWith(
       scaffoldBackgroundColor: primaryDark,
-      primaryColor: primaryGreen,
+      primaryColor: primaryCyan,
       colorScheme: const ColorScheme.dark().copyWith(
-        primary: primaryGreen,
-        secondary: accentGreen,
+        primary: primaryCyan,
+        secondary: accentCyan,
         surface: primaryDark,
         error: disconnectedRed,
       ),
@@ -76,14 +77,14 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: cardDark,
-        elevation: 4,
+        elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryGreen,
-          foregroundColor: textLight,
-          elevation: 4,
+          backgroundColor: primaryCyan,
+          foregroundColor: Colors.white,
+          elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
@@ -91,7 +92,10 @@ class AppTheme {
           textStyle: baseButtonTextStyle,
         ),
       ),
-      textTheme: baseTextTheme,
+      textTheme: baseTextTheme.apply(
+        bodyColor: textLight,
+        displayColor: textLight,
+      ),
       dividerTheme: const DividerThemeData(
         color: borderDark,
         thickness: 1,

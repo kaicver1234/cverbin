@@ -26,8 +26,8 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
       gradientEnd: Color(0xFF34D399),
     ),
     _LanguageData(
-      language: AppLanguage(name: 'پارسی', code: 'fa', flag: '🇮🇷', direction: 'rtl'),
-      name: 'پارسی',
+      language: AppLanguage(name: 'فارسی', code: 'fa', flag: '🇮🇷', direction: 'rtl'),
+      name: 'فارسی',
       nativeName: 'Persian',
       flag: '🇮🇷',
       gradientStart: Color(0xFF06B6D4),
@@ -73,7 +73,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0a0a0a),
+      backgroundColor: const Color(0xFF000000),
       body: Stack(
         children: [
           // Background decorations matching app theme

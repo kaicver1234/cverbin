@@ -92,7 +92,7 @@ class _UpdateCheckWrapperState extends State<UpdateCheckWrapper> {
     // (فقط بعد از اینکه چک کامل شده باشد)
     if (_updateInfo != null && _updateInfo!.isForced && !_isCheckingUpdate) {
       return Scaffold(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF000000),
         body: SafeArea(
           child: UpdateDialog(updateInfo: _updateInfo!),
         ),

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/app_update_info.dart';
+import '../providers/language_provider.dart';
+import '../utils/app_localizations.dart';
 
 class UpdateDialog extends StatefulWidget {
   final AppUpdateInfo updateInfo;
@@ -18,8 +21,8 @@ class _UpdateDialogState extends State<UpdateDialog>
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _fadeAnimation;
 
-  static const _primaryColor = Color(0xFF10b981);
-  static const _secondaryColor = Color(0xFF06b6d4);
+  static const _primaryColor = Color(0xFF00D9FF);
+  static const _secondaryColor = Color(0xFF00FFA3);
   static const _accentColor = Color(0xFFa78bfa);
 
   @override
@@ -46,55 +49,62 @@ class _UpdateDialogState extends State<UpdateDialog>
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !widget.updateInfo.isForced,
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 340),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF1a1a2e),
-                    const Color(0xFF16213e),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: _primaryColor.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: _primaryColor.withValues(alpha: 0.15),
-                    blurRadius: 30,
-                    spreadRadius: 5,
+    return Consumer<LanguageProvider>(
+      builder: (context, languageProvider, _) {
+        return Directionality(
+          textDirection: languageProvider.textDirection,
+          child: PopScope(
+            canPop: !widget.updateInfo.isForced,
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(24),
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 340),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF0a0a0a),
+                          const Color(0xFF0d0d0d),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: _primaryColor.withValues(alpha: 0.2),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primaryColor.withValues(alpha: 0.15),
+                          blurRadius: 30,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildHeader(context),
+                        _buildContent(context),
+                        _buildActions(context),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHeader(),
-                  _buildContent(),
-                  _buildActions(),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
       child: Column(
@@ -176,7 +186,7 @@ class _UpdateDialogState extends State<UpdateDialog>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'نسخه ${widget.updateInfo.version}',
+                  '${AppLocalizations.of(context).translate('update.version')} ${widget.updateInfo.version}',
                   style: TextStyle(
                     color: _primaryColor,
                     fontSize: 13,
@@ -191,7 +201,7 @@ class _UpdateDialogState extends State<UpdateDialog>
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -216,7 +226,7 @@ class _UpdateDialogState extends State<UpdateDialog>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'تغییرات جدید',
+                  AppLocalizations.of(context).translate('update.new_changes'),
                   style: TextStyle(
                     color: _accentColor,
                     fontSize: 12,
@@ -226,15 +236,17 @@ class _UpdateDialogState extends State<UpdateDialog>
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              widget.updateInfo.message,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 14,
-                height: 1.6,
+            Consumer<LanguageProvider>(
+              builder: (context, langProvider, _) => Text(
+                widget.updateInfo.message,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 14,
+                  height: 1.6,
+                ),
+                textAlign: langProvider.isRtl ? TextAlign.right : TextAlign.left,
+                textDirection: langProvider.textDirection,
               ),
-              textAlign: TextAlign.right,
-              textDirection: TextDirection.rtl,
             ),
           ],
         ),
@@ -242,7 +254,7 @@ class _UpdateDialogState extends State<UpdateDialog>
     );
   }
 
-  Widget _buildActions() {
+  Widget _buildActions(BuildContext context) {
     final isForced = widget.updateInfo.isForced;
 
     return Padding(
@@ -275,7 +287,9 @@ class _UpdateDialogState extends State<UpdateDialog>
                   const Icon(Icons.download_rounded, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    isForced ? 'آپدیت اجباری' : 'دانلود آپدیت',
+                    isForced 
+                        ? AppLocalizations.of(context).translate('update.forced_update')
+                        : AppLocalizations.of(context).translate('update.download_update'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
@@ -303,7 +317,7 @@ class _UpdateDialogState extends State<UpdateDialog>
                 ),
                 child: Center(
                   child: Text(
-                    'بعداً یادآوری کن',
+                    AppLocalizations.of(context).translate('update.remind_later'),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 14,
@@ -332,7 +346,7 @@ class _UpdateDialogState extends State<UpdateDialog>
                   Icon(Icons.warning_amber_rounded, color: Colors.orange.shade400, size: 16),
                   const SizedBox(width: 8),
                   Text(
-                    'برای ادامه باید آپدیت کنید',
+                    AppLocalizations.of(context).translate('update.must_update'),
                     style: TextStyle(
                       color: Colors.orange.shade400,
                       fontSize: 12,
