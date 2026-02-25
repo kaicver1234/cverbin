@@ -142,7 +142,7 @@ class ServerService {
           uri.startsWith('ss://') ||
           uri.startsWith('trojan://')) {
         try {
-          V2RayURL parser = FlutterV2ray.parseFromURL(uri);
+          V2RayURL parser = V2ray.parseFromURL(uri);
           String configType = '';
 
           if (uri.startsWith('vmess://')) {
