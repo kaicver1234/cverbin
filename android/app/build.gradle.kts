@@ -48,15 +48,16 @@ android {
     defaultConfig {
         // Application ID for Tiksar VPN
         applicationId = "com.tiksarvpn.app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = 11
         versionName = "1.1.4"
-        
-        // Reduce Play Protect warnings
         multiDexEnabled = true
+
+        // Only include arm architectures (x86/x86_64 are emulator-only, ~50% size reduction)
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
     }
 
     signingConfigs {
@@ -81,14 +82,8 @@ android {
                 signingConfigs.getByName("debug")
             }
 
-            // Enable minify and shrink for release builds
-            // This helps reduce Play Protect warnings
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
         
         debug {
@@ -118,8 +113,18 @@ android {
                 "META-INF/NOTICE",
                 "META-INF/NOTICE.txt",
                 "META-INF/notice.txt",
-                "META-INF/*.kotlin_module"
+                "META-INF/*.kotlin_module",
+                "**/*.proto",
+                "**/*.bin",
+                "**/*.java",
+                "**/*.properties",
+                "**/*.version",
+                "META-INF/services/**",
+                "META-INF/com/**"
             )
+        }
+        jniLibs {
+            useLegacyPackaging = false
         }
     }
 }
