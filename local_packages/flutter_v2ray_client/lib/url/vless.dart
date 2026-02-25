@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter_v2ray/url/url.dart';
+import 'package:flutter_v2ray_client/url/url.dart';
 
 /// Vless URL parser and adapter to produce V2Ray configuration pieces.
 ///

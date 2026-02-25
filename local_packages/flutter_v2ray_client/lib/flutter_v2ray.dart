@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_v2ray/url/shadowsocks.dart';
-import 'package:flutter_v2ray/url/socks.dart';
-import 'package:flutter_v2ray/url/trojan.dart';
-import 'package:flutter_v2ray/url/url.dart';
-import 'package:flutter_v2ray/url/vless.dart';
-import 'package:flutter_v2ray/url/vmess.dart';
+import 'package:flutter_v2ray_client/url/shadowsocks.dart';
+import 'package:flutter_v2ray_client/url/socks.dart';
+import 'package:flutter_v2ray_client/url/trojan.dart';
+import 'package:flutter_v2ray_client/url/url.dart';
+import 'package:flutter_v2ray_client/url/vless.dart';
+import 'package:flutter_v2ray_client/url/vmess.dart';
 
 import 'flutter_v2ray_platform_interface.dart';
 import 'model/v2ray_status.dart';
