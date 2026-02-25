@@ -1,7 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
-/// Modern glassmorphism card widget with blur effect - Minimalist White Theme
+/// Modern glass card widget - Minimalist White Theme
+/// BackdropFilter removed for performance (GPU-intensive blur causes jank in lists)
 class ModernGlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -25,7 +25,7 @@ class ModernGlassCard extends StatelessWidget {
     this.height,
     this.borderRadius,
     this.backgroundColor,
-    this.blur = 10,
+    this.blur = 0,
     this.opacity = 0.08,
     this.border,
     this.boxShadow,
@@ -34,45 +34,29 @@ class ModernGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = borderRadius ?? BorderRadius.circular(20);
     return Container(
       width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        borderRadius: borderRadius ?? BorderRadius.circular(20),
-        boxShadow: boxShadow ?? [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: borderRadius ?? BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: gradient ?? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: opacity),
-                  Colors.white.withValues(alpha: opacity * 0.5),
-                ],
-              ),
-              borderRadius: borderRadius ?? BorderRadius.circular(20),
-              border: border ?? Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
-                width: 1.5,
-              ),
-            ),
-            padding: padding,
-            child: child,
-          ),
+        borderRadius: radius,
+        gradient: gradient ?? LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: opacity),
+            Colors.white.withValues(alpha: opacity * 0.5),
+          ],
         ),
+        border: border ?? Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+          width: 1.5,
+        ),
+        boxShadow: boxShadow,
       ),
+      padding: padding,
+      child: child,
     );
   }
 }

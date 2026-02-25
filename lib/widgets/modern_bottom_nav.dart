@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../utils/responsive_helper.dart';
 
@@ -51,43 +50,51 @@ class ModernBottomNav extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     final responsive = ResponsiveHelper(context);
-    
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-        padding: EdgeInsets.only(
-          top: isActive ? 0 : 15,
-          bottom: 15,
-        ),
-        child: Container(
-          width: responsive.bottomNavButtonSize,
-          height: responsive.bottomNavButtonSize,
-          decoration: BoxDecoration(
-            color: isActive ? Colors.white : Colors.transparent,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isActive 
-                  ? Colors.white.withValues(alpha: 0.3)
-                  : Colors.white.withValues(alpha: 0.2),
-              width: 1.5,
+    final btnSize = responsive.bottomNavButtonSize;
+    final iconSize = responsive.scale(24).clamp(18.0, 30.0);
+
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: btnSize + 8,
+          height: responsive.bottomNavHeight,
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOut,
+            alignment: isActive ? Alignment.topCenter : Alignment.bottomCenter,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+              width: btnSize,
+              height: btnSize,
+              decoration: BoxDecoration(
+                color: isActive ? Colors.white : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isActive
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          blurRadius: 18,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                isActive ? item.activeIcon : item.icon,
+                color: isActive
+                    ? Colors.black.withValues(alpha: 0.8)
+                    : Colors.white.withValues(alpha: 0.6),
+                size: iconSize,
+              ),
             ),
-            boxShadow: isActive
-                ? [
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      blurRadius: 30,
-                      spreadRadius: 0,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Icon(
-            isActive ? item.activeIcon : item.icon,
-            color: isActive ? Colors.black.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.6),
-            size: responsive.scale(24),
           ),
         ),
       ),

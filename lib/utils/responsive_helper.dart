@@ -43,134 +43,62 @@ class ResponsiveHelper {
     return large;
   }
   
-  /// Scale value based on screen width (base: 375)
+  /// Scale value proportionally based on screen width (base: 375)
   double scale(double value) {
     return value * (width / 375);
   }
   
   /// Get horizontal padding
-  double get horizontalPadding => responsiveValue(
-    small: 16,
-    medium: 20,
-    large: 24,
-  );
+  double get horizontalPadding => scale(20).clamp(14.0, 28.0);
   
   /// Get vertical spacing
-  double get verticalSpacing => responsiveValue(
-    small: 16,
-    medium: 20,
-    large: 24,
-  );
+  double get verticalSpacing => scale(20).clamp(14.0, 28.0);
   
   /// Connection button size
-  double get connectionButtonSize => responsiveValue(
-    small: 140,
-    medium: 150,
-    large: 160,
-  );
+  double get connectionButtonSize => scale(155).clamp(125.0, 185.0);
   
   /// Connection button icon size
-  double get connectionButtonIconSize => responsiveValue(
-    small: 40,
-    medium: 43,
-    large: 46,
-  );
+  double get connectionButtonIconSize => scale(44).clamp(36.0, 54.0);
   
   /// Header font size
-  double get headerFontSize => responsiveValue(
-    small: 20,
-    medium: 22,
-    large: 24,
-  );
+  double get headerFontSize => scale(22).clamp(18.0, 28.0);
   
   /// Timer font size
-  double get timerFontSize => responsiveValue(
-    small: 18,
-    medium: 20,
-    large: 22,
-  );
+  double get timerFontSize => scale(20).clamp(16.0, 26.0);
   
   /// Stats value font size
-  double get statsValueFontSize => responsiveValue(
-    small: 14,
-    medium: 15,
-    large: 16,
-  );
+  double get statsValueFontSize => scale(15).clamp(12.0, 20.0);
   
   /// Stats label font size
-  double get statsLabelFontSize => responsiveValue(
-    small: 11,
-    medium: 11.5,
-    large: 12,
-  );
+  double get statsLabelFontSize => scale(11.5).clamp(9.5, 14.0);
   
   /// Stats icon size
-  double get statsIconSize => responsiveValue(
-    small: 13,
-    medium: 14,
-    large: 15,
-  );
+  double get statsIconSize => scale(14).clamp(11.0, 18.0);
   
   /// Server card icon size
-  double get serverIconSize => responsiveValue(
-    small: 50,
-    medium: 54,
-    large: 58,
-  );
+  double get serverIconSize => scale(54).clamp(44.0, 68.0);
   
   /// Server card padding
-  double get serverCardPadding => responsiveValue(
-    small: 14,
-    medium: 15,
-    large: 16,
-  );
+  double get serverCardPadding => scale(15).clamp(12.0, 20.0);
   
   /// Tool card icon size
-  double get toolIconSize => responsiveValue(
-    small: 28,
-    medium: 30,
-    large: 32,
-  );
+  double get toolIconSize => scale(30).clamp(24.0, 40.0);
   
   /// Tool card padding
-  double get toolCardPadding => responsiveValue(
-    small: 18,
-    medium: 20,
-    large: 22,
-  );
+  double get toolCardPadding => scale(20).clamp(15.0, 28.0);
   
   /// Bottom nav height
-  double get bottomNavHeight => responsiveValue(
-    small: 75,
-    medium: 78,
-    large: 82,
-  );
+  double get bottomNavHeight => scale(78).clamp(68.0, 95.0);
   
   /// Bottom nav button size
-  double get bottomNavButtonSize => responsiveValue(
-    small: 48,
-    medium: 50,
-    large: 52,
-  );
+  double get bottomNavButtonSize => scale(50).clamp(42.0, 62.0);
   
   /// Page title font size
-  double get pageTitleFontSize => responsiveValue(
-    small: 24,
-    medium: 26,
-    large: 28,
-  );
+  double get pageTitleFontSize => scale(26).clamp(20.0, 34.0);
   
   /// About logo size
-  double get aboutLogoSize => responsiveValue(
-    small: 70,
-    medium: 75,
-    large: 80,
-  );
+  double get aboutLogoSize => scale(75).clamp(60.0, 95.0);
   
   /// About title font size
-  double get aboutTitleFontSize => responsiveValue(
-    small: 24,
-    medium: 26,
-    large: 28,
-  );
+  double get aboutTitleFontSize => scale(26).clamp(20.0, 34.0);
 }

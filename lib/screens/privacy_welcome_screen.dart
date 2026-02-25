@@ -7,6 +7,7 @@ import '../providers/language_provider.dart';
 import '../widgets/cyber_glow_background.dart';
 import 'main_navigation_screen.dart';
 import '../utils/app_localizations.dart';
+import '../utils/responsive_helper.dart';
 
 class PrivacyWelcomeScreen extends StatefulWidget {
   const PrivacyWelcomeScreen({super.key});
@@ -178,18 +179,19 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
 
   Widget _buildWelcomePage() {
     final tr = AppLocalizations.of(context);
+    final responsive = ResponsiveHelper(context);
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: EdgeInsets.symmetric(horizontal: responsive.scale(32).clamp(22.0, 42.0)),
         child: Column(
           children: [
-            const SizedBox(height: 40),
+            SizedBox(height: responsive.scale(40).clamp(28.0, 52.0)),
             ScaleTransition(
               scale: _scaleAnimation,
               child: Container(
-                width: 130,
-                height: 130,
+                width: responsive.scale(130).clamp(100.0, 160.0),
+                height: responsive.scale(130).clamp(100.0, 160.0),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
@@ -205,15 +207,15 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                     ),
                   ],
                 ),
-                child: const Icon(Icons.shield_rounded, size: 60, color: Colors.white),
+                child: Icon(Icons.shield_rounded, size: responsive.scale(60).clamp(46.0, 74.0), color: Colors.white),
               ),
             ),
-            const SizedBox(height: 48),
+            SizedBox(height: responsive.scale(48).clamp(32.0, 60.0)),
             Text(
               tr.translate('privacy_welcome.welcome_title'),
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 32,
+                fontSize: responsive.scale(30).clamp(24.0, 38.0),
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
                 height: 1.2,
@@ -368,13 +370,14 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
 
   Widget _buildGetStartedPage() {
     final tr = AppLocalizations.of(context);
+    final responsive = ResponsiveHelper(context);
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: EdgeInsets.symmetric(horizontal: responsive.scale(32).clamp(22.0, 42.0)),
         child: Column(
           children: [
-            const SizedBox(height: 60),
+            SizedBox(height: responsive.scale(60).clamp(40.0, 76.0)),
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(milliseconds: 800),
@@ -383,8 +386,8 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                 return Transform.scale(
                   scale: value,
                   child: Container(
-                    width: 120,
-                    height: 120,
+                    width: responsive.scale(120).clamp(90.0, 148.0),
+                    height: responsive.scale(120).clamp(90.0, 148.0),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
@@ -396,16 +399,16 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                         BoxShadow(color: const Color(0xFF10b981).withValues(alpha: 0.5), blurRadius: 40, spreadRadius: 5),
                       ],
                     ),
-                    child: const Icon(Icons.check_rounded, size: 56, color: Colors.white),
+                    child: Icon(Icons.check_rounded, size: responsive.scale(52).clamp(40.0, 64.0), color: Colors.white),
                   ),
                 );
               },
             ),
-            const SizedBox(height: 48),
+            SizedBox(height: responsive.scale(48).clamp(32.0, 60.0)),
             Text(
               tr.translate('privacy_welcome.ready_to_start'),
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white),
+              style: GoogleFonts.poppins(fontSize: responsive.scale(26).clamp(20.0, 34.0), fontWeight: FontWeight.w700, color: Colors.white),
             ),
             const SizedBox(height: 16),
             Text(
@@ -413,12 +416,12 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 15, color: Colors.white.withValues(alpha: 0.6), height: 1.6),
             ),
-            const SizedBox(height: 48),
+            SizedBox(height: responsive.scale(48).clamp(32.0, 60.0)),
             GestureDetector(
               onTap: _completeOnboarding,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 18),
+                padding: EdgeInsets.symmetric(vertical: responsive.scale(18).clamp(14.0, 24.0)),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [Color(0xFF10b981), Color(0xFF059669)]),
                   borderRadius: BorderRadius.circular(16),
@@ -427,7 +430,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(tr.translate('privacy_welcome.get_started'), style: GoogleFonts.poppins(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600)),
+                    Text(tr.translate('privacy_welcome.get_started'), style: GoogleFonts.poppins(color: Colors.white, fontSize: responsive.scale(16).clamp(14.0, 20.0), fontWeight: FontWeight.w600)),
                     const SizedBox(width: 8),
                     const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 22),
                   ],
@@ -463,8 +466,15 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
   }
 
   Widget _buildBottomNav() {
+    final responsive = ResponsiveHelper(context);
+    final btnSize = responsive.scale(48).clamp(42.0, 58.0);
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      padding: EdgeInsets.fromLTRB(
+        responsive.horizontalPadding,
+        responsive.scale(16).clamp(12.0, 20.0),
+        responsive.horizontalPadding,
+        responsive.scale(24).clamp(18.0, 30.0),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -474,14 +484,14 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
             child: GestureDetector(
               onTap: _currentPage > 0 ? _previousPage : null,
               child: Container(
-                width: 48,
-                height: 48,
+                width: btnSize,
+                height: btnSize,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                 ),
-                child: Icon(Icons.arrow_back_rounded, color: Colors.white.withValues(alpha: 0.7), size: 22),
+                child: Icon(Icons.arrow_back_rounded, color: Colors.white.withValues(alpha: 0.7), size: responsive.scale(22).clamp(18.0, 26.0)),
               ),
             ),
           ),
@@ -509,14 +519,14 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
             child: GestureDetector(
               onTap: _currentPage < 2 ? _nextPage : null,
               child: Container(
-                width: 48,
-                height: 48,
+                width: btnSize,
+                height: btnSize,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [Color(0xFF10b981), Color(0xFF06b6d4)]),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [BoxShadow(color: const Color(0xFF10b981).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
                 ),
-                child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 22),
+                child: Icon(Icons.arrow_forward_rounded, color: Colors.white, size: responsive.scale(22).clamp(18.0, 26.0)),
               ),
             ),
           ),

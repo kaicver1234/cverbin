@@ -18,11 +18,14 @@ class AppBackground extends StatelessWidget {
       return child;
     }
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF000000), // Pure black background
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF000000), // Pure black background
+        ),
+        child: child,
       ),
-      child: child,
     );
   }
 }

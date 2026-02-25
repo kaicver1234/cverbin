@@ -440,25 +440,38 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       statusText = AppLocalizations.of(context).translate('common.disconnected');
     }
     
-    return Column(
-      key: const ValueKey('connection_button'), // Prevent rebuild animation
-      children: [
-        ModernConnectionButton(
-          isConnected: isConnected,
-          isConnecting: isConnecting,
-          onTap: _handleConnectionToggle,
-          size: responsive.connectionButtonSize,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          statusText,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+    final btnSize = responsive.connectionButtonSize;
+    return SizedBox(
+      key: const ValueKey('connection_button'),
+      width: btnSize * 1.15 + 4,
+      height: btnSize * 1.15 + 4,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ModernConnectionButton(
+            isConnected: isConnected,
+            isConnecting: isConnecting,
+            onTap: _handleConnectionToggle,
+            size: btnSize,
           ),
-        ),
-      ],
+          Positioned(
+            bottom: btnSize * 0.17,
+            child: IgnorePointer(
+              child: Text(
+                statusText,
+                style: TextStyle(
+                  color: isConnected
+                      ? Colors.black.withValues(alpha: 0.55)
+                      : Colors.white.withValues(alpha: 0.45),
+                  fontSize: responsive.scale(9).clamp(8.0, 11.0),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -555,26 +568,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                         child: _buildServerIconContent(countryCode, isSmartConnect && provider.activeConfig == null),
                       ),
                     ),
-                    // Top highlight
-                    Positioned(
-                      top: 6,
-                      left: 6,
-                      right: 6,
-                      child: Container(
-                        height: 1.5,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              Colors.white.withValues(alpha: 0.3),
-                              Colors.transparent,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
+
                   ],
                 ),
                 const SizedBox(width: 12),
@@ -798,30 +792,31 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     required Color color,
     required VoidCallback onTap,
   }) {
+    final responsive = ResponsiveHelper(context);
     return GestureDetector(
       onTap: onTap,
       child: ModernGlassCard(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(responsive.toolCardPadding),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(responsive.scale(13).clamp(10.0, 18.0)),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, color: Colors.white, size: 28),
+              child: Icon(icon, color: Colors.white, size: responsive.toolIconSize),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: responsive.scale(14).clamp(10.0, 20.0)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: responsive.scale(15).clamp(13.0, 19.0),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -830,7 +825,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                     subtitle,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 13,
+                      fontSize: responsive.scale(12.5).clamp(11.0, 15.0),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -840,7 +835,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             ),
             Consumer<LanguageProvider>(
               builder: (context, langProvider, _) => Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(responsive.scale(8).clamp(6.0, 11.0)),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
@@ -848,7 +843,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 child: Icon(
                   langProvider.isRtl ? Icons.chevron_left : Icons.chevron_right,
                   color: Colors.white,
-                  size: 20,
+                  size: responsive.scale(20).clamp(16.0, 26.0),
                 ),
               ),
             ),
@@ -858,168 +853,312 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     );
   }
 
-  // About Page - Clean and Modern Design
   Widget _buildAboutPage(BuildContext context) {
     final remoteConfig = RemoteConfigService();
     final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
     final description = remoteConfig.getAboutDescription(languageProvider.currentLanguage.code);
-    
+    return _AboutPageView(
+      description: description,
+      remoteConfig: remoteConfig,
+    );
+  }
+
+}
+
+class _AboutPageView extends StatefulWidget {
+  final String description;
+  final RemoteConfigService remoteConfig;
+
+  const _AboutPageView({
+    required this.description,
+    required this.remoteConfig,
+  });
+
+  @override
+  State<_AboutPageView> createState() => _AboutPageViewState();
+}
+
+class _AboutPageViewState extends State<_AboutPageView>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late List<Animation<double>> _fadeAnims;
+  late List<Animation<Offset>> _slideAnims;
+
+  static const _intervals = [
+    [0.0, 0.35],
+    [0.1, 0.45],
+    [0.2, 0.55],
+    [0.35, 0.7],
+    [0.55, 0.85],
+    [0.7, 1.0],
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _fadeAnims = _intervals.map((iv) => CurvedAnimation(
+      parent: _controller,
+      curve: Interval(iv[0], iv[1], curve: Curves.easeOut),
+    )).toList();
+
+    _slideAnims = _intervals.map((iv) => Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Interval(iv[0], iv[1], curve: Curves.easeOut),
+    ))).toList();
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _animated(int index, Widget child) {
+    return FadeTransition(
+      opacity: _fadeAnims[index],
+      child: SlideTransition(position: _slideAnims[index], child: child),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
+    final remoteConfig = widget.remoteConfig;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(horizontal: responsive.horizontalPadding),
       child: Column(
         children: [
-          const SizedBox(height: 40),
-          
-          // Logo - Simple & Clean
+          SizedBox(height: responsive.scale(44).clamp(32.0, 56.0)),
+
+          // Logo with glow ring
+          _animated(0, _buildLogo(responsive)),
+
+          SizedBox(height: responsive.scale(24).clamp(18.0, 32.0)),
+
+          // App name + version
+          _animated(1, Column(
+            children: [
+              Text(
+                'TiksarVPN',
+                style: GoogleFonts.poppins(
+                  fontSize: responsive.aboutTitleFontSize,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'Version 1.1.4',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          )),
+
+          SizedBox(height: responsive.scale(30).clamp(22.0, 40.0)),
+
+          // Description
+          _animated(2, Text(
+            widget.description,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.55),
+              fontSize: responsive.scale(13.5).clamp(12.0, 15.5),
+              height: 1.85,
+            ),
+          )),
+
+          SizedBox(height: responsive.scale(36).clamp(26.0, 46.0)),
+
+          // Gradient divider + developer row
+          _animated(3, Column(
+            children: [
+              _buildGradientDivider(),
+              const SizedBox(height: 28),
+              _buildDeveloperRow(context),
+              const SizedBox(height: 28),
+              _buildGradientDivider(),
+            ],
+          )),
+
+          SizedBox(height: responsive.scale(28).clamp(20.0, 38.0)),
+
+          // Social links
+          _animated(4, Column(
+            children: [
+              _buildSocialLink(
+                icon: Icons.send_rounded,
+                iconColor: const Color(0xFF29B6F6),
+                name: AppLocalizations.of(context).translate('about.telegram'),
+                title: remoteConfig.telegramId,
+                url: remoteConfig.telegramUrl,
+              ),
+              const SizedBox(height: 10),
+              _buildSocialLink(
+                icon: Icons.camera_alt_rounded,
+                iconColor: const Color(0xFFEC407A),
+                name: AppLocalizations.of(context).translate('about.instagram'),
+                title: remoteConfig.instagramId,
+                url: remoteConfig.instagramUrl,
+              ),
+              const SizedBox(height: 10),
+              _buildSocialLink(
+                icon: Icons.location_city_rounded,
+                iconColor: const Color(0xFFAB47BC),
+                name: AppLocalizations.of(context).translate('about.tiksar_village_page'),
+                title: remoteConfig.tiksarPageId,
+                url: remoteConfig.tiksarPageUrl,
+              ),
+            ],
+          )),
+
+          SizedBox(height: responsive.scale(48).clamp(36.0, 60.0)),
+
+          // Copyright
+          _animated(5, Text(
+            '© 2026 TiksarVPN',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.2),
+              fontSize: 11,
+              letterSpacing: 0.5,
+            ),
+          )),
+
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogo(ResponsiveHelper responsive) {
+    final size = responsive.aboutLogoSize;
+    return SizedBox(
+      width: size + 16,
+      height: size + 16,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
           Container(
-            width: 80,
-            height: 80,
+            width: size + 16,
+            height: size + 16,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0.06),
+                  Colors.white.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.12),
+                  Colors.white.withValues(alpha: 0.14),
                   Colors.white.withValues(alpha: 0.06),
                 ],
               ),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
+                color: Colors.white.withValues(alpha: 0.18),
                 width: 1.5,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  blurRadius: 24,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
               child: Image.asset('assets/images/apk.png', fit: BoxFit.cover),
             ),
           ),
-          
-          const SizedBox(height: 24),
-          
-          // App Name & Version
-          Text(
-            'TiksarVPN',
-            style: GoogleFonts.poppins(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: -0.5,
-            ),
-          ),
-          
-          const SizedBox(height: 6),
-          
-          Text(
-            'Version 1.1.4',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          
-          const SizedBox(height: 32),
-          
-          // Description - Simple Text
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 0),
-            child: Text(
-              description,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 14,
-                height: 1.8,
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 40),
-          
-          // Divider Line
-          Container(
-            width: 60,
-            height: 1,
-            color: Colors.white.withValues(alpha: 0.15),
-          ),
-          
-          const SizedBox(height: 40),
-          
-          // Developer - Simple
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                AppLocalizations.of(context).translate('about.developed_with'),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.favorite,
-                color: Color(0xFFEF4444),
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                AppLocalizations.of(context).translate('about.developer'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 40),
-          
-          // Social Links - Clean Design
-          _buildCleanSocialLink(
-            icon: Icons.send_rounded,
-            name: AppLocalizations.of(context).translate('about.telegram'),
-            title: remoteConfig.telegramId,
-            url: remoteConfig.telegramUrl,
-          ),
-          const SizedBox(height: 10),
-          _buildCleanSocialLink(
-            icon: Icons.camera_alt_rounded,
-            name: AppLocalizations.of(context).translate('about.instagram'),
-            title: remoteConfig.instagramId,
-            url: remoteConfig.instagramUrl,
-          ),
-          const SizedBox(height: 10),
-          _buildCleanSocialLink(
-            icon: Icons.location_city_rounded,
-            name: AppLocalizations.of(context).translate('about.tiksar_village_page'),
-            title: remoteConfig.tiksarPageId,
-            url: remoteConfig.tiksarPageUrl,
-          ),
-          
-          const SizedBox(height: 50),
-          
-          // Copyright - Simple
-          const Text(
-            '© 2026',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color.fromRGBO(255, 255, 255, 0.25),
-              fontSize: 11,
-            ),
-          ),
-          
-          const SizedBox(height: 100), // Space for bottom nav
         ],
       ),
     );
   }
 
-  Widget _buildCleanSocialLink({
+  Widget _buildGradientDivider() {
+    return Container(
+      height: 1,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.transparent,
+            Colors.white.withValues(alpha: 0.15),
+            Colors.transparent,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeveloperRow(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          AppLocalizations.of(context).translate('about.developed_with'),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.45),
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Icon(Icons.favorite_rounded, color: Color(0xFFEF4444), size: 15),
+        const SizedBox(width: 8),
+        Text(
+          AppLocalizations.of(context).translate('about.developer'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSocialLink({
     required IconData icon,
+    required Color iconColor,
     required String name,
     required String title,
     required String url,
@@ -1032,7 +1171,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         } catch (_) {}
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(16),
@@ -1044,13 +1183,17 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         child: Row(
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: iconColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: iconColor.withValues(alpha: 0.2),
+                  width: 1,
+                ),
               ),
-              child: Icon(icon, color: Colors.white, size: 22),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1069,7 +1212,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                   Text(
                     title,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: Colors.white.withValues(alpha: 0.38),
                       fontSize: 12,
                     ),
                   ),
@@ -1078,16 +1221,18 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             ),
             Consumer<LanguageProvider>(
               builder: (context, langProvider, _) => Container(
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  langProvider.isRtl ? Icons.arrow_back_ios : Icons.arrow_forward_ios,
-                  color: Colors.white.withValues(alpha: 0.6),
-                  size: 14,
+                  langProvider.isRtl
+                      ? Icons.arrow_back_ios_rounded
+                      : Icons.arrow_forward_ios_rounded,
+                  color: Colors.white.withValues(alpha: 0.4),
+                  size: 13,
                 ),
               ),
             ),
@@ -1096,8 +1241,5 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       ),
     );
   }
-
 }
-
-// Beating heart widget - REMOVED (not needed anymore)
 
