@@ -193,7 +193,7 @@ class V2RayService extends ChangeNotifier {
 
   Future<void> initialize() async {
     if (!_isInitialized) {
-      await _flutterV2ray.initializeV2Ray(
+      await _flutterV2ray.initialize(
         notificationIconResourceType: "drawable",
         notificationIconResourceName: "ic_notification",
       );
