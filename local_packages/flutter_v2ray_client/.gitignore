@@ -1,0 +1,83 @@
+# Merged .gitignore for flutter_v2ray_client package
+
+# Dart & Flutter specific ignores
+.dart_tool/
+.packages
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.melos_tool/
+build/
+**/doc/api/
+
+# Lockfiles
+pubspec.lock
+!example/pubspec.lock
+
+# IDE & Editor ignores
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Miscellaneous ignores (from remote and local)
+*.class
+*.log
+*.pyc
+*.swp
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+node_modules/
+
+# OS files (combined macOS and general OS ignores)
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+*.icloud
+
+# Android ignores
+AndroidLibV2rayLite/
+**/local.properties
+**/.gradle/
+**/captures/
+**/.cxx/
+# Generated registrant (in example app)
+example/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# iOS & Xcode ignores
+**/Pods/
+**/Podfile.lock
+**/.symlinks/
+**/Flutter/App.framework/
+**/Flutter/Flutter.framework/
+**/Flutter/Flutter.podspec
+**/.generated/
+**/DerivedData/
+**/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Misc ignores
+coverage/
