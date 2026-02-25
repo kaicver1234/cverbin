@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/language_provider.dart';
 import '../providers/theme_provider.dart';
-import '../models/app_theme_model.dart';
 import '../widgets/cyber_glow_background.dart';
 import '../widgets/app_background.dart';
 import '../utils/app_localizations.dart';

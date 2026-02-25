@@ -50,8 +50,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   Future<void> _loadBatchSize() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getInt('ping_batch_size') ?? 10;
-      if (mounted) setState(() => _batchSize = saved.clamp(1, 20));
+      final saved = prefs.getInt('ping_batch_size') ?? 15;
+      if (mounted) setState(() => _batchSize = saved.clamp(1, 30));
     } catch (_) {}
   }
 
@@ -660,28 +660,37 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       });
 
       int successCount = 0;
+      int completed = 0;
+      int nextIndex = 0;
 
-      for (int i = 0; i < configs.length; i++) {
-        if (!mounted || !_isTesting) break;
+      Future<void> worker() async {
+        while (mounted && _isTesting) {
+          if (nextIndex >= configs.length) break;
+          final idx = nextIndex++;
 
-        final config = configs[i];
-        final delay = await _testSingleServer(config, provider);
+          final config = configs[idx];
+          final delay = await _testSingleServer(config, provider);
 
-        if (delay >= 0 && delay < 10000) {
-          _pingResults[config.id] = delay;
-          successCount++;
-        } else {
-          _pingResults[config.id] = 99999;
-        }
+          if (delay >= 0 && delay < 10000) {
+            _pingResults[config.id] = delay;
+            successCount++;
+          } else {
+            _pingResults[config.id] = 99999;
+          }
+          completed++;
 
-        if (mounted) {
-          setState(() {
-            _testedCount = i + 1;
-            _testStatusText = '$_testedCount / $_totalCount';
-            _sortServersByPing(provider, _pingResults);
-          });
+          if (mounted) {
+            setState(() {
+              _testedCount = completed;
+              _testStatusText = '$completed / $_totalCount';
+              _sortServersByPing(provider, _pingResults);
+            });
+          }
         }
       }
+
+      final workerCount = _batchSize.clamp(1, configs.length);
+      await Future.wait(List.generate(workerCount, (_) => worker()));
 
       if (!mounted) return;
 

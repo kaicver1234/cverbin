@@ -13,6 +13,7 @@ import '../widgets/app_background.dart';
 import '../widgets/modern_glass_card.dart';
 import '../widgets/modern_connection_button.dart';
 import '../widgets/modern_bottom_nav.dart';
+import '../widgets/announcement_banner.dart';
 import '../screens/server_selection_screen.dart';
 import '../screens/ip_info_screen.dart';
 import '../screens/speedtest_screen.dart';
@@ -399,7 +400,11 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         padding: EdgeInsets.symmetric(horizontal: responsive.horizontalPadding),
         child: Column(
           children: [
-            SizedBox(height: responsive.responsiveValue(small: 50, medium: 55, large: 60)),
+            SizedBox(height: responsive.responsiveValue(small: 20, medium: 24, large: 28)),
+
+            const AnnouncementBannerWidget(),
+
+            SizedBox(height: responsive.responsiveValue(small: 26, medium: 28, large: 32)),
             
             // Connection Button with Status
             _buildConnectionButtonWithStatus(provider),
