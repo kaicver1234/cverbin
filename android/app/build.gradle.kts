@@ -53,11 +53,6 @@ android {
         versionCode = 11
         versionName = "1.1.4"
         multiDexEnabled = true
-
-        // Only include arm architectures (x86/x86_64 are emulator-only, ~50% size reduction)
-        ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
-        }
     }
 
     signingConfigs {
