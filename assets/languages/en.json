@@ -16,7 +16,8 @@
     "tools": {
         "ip_information_desc": "View detailed information about your current IP address",
         "host_checker_desc": "Check status, response time and details of any web host",
-        "speed_test_desc": "Test your internet connection speed"
+        "speed_test_desc": "Test your internet connection speed",
+        "dns_server_desc": "Choose DNS server used during VPN connection"
     },
     "settings": {
         "title": "Settings"
@@ -43,6 +44,7 @@
         "speed_test": "Speed Test",
         "ip_info": "IP Info",
         "host_checker": "Host Checker",
+        "dns_server": "DNS Server",
         "duration": "Duration",
         "upload": "Upload",
         "download": "Download",

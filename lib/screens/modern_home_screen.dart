@@ -18,6 +18,7 @@ import '../screens/server_selection_screen.dart';
 import '../screens/ip_info_screen.dart';
 import '../screens/speedtest_screen.dart';
 import '../screens/host_checker_screen.dart';
+import '../screens/dns_settings_screen.dart';
 import '../services/remote_config_service.dart';
 
 class ModernHomeScreen extends StatefulWidget {
@@ -778,6 +779,13 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         'subtitle': AppLocalizations.of(context).translate('tools.host_checker_desc'),
         'color': const Color(0xFFFF6B9D),
         'screen': const HostCheckerScreen(),
+      },
+      {
+        'icon': Icons.manage_search_rounded,
+        'label': AppLocalizations.of(context).translate('home.dns_server'),
+        'subtitle': AppLocalizations.of(context).translate('tools.dns_server_desc'),
+        'color': const Color(0xFFA78BFA),
+        'screen': const DnsSettingsScreen(),
       },
     ];
 

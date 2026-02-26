@@ -8,11 +8,17 @@ import '../models/subscription.dart';
 import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
 import '../services/analytics_service.dart';
+import 'dns_provider.dart';
 
 class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final V2RayService _v2rayService = V2RayService();
   final ServerService _serverService = ServerService();
   final AnalyticsService _analyticsService = AnalyticsService();
+  DnsProvider? _dnsProvider;
+
+  void setDnsProvider(DnsProvider dns) {
+    _dnsProvider = dns;
+  }
   bool statusPingOnly = false;
   List<V2RayConfig> _configs = [];
   List<Subscription> _subscriptions = [];
@@ -462,6 +468,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       } else {
         // VPN is not connected - clear all connection states
+        _v2rayService.forceDisconnectedState();
         for (var config in _configs) {
           config.isConnected = false;
         }
@@ -628,9 +635,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       } else {
         debugPrint('❌ VPN is NOT connected, clearing all connection states');
-        
-        // VPN is not actually connected, clearing connection states
-        // Only update configs that are currently marked as connected
+
+        // Clear service activeConfig so the UI (which reads provider.activeConfig)
+        // correctly shows disconnected instead of using the stale restored state.
+        _v2rayService.forceDisconnectedState();
+
         bool anyWasConnected = false;
         for (var config in _configs) {
           if (config.isConnected) {
@@ -638,19 +647,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             anyWasConnected = true;
           }
         }
-        
+
         if (anyWasConnected) {
           debugPrint('✅ Cleared connection states (were connected, now disconnected)');
         } else {
           debugPrint('ℹ️ All configs already disconnected, no changes needed');
         }
         debugPrint('💾 Keeping selected config: ${_selectedConfig?.remark ?? "none"}');
-        
-        // Keep _selectedConfig so user can reconnect to the same server
-        // Only clear isConnected flag, not the selection itself
-        
-        // Don't call disconnect if not connected - prevents errors
-        // Just clear the state
       }
       
       // Save the synchronized state
@@ -1098,7 +1101,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         try {
           // Attempt connection with timeout
           success = await _v2rayService
-              .connect(config)
+              .connect(config, dnsServers: _dnsProvider?.activeServers)
               .timeout(
                 Duration(seconds: connectionTimeout),
                 onTimeout: () {
@@ -1557,7 +1560,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       } else {
         debugPrint('❌ Our VPN is NOT connected, clearing states');
         
-        // Clear all connection states
+        // Clear service activeConfig so provider.activeConfig (used by UI) is also null
+        _v2rayService.forceDisconnectedState();
+
         for (var config in _configs) {
           if (config.isConnected) {
             config.isConnected = false;

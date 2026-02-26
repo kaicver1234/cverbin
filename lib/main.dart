@@ -6,6 +6,7 @@ import 'providers/language_provider.dart';
 import 'providers/v2ray_provider.dart';
 import 'providers/speed_test_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/dns_provider.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/privacy_welcome_screen.dart';
 import 'screens/language_selection_screen.dart';
@@ -44,6 +45,10 @@ void main() async {
   // Initialize language provider
   final languageProvider = LanguageProvider();
   await languageProvider.initialize();
+
+  // Initialize DNS provider
+  final dnsProvider = DnsProvider();
+  await dnsProvider.initialize();
   
   debugPrint('🎨 Launching app...');
   
@@ -52,6 +57,7 @@ void main() async {
     languageSelected: languageSelected,
     privacyAccepted: privacyAccepted,
     languageProvider: languageProvider,
+    dnsProvider: dnsProvider,
   ));
 }
 
@@ -83,12 +89,14 @@ class MyApp extends StatelessWidget {
   final bool languageSelected;
   final bool privacyAccepted;
   final LanguageProvider languageProvider;
+  final DnsProvider dnsProvider;
 
   const MyApp({
     super.key,
     required this.languageSelected,
     required this.privacyAccepted,
     required this.languageProvider,
+    required this.dnsProvider,
   });
 
   @override
@@ -108,7 +116,14 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: languageProvider),
-        ChangeNotifierProvider(create: (_) => V2RayProvider()),
+        ChangeNotifierProvider.value(value: dnsProvider),
+        ChangeNotifierProxyProvider<DnsProvider, V2RayProvider>(
+          create: (_) => V2RayProvider(),
+          update: (_, dns, v2ray) {
+            v2ray?.setDnsProvider(dns);
+            return v2ray!;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => SpeedTestProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],

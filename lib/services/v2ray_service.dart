@@ -208,12 +208,24 @@ class V2RayService extends ChangeNotifier {
     }
   }
 
-  Future<bool> connect(V2RayConfig config) async {
+  Future<bool> connect(V2RayConfig config, {List<String>? dnsServers}) async {
     try {
       await initialize();
 
       // Parse the configuration
       V2RayURL parser = V2ray.parseFromURL(config.fullConfig);
+
+      // Inject custom DNS servers if provided
+      if (dnsServers != null && dnsServers.isNotEmpty) {
+        parser.dns = {
+          'servers': dnsServers,
+          'queryStrategy': 'UseIPv4',
+          'disableCache': false,
+          'disableFallback': false,
+          'disableFallbackIfMatch': false,
+        };
+        debugPrint('🌐 DNS injected: ${dnsServers.join(', ')}');
+      }
 
       // Request permission if needed (for VPN mode)
       bool hasPermission = await _flutterV2ray.requestPermission();
@@ -388,51 +400,46 @@ class V2RayService extends ChangeNotifier {
   void _verifyConnectionInBackground() async {
     try {
       debugPrint('🔎 Verifying connection in background...');
-      
-      // Try multiple times to check if VPN is actually running
+
       bool? isConnected;
-      int successfulChecks = 0;
-      int failedChecks = 0;
-      
+      int explicitFailures = 0; // delay == -1: VPN service explicitly says not connected
+      bool hadExceptions = false; // timeout/exception: might be network issue
+
       for (int attempt = 0; attempt < 3; attempt++) {
         try {
-          // Check if VPN is actually running with timeout
           final delay = await _flutterV2ray.getConnectedServerDelay()
               .timeout(const Duration(seconds: 5));
-          
+
           if (delay >= 0 && delay < 10000) {
-            successfulChecks++;
             isConnected = true;
-            debugPrint('🔎 Delay check result: ${delay}ms, connected: true');
-            break; // Success, exit retry loop
+            debugPrint('🔎 Background check: ${delay}ms, connected');
+            break;
           } else {
-            failedChecks++;
-            debugPrint('🔎 Delay check result: ${delay}ms (invalid)');
+            explicitFailures++;
+            debugPrint('🔎 Background check: delay=$delay (explicit not-connected)');
           }
         } catch (e) {
-          failedChecks++;
-          debugPrint('⚠️ Delay check attempt ${attempt + 1} failed: $e');
-          // Timeout or error - could be no internet, keep trying
+          hadExceptions = true;
+          debugPrint('⚠️ Background check attempt ${attempt + 1} exception: $e');
           if (attempt < 2) {
             await Future.delayed(const Duration(milliseconds: 500));
           }
         }
       }
 
-      // Only clear if we got explicit "not connected" response
-      // If all checks failed (timeout/error), keep the optimistic state
-      // because it could be due to no internet, not VPN being disconnected
       if (isConnected == true) {
         debugPrint('✅ Background verification: VPN is running');
-      } else if (successfulChecks == 0 && failedChecks == 3) {
-        // All checks failed - could be no internet, keep optimistic state
-        debugPrint('⚠️ Background verification: All checks failed (possibly no internet), keeping state');
+      } else if (explicitFailures > 0) {
+        // Got explicit -1 from the VPN service: it is definitely not running.
+        // Clear the optimistically-restored state so the UI reflects reality.
+        debugPrint('❌ Background verification: VPN not running (explicit -1), clearing state');
+        forceDisconnectedState();
       } else {
-        debugPrint('ℹ️ Background verification: Inconclusive, keeping state');
+        // Only exceptions/timeouts - likely a network issue, keep optimistic state
+        debugPrint('⚠️ Background verification: only exceptions (hadExceptions=$hadExceptions), keeping state');
       }
     } catch (e) {
       debugPrint('⚠️ Error during background verification: $e');
-      // Keep optimistic state on verification error
     }
   }
 
@@ -834,6 +841,18 @@ class V2RayService extends ChangeNotifier {
     _onDisconnected = callback;
     // Disable automatic monitoring to prevent false disconnects
     // _startStatusMonitoring();
+  }
+
+  /// Clears the active config and all related state when VPN is confirmed disconnected.
+  /// Call this whenever we are certain the VPN is NOT running.
+  void forceDisconnectedState() {
+    if (_activeConfig == null) return;
+    debugPrint('🔄 forceDisconnectedState: clearing activeConfig');
+    _stopUsageMonitoring();
+    _activeConfig = null;
+    _lastConnectionTime = null;
+    _clearActiveConfig();
+    notifyListeners();
   }
 
   void _stopStatusMonitoring() {
