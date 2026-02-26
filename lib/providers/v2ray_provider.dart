@@ -425,22 +425,43 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       await _v2rayService.initialize();
       debugPrint('✅ V2Ray service initialized');
       
-      // STEP 2: Check if VPN is actually connected using delay check
-      // Use -2 as timeout sentinel so we can distinguish timeout from explicit -1
+      // STEP 2: Wait briefly for the native VPN service to deliver its current
+      // status via the onStatusChanged callback. On cold start the plugin binds
+      // to the Android VPN service asynchronously, so the first status event may
+      // not have arrived yet when we call getConnectedServerDelayDirect().
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      // Check native status first — most reliable on cold start
+      final nativeStateOnInit = _v2rayService.currentStatus?.state.toLowerCase().trim() ?? '';
+      debugPrint('📡 Native VPN state on init: "$nativeStateOnInit"');
+
       bool isVpnConnected = false;
       bool initExplicitlyDisconnected = false;
-      try {
-        final delay = await _v2rayService.getConnectedServerDelayDirect()
-            .timeout(const Duration(seconds: 6), onTimeout: () => -2);
-        if (delay >= 0 && delay < 10000) {
-          isVpnConnected = true;
-        } else if (delay == -1) {
-          initExplicitlyDisconnected = true;
+
+      if (nativeStateOnInit == 'connected' || nativeStateOnInit == 'running') {
+        // Native side says VPN is up — trust it immediately without a delay check
+        isVpnConnected = true;
+        debugPrint('✅ Native status confirms VPN connected');
+      } else {
+        // Native status is ambiguous or says disconnected — confirm with delay check
+        try {
+          final delay = await _v2rayService.getConnectedServerDelayDirect()
+              .timeout(const Duration(seconds: 6), onTimeout: () => -2);
+          if (delay >= 0 && delay < 10000) {
+            isVpnConnected = true;
+          } else if (delay == -1) {
+            // Only treat as explicit disconnect if native also agrees
+            final nativeState = _v2rayService.currentStatus?.state.toLowerCase().trim() ?? '';
+            if (nativeState == 'disconnected' || nativeState == 'stopped' ||
+                nativeState == 'stop' || nativeState.isEmpty) {
+              initExplicitlyDisconnected = true;
+            }
+          }
+          // delay == -2 → timeout or exception — ambiguous, don't clear state
+          debugPrint('🔎 VPN delay check: ${delay}ms, connected: $isVpnConnected, explicit disconnect: $initExplicitlyDisconnected');
+        } catch (e) {
+          debugPrint('⚠️ Delay check failed: $e');
         }
-        // delay == -2 → timeout, ambiguous — don't clear state
-        debugPrint('🔎 VPN delay check: ${delay}ms, connected: $isVpnConnected, explicit disconnect: $initExplicitlyDisconnected');
-      } catch (e) {
-        debugPrint('⚠️ Delay check failed: $e');
       }
       
       // STEP 3: Load saved configs for UI

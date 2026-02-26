@@ -646,8 +646,11 @@ class V2RayService extends ChangeNotifier {
       debugPrint('🔍 Connected server delay: ${delay}ms');
       return delay;
     } catch (e) {
-      debugPrint('❌ getConnectedServerDelay error: $e');
-      return -1;
+      // Exception (e.g. plugin not yet bound to VPN service on cold start) is
+      // ambiguous — NOT the same as the native service explicitly returning -1.
+      // Return -2 so callers treat this as "unknown" and don't clear VPN state.
+      debugPrint('⚠️ getConnectedServerDelay exception (ambiguous): $e');
+      return -2;
     }
   }
 
@@ -991,19 +994,42 @@ class V2RayService extends ChangeNotifier {
         }
       }
       
-      // PRIORITY 3: Check if we have active config in memory
+      // PRIORITY 3: If status hasn't been received yet (cold start) and we have
+      // a saved/active config, wait briefly for the native status callback to arrive.
+      final hasConfig = _activeConfig != null || (await _loadActiveConfig()) != null;
+      if (hasConfig && (_currentStatus == null || _currentStatus!.state.isEmpty)) {
+        debugPrint('⏳ Status not yet received, waiting for native callback...');
+        await Future.delayed(const Duration(milliseconds: 1200));
+        final lateState = _currentStatus?.state.toLowerCase().trim() ?? '';
+        debugPrint('📡 Late native state: "$lateState"');
+        if (lateState == 'connected' || lateState == 'running') {
+          if (_activeConfig == null) {
+            final saved = await _loadActiveConfig();
+            if (saved != null) {
+              _activeConfig = saved;
+              await _restoreConnectionTime();
+              _startUsageMonitoring();
+              notifyListeners();
+            }
+          }
+          return _activeConfig != null;
+        }
+        if (lateState == 'disconnected' || lateState == 'stopped' || lateState == 'stop') {
+          debugPrint('❌ Late native state confirms VPN disconnected');
+          return false;
+        }
+      }
+
+      // PRIORITY 4: activeConfig exists but all checks failed — ambiguous, don't force disconnect
       if (_activeConfig != null) {
-        debugPrint('⚠️ activeConfig exists but delay check failed - assuming disconnected');
-        // Don't clear immediately - let the caller decide
+        debugPrint('⚠️ activeConfig exists but all checks ambiguous - caller decides');
         return false;
       }
       
-      // PRIORITY 4: Check saved config (VPN might be running but app was killed)
+      // PRIORITY 5: Check saved config (VPN might be running but app was killed)
       final savedConfig = await _loadActiveConfig();
       if (savedConfig != null) {
         debugPrint('🔎 Found saved config but delay check failed');
-        // Don't clear saved config here - it might be a temporary network issue
-        // Let the UI show disconnected but keep the config for reconnection
         return false;
       }
       
