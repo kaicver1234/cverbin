@@ -100,7 +100,7 @@ class NotificationService {
           enableVibration: true,
           vibrationPattern: Int64List.fromList([0, 250, 100, 250]),
           enableLights: true,
-          ledColor: const Color(0xFF00D9FF),
+          ledColor: const Color(0xFF1E293B),
           showBadge: true,
         ),
       );
@@ -121,7 +121,7 @@ class NotificationService {
       channelDescription: _channelDesc,
       importance: Importance.high,
       priority: Priority.high,
-      color: const Color(0xFF00D9FF),
+      color: const Color(0xFF1E293B),
       icon: 'ic_stat_notify',
       largeIcon: const DrawableResourceAndroidBitmap('ic_launcher'),
       styleInformation: BigTextStyleInformation(
@@ -136,7 +136,7 @@ class NotificationService {
       enableVibration: true,
       vibrationPattern: Int64List.fromList([0, 250, 100, 250]),
       enableLights: true,
-      ledColor: const Color(0xFF00D9FF),
+      ledColor: const Color(0xFF1E293B),
       ledOnMs: 500,
       ledOffMs: 500,
       visibility: NotificationVisibility.public,

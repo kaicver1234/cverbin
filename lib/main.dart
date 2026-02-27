@@ -50,7 +50,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           importance: Importance.high,
           priority: Priority.high,
           icon: 'ic_stat_notify',
-          color: Color(0xFF00D9FF),
+          color: Color(0xFF1E293B),
           autoCancel: true,
         ),
       ),

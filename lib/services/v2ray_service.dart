@@ -64,14 +64,6 @@ class V2RayService extends ChangeNotifier {
   /// spurious "disconnected" callbacks that arrive right after connecting.
   DateTime? _lastSuccessfulConnectTime;
 
-  /// True while a restored config is waiting for native VPN status confirmation.
-  /// During this window:
-  ///  - notifyListeners() in onStatusChanged is suppressed (to avoid "connected"
-  ///    flash before the actual VPN state is known)
-  ///  - the usage-monitoring timer is NOT started
-  /// Cleared by confirmRestoredConnection() or forceDisconnectedState().
-  bool _isAwaitingConfirmation = false;
-
   // IP Information
   IpInfo? _ipInfo;
   IpInfo? get ipInfo => _ipInfo;
@@ -155,12 +147,7 @@ class V2RayService extends ChangeNotifier {
       onStatusChanged: (status) {
         _currentStatus = status;
         _handleStatusChange(status);
-        // Suppress UI notifications while we are waiting for native confirmation
-        // of a restored config (cold-start after notification-bar disconnect).
-        // _handleStatusChange itself still fires and will resolve waiters / clear
-        // state as needed — we just don't want traffic-stat redraws to make the
-        // UI show "connected" before the real state is known.
-        if (!_isAwaitingConfirmation) notifyListeners();
+        notifyListeners();
       },
     );
 
@@ -183,10 +170,8 @@ class V2RayService extends ChangeNotifier {
     if (isExplicitDisconnect && _activeConfig != null) {
       // Grace period: ignore spurious disconnect callbacks that arrive within
       // 10 seconds of THIS PROCESS's successful connect() call.
-      // NOTE: _lastSuccessfulConnectTime is intentionally NOT persisted to
-      // SharedPreferences, so on cold start it is always null and this check
-      // is skipped — legitimate "disconnected" events on app reopen are handled
-      // correctly even though _activeConfig was silently restored from prefs.
+      // _lastSuccessfulConnectTime is in-memory only (not persisted), so on cold
+      // start it is always null — legitimate disconnects are always processed.
       if (_lastSuccessfulConnectTime != null) {
         final msSinceConnect =
             DateTime.now().difference(_lastSuccessfulConnectTime!).inMilliseconds;
@@ -200,15 +185,6 @@ class V2RayService extends ChangeNotifier {
       _activeConfig = null;
       _onDisconnected?.call();
       _clearActiveConfig();
-      notifyListeners();
-    }
-
-    // Restore config when native reports connected but we have no record of it
-    final bool isConnected = stateString == 'connected' || stateString == 'running';
-    if (isConnected && _activeConfig == null) {
-      _tryRestoreActiveConfig().then((_) {
-        notifyListeners();
-      });
     }
 
     // Resolve any pending waitForNativeStatus() calls
@@ -261,19 +237,12 @@ class V2RayService extends ChangeNotifier {
         notificationIconResourceName: "ic_notification",
       );
       _isInitialized = true;
-
-      // Restore config silently — awaitConfirmation:true means:
-      //  • _isAwaitingConfirmation is set to true
-      //  • the usage-monitoring timer is NOT started yet
-      //  • notifyListeners() in onStatusChanged is suppressed
-      // The provider will call confirmRestoredConnection() or forceDisconnectedState()
-      // after checking the actual native VPN state.
-      await _tryRestoreActiveConfig(awaitConfirmation: true);
-    } else {
-      // Already initialized (app resumed from background).
-      // Same silent-restore logic applies.
-      await _tryRestoreActiveConfig(awaitConfirmation: true);
     }
+    // Config restoration is intentionally NOT done here.
+    // The provider calls restoreActiveConfig() ONLY after confirming the VPN is
+    // actually running via native status + delay check. This prevents the UI from
+    // showing "connected" when the VPN was disconnected from the notification bar
+    // while the app was killed.
   }
 
   Future<bool> connect(V2RayConfig config, {List<String>? dnsServers}) async {
@@ -312,7 +281,6 @@ class V2RayService extends ChangeNotifier {
         notificationDisconnectButtonName: "DISCONNECT",
       );
 
-      _isAwaitingConfirmation = false;
       _activeConfig = config;
       _lastConnectionTime = DateTime.now();
       // Mark this as the most recent successful in-process connection so the
@@ -352,7 +320,6 @@ class V2RayService extends ChangeNotifier {
       await _flutterV2ray.stopV2Ray();
 
       // Clear active config and all related state
-      _isAwaitingConfirmation = false;
       _activeConfig = null;
       _lastConnectionTime = null;
       _lastSuccessfulConnectTime = null;
@@ -407,87 +374,6 @@ class V2RayService extends ChangeNotifier {
     return V2RayConfig.fromJson(jsonDecode(configJson));
   }
 
-  /// Whether this call is from initialize() and must wait for native confirmation.
-  /// When true: set _isAwaitingConfirmation, skip monitoring start.
-  /// When false (called from _handleStatusChange on a "connected" event): proceed normally.
-  Future<void> _tryRestoreActiveConfig({bool awaitConfirmation = false}) async {
-    try {
-      // First, try to load saved config
-      final savedConfig = await _loadActiveConfig();
-      
-      if (savedConfig == null) {
-        // No saved config, nothing to restore
-        debugPrint('ℹ️ No saved active config found');
-        return;
-      }
-      
-      // SILENT RESTORE: Restore config without notifying UI yet.
-      // The provider's init flow (_initialize / _syncVpnStatusOnResume) will
-      // confirm the actual VPN state via native status, THEN call notifyListeners.
-      // This prevents a brief "connected" flash when the app is reopened after
-      // the user disconnected from the notification bar while the app was dead.
-      debugPrint('✅ Found saved config: ${savedConfig.remark}');
-      _activeConfig = savedConfig;
-
-      if (awaitConfirmation) {
-        // Mark that we need native confirmation before showing connected UI.
-        // Also do NOT start the usage-monitoring timer yet — it fires notifyListeners()
-        // every second and would make the UI show "connected" prematurely.
-        _isAwaitingConfirmation = true;
-        await _restoreConnectionTime();
-        debugPrint('⏳ Awaiting native confirmation before showing connected UI');
-      } else {
-        // Native already told us "connected" (called from _handleStatusChange),
-        // so safe to start monitoring and let the caller notify.
-        await _restoreConnectionTime();
-        _startUsageMonitoring();
-        debugPrint('✅ Active config restored (native confirmed connected)');
-      }
-      
-      // Fetch IP info after restore (with delay to ensure VPN is stable)
-      Future.delayed(const Duration(seconds: 1), () {
-        fetchIpInfo().then((_) {
-          debugPrint('✅ IP info fetched after config restore');
-        }).catchError((e) {
-          debugPrint('⚠️ Failed to fetch IP after restore: $e');
-        });
-      });
-      
-      // Background verification is intentionally NOT called here.
-      // Doing so caused a race condition on cold start: the plugin had not yet
-      // bound to the Android VPN service, so all delay checks returned -1 and
-      // forceDisconnectedState() wiped SharedPreferences before _initialize()
-      // could use the saved config.
-      //
-      // The authoritative connection check is done by
-      // V2RayProvider._enhancedSyncWithVpnServiceState() at the end of init,
-      // and by V2RayProvider._syncVpnStatusOnResume() on app resume.
-      
-    } catch (e) {
-      debugPrint('❌ Error restoring active config: $e');
-      // Try to restore from saved config as fallback
-      try {
-        final savedConfig = await _loadActiveConfig();
-        if (savedConfig != null) {
-          _activeConfig = savedConfig;
-          await _restoreConnectionTime();
-          _startUsageMonitoring();
-          notifyListeners();
-          debugPrint('✅ Restored config from fallback despite error');
-        } else {
-          await _clearActiveConfig();
-          _activeConfig = null;
-          notifyListeners();
-        }
-      } catch (fallbackError) {
-        debugPrint('❌ Complete failure restoring config: $fallbackError');
-        // Complete failure - clear everything
-        await _clearActiveConfig();
-        _activeConfig = null;
-        notifyListeners();
-      }
-    }
-  }
   
 
   Future<void> _restoreConnectionTime() async {
@@ -898,23 +784,38 @@ class V2RayService extends ChangeNotifier {
     // _startStatusMonitoring();
   }
 
-  /// Called by the provider once native VPN status confirms the restored
-  /// connection is actually live.  Starts the monitoring timer and notifies UI.
-  void confirmRestoredConnection() {
-    if (!_isAwaitingConfirmation) return;
-    _isAwaitingConfirmation = false;
-    _startUsageMonitoring();
-    notifyListeners();
-    debugPrint('✅ Restored connection confirmed by native — UI updated');
+  /// Called by the provider after native VPN status + delay check confirm the
+  /// VPN is actually running. Loads the saved config, restores the timer, and
+  /// starts the usage-monitoring ticker.
+  Future<void> restoreActiveConfig() async {
+    try {
+      final savedConfig = await _loadActiveConfig();
+      if (savedConfig == null) {
+        debugPrint('⚠️ restoreActiveConfig: no saved config found');
+        return;
+      }
+      _activeConfig = savedConfig;
+      await _restoreConnectionTime();
+      _startUsageMonitoring();
+      notifyListeners();
+      debugPrint('✅ Active config restored after VPN confirmation: ${savedConfig.remark}');
+
+      // Fetch IP info in background (non-blocking)
+      Future.delayed(const Duration(seconds: 1), () {
+        if (_activeConfig != null) {
+          fetchIpInfo().catchError((_) =>
+              IpInfo(ip: '', country: '', city: '', countryCode: '', success: false));
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ restoreActiveConfig error: $e');
+    }
   }
 
   /// Clears the active config and all related state when VPN is confirmed disconnected.
   /// Call this whenever we are certain the VPN is NOT running.
   void forceDisconnectedState() {
-    // Cancel pending-confirmation state even if _activeConfig is already null
-    // (e.g. provider calls this before service finishes restore).
-    _isAwaitingConfirmation = false;
-    if (_activeConfig == null) return;
+    if (_activeConfig == null && _lastSuccessfulConnectTime == null) return;
     debugPrint('🔄 forceDisconnectedState: clearing activeConfig');
     _stopUsageMonitoring();
     _activeConfig = null;
