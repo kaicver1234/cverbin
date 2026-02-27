@@ -8,6 +8,7 @@ import '../widgets/app_background.dart';
 import '../widgets/speed_test/speed_test_progress_indicator.dart';
 import '../widgets/speed_test/speed_test_start_button.dart';
 import '../utils/app_localizations.dart';
+import '../services/analytics_service.dart';
 
 // Colors for speed test
 const Color _downloadColor = Color(0xFF00FFA3);
@@ -174,11 +175,17 @@ class SpeedTestScreen extends StatelessWidget {
               ? SpeedTestStartButton(
                   currentStep: SpeedTestStep.ready,
                   isEnabled: true,
-                  onTap: () => provider.startTest(),
+                  onTap: () {
+                    AnalyticsService().logSpeedTestStart();
+                    provider.startTest();
+                  },
                   previousStep: SpeedTestStep.download,
                 )
               : GestureDetector(
-                  onTap: () => provider.startTest(),
+                  onTap: () {
+                    AnalyticsService().logSpeedTestStart();
+                    provider.startTest();
+                  },
                   child: Column(
                     children: [
                       Text(
@@ -193,7 +200,10 @@ class SpeedTestScreen extends StatelessWidget {
                       SpeedTestStartButton(
                         currentStep: SpeedTestStep.ready,
                         isEnabled: true,
-                        onTap: () => provider.startTest(),
+                        onTap: () {
+                          AnalyticsService().logSpeedTestStart();
+                          provider.startTest();
+                        },
                       ),
                     ],
                   ),

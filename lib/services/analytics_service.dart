@@ -409,4 +409,175 @@ class AnalyticsService {
       // Silently fail
     }
   }
+
+  /// Log tab change in home screen
+  Future<void> logTabChange({
+    required String tabName,
+    required int tabIndex,
+  }) async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'tab_taghir',
+        parameters: {
+          'tab_name': tabName,
+          'tab_index': tabIndex,
+        },
+      );
+      debugPrint('📊 Analytics: Tab Taghir - $tabName');
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Log DNS settings change
+  Future<void> logDnsChange({
+    required String dnsType,
+    required String dnsValue,
+  }) async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'tanzimate_dns_taghir',
+        parameters: {
+          'dns_type': dnsType,
+          'dns_value': dnsValue,
+        },
+      );
+      debugPrint('📊 Analytics: DNS Taghir - $dnsType: $dnsValue');
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Log speed test start
+  Future<void> logSpeedTestStart() async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'test_saraat_shoru',
+        parameters: {
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        },
+      );
+      debugPrint('📊 Analytics: Test Saraat Shoru');
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Log speed test result
+  Future<void> logSpeedTestResult({
+    required double downloadMbps,
+    required double uploadMbps,
+    required int pingMs,
+  }) async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'natije_test_saraat',
+        parameters: {
+          'download_mbps': downloadMbps.toStringAsFixed(1),
+          'upload_mbps': uploadMbps.toStringAsFixed(1),
+          'ping_ms': pingMs,
+        },
+      );
+      debugPrint('📊 Analytics: Natije Test Saraat - D:${downloadMbps.toStringAsFixed(1)} U:${uploadMbps.toStringAsFixed(1)}');
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Log host check
+  Future<void> logHostCheck({
+    required String host,
+    required bool isReachable,
+    required int responseTimeMs,
+  }) async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'baresi_host',
+        parameters: {
+          'host': host,
+          'ghabele_dastresi': isReachable,
+          'zaman_pasokh_ms': responseTimeMs,
+        },
+      );
+      debugPrint('📊 Analytics: Baresi Host - $host (${isReachable ? "movafagh" : "nabood"})');
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Log server list refresh
+  Future<void> logServerListRefresh({
+    required int serverCount,
+  }) async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'berozresani_list_server',
+        parameters: {
+          'tedad_server': serverCount,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        },
+      );
+      debugPrint('📊 Analytics: Berozresani List Server - $serverCount ta');
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Log smart connect usage
+  Future<void> logSmartConnect({
+    required String selectedServer,
+  }) async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'otaghak_hoshmandam',
+        parameters: {
+          'server_entekhabi': selectedServer,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        },
+      );
+      debugPrint('📊 Analytics: Otaghak Hoshmandam - $selectedServer');
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Log IP info screen refresh
+  Future<void> logIpInfoRefresh() async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'berozresani_ettelaat_ip',
+        parameters: {
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        },
+      );
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Log about screen social link tap
+  Future<void> logSocialLinkTap({
+    required String platform,
+  }) async {
+    if (!_isSupported || _analytics == null) return;
+    try {
+      await _analytics!.logEvent(
+        name: 'link_ejtemai_zade_shod',
+        parameters: {
+          'platform': platform,
+        },
+      );
+      debugPrint('📊 Analytics: Link Ejtemai - $platform');
+    } catch (e) {
+      // Silently fail
+    }
+  }
 }

@@ -7,6 +7,7 @@ import '../widgets/cyber_glow_background.dart';
 import '../widgets/app_background.dart';
 import '../utils/app_localizations.dart';
 import '../services/remote_config_service.dart';
+import '../services/analytics_service.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -392,7 +393,10 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
           title: AppLocalizations.of(context).translate('about.telegram'),
           subtitle: remoteConfig.telegramId,
           gradient: const [Color(0xFF0088CC), Color(0xFF00A8E8)],
-          onTap: () => _launchTelegram(context, remoteConfig.telegramUrl),
+          onTap: () {
+            AnalyticsService().logSocialLinkTap(platform: 'telegram');
+            _launchTelegram(context, remoteConfig.telegramUrl);
+          },
         ),
         const SizedBox(height: 10),
         _buildSocialItem(
@@ -401,7 +405,10 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
           title: AppLocalizations.of(context).translate('about.instagram'),
           subtitle: remoteConfig.instagramId,
           gradient: const [Color(0xFFE1306C), Color(0xFFF77737)],
-          onTap: () => _launchUrl(context, remoteConfig.instagramUrl),
+          onTap: () {
+            AnalyticsService().logSocialLinkTap(platform: 'instagram');
+            _launchUrl(context, remoteConfig.instagramUrl);
+          },
         ),
         const SizedBox(height: 10),
         _buildSocialItem(
@@ -410,7 +417,10 @@ class _AboutScreenState extends State<AboutScreen> with TickerProviderStateMixin
           title: AppLocalizations.of(context).translate('about.tiksar_village_page'),
           subtitle: remoteConfig.tiksarPageId,
           gradient: const [Color(0xFF833AB4), Color(0xFFC13584)],
-          onTap: () => _launchUrl(context, remoteConfig.tiksarPageUrl),
+          onTap: () {
+            AnalyticsService().logSocialLinkTap(platform: 'tiksar_page');
+            _launchUrl(context, remoteConfig.tiksarPageUrl);
+          },
         ),
       ],
     );

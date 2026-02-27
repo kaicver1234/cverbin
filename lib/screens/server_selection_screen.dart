@@ -9,6 +9,7 @@ import '../utils/app_localizations.dart';
 import '../utils/country_flags.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_background.dart';
+import '../services/analytics_service.dart';
 
 class ServerSelectionScreen extends StatefulWidget {
   const ServerSelectionScreen({super.key});
@@ -35,6 +36,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   @override
   void initState() {
     super.initState();
+    AnalyticsService().logScreenView(screenName: 'Safheh_Entekhab_Server');
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging && _activeTabIndex != _tabController.index) {
@@ -97,6 +99,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       final provider = Provider.of<V2RayProvider>(context, listen: false);
       await provider.fetchServers();
       if (mounted) {
+        AnalyticsService().logServerListRefresh(serverCount: provider.serverConfigs.length);
         setState(() {
           _sortedConfigs = null;
           _pingResults.clear();

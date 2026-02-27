@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -11,49 +12,48 @@ class NotificationService {
   NotificationService._internal();
 
   FirebaseMessaging? _firebaseMessaging;
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  static const String _channelId = 'tiksar_vpn_main';
+  static const String _channelName = 'Tiksar VPN';
+  static const String _channelDesc = 'اطلاعیه‌های Tiksar VPN';
 
   Future<void> initialize() async {
     try {
-      // Only initialize Firebase messaging on mobile platforms
       if (Platform.isAndroid || Platform.isIOS) {
         _firebaseMessaging = FirebaseMessaging.instance;
-        
-        // Request notification permissions (with timeout)
+
         await _requestPermissions().timeout(
           const Duration(seconds: 3),
           onTimeout: () => debugPrint('⏱️ Notification permission timeout'),
         );
-        
-        // Initialize local notifications for showing notifications in foreground
+
         await _initializeLocalNotifications().timeout(
           const Duration(seconds: 2),
           onTimeout: () => debugPrint('⏱️ Local notifications timeout'),
         );
-        
-        // Subscribe to all_users topic to receive notifications for all users (with timeout)
+
         await _firebaseMessaging!.subscribeToTopic('all_users').timeout(
           const Duration(seconds: 3),
           onTimeout: () => debugPrint('⏱️ Topic subscription timeout'),
         );
-        
-        // Handle foreground messages
+
+        // TODO: حذف کن قبل از release — فقط برای تست
+        await _firebaseMessaging!.subscribeToTopic('dev_test');
+        debugPrint('🧪 Subscribed to dev_test topic');
+
         FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-        
-        // Handle background messages
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       }
       debugPrint('✅ Notification service initialized');
-      
     } catch (e) {
       debugPrint('⚠️ Notification service error (app continues): $e');
-      // App continues to work without notifications
     }
   }
 
   Future<void> _requestPermissions() async {
     if (_firebaseMessaging == null) return;
-    
     await _firebaseMessaging!.requestPermission(
       alert: true,
       announcement: false,
@@ -63,77 +63,118 @@ class NotificationService {
       provisional: false,
       sound: true,
     );
-    
-    // Notification permission status checked
   }
 
   Future<void> _initializeLocalNotifications() async {
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@drawable/ic_notification');
-    
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('ic_firebase_notification');
+
+    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
       requestSoundPermission: true,
       requestBadgePermission: true,
       requestAlertPermission: true,
     );
-    
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
+
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
     );
-    
+
     await _flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
+      initSettings,
       onDidReceiveNotificationResponse: _onNotificationResponse,
     );
+
+    // Create Android notification channel with full settings
+    if (Platform.isAndroid) {
+      final androidPlugin = _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.createNotificationChannel(
+        AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          description: _channelDesc,
+          importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
+          vibrationPattern: Int64List.fromList([0, 250, 100, 250]),
+          enableLights: true,
+          ledColor: const Color(0xFF00D9FF),
+          showBadge: true,
+        ),
+      );
+    }
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    // Show notification when app is in foreground
     _showLocalNotification(message);
   }
 
   Future<void> _showLocalNotification(RemoteMessage message) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'tiksar_vpn_channel',
-      'Tiksar VPN Notifications',
-      channelDescription: 'Notifications from Tiksar VPN',
-      importance: Importance.max,
+    final String title = message.notification?.title ?? 'Tiksar VPN';
+    final String body = message.notification?.body ?? '';
+
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.high,
       priority: Priority.high,
+      color: const Color(0xFF1E293B),
+      icon: 'ic_firebase_notification',
+      largeIcon: const DrawableResourceAndroidBitmap('ic_launcher'),
+      styleInformation: BigTextStyleInformation(
+        body,
+        htmlFormatBigText: false,
+        contentTitle: title,
+        htmlFormatContentTitle: false,
+        summaryText: 'Tiksar VPN',
+        htmlFormatSummaryText: false,
+      ),
+      autoCancel: true,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 250, 100, 250]),
+      enableLights: true,
+      ledColor: const Color(0xFF00D9FF),
+      ledOnMs: 500,
+      ledOffMs: 500,
+      visibility: NotificationVisibility.public,
       showWhen: true,
-      icon: '@drawable/ic_notification', // Same icon as VPN notification
+      when: DateTime.now().millisecondsSinceEpoch,
+      groupKey: 'tiksar_vpn_group',
+      subText: 'Tiksar VPN',
     );
-    
-    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-        DarwinNotificationDetails(
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
     );
-    
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iOSPlatformChannelSpecifics,
+
+    final NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
     );
-    
+
     await _flutterLocalNotificationsPlugin.show(
-      message.hashCode,
-      message.notification?.title ?? 'Tiksar VPN',
-      message.notification?.body ?? '',
-      platformChannelSpecifics,
-      payload: message.data.toString(),
+      message.hashCode.abs() % 100000,
+      title,
+      body,
+      details,
     );
+
+    debugPrint('🔔 Notification shown: "$title"');
   }
 
   void _onNotificationResponse(NotificationResponse response) {
-    // Handle notification tap if needed
+    // Notification tapped — app comes to foreground automatically
+    debugPrint('🔔 Notification tapped');
   }
 }
 
-// This function MUST be top-level (outside of any class)
+// Must be top-level
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  // Handling background message
 }

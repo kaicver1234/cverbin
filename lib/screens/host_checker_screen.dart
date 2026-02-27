@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
+import '../services/analytics_service.dart';
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
   @override
   void initState() {
     super.initState();
+    AnalyticsService().logScreenView(screenName: 'Safheh_Baresi_Host');
     _radarController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
@@ -122,6 +124,11 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
       final ok = response.statusCode >= 200 && response.statusCode < 400;
 
       HapticFeedback.mediumImpact();
+      AnalyticsService().logHostCheck(
+        host: uri.host,
+        isReachable: ok,
+        responseTimeMs: ms,
+      );
       setState(() {
         _results.insert(
           0,

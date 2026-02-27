@@ -22,6 +22,11 @@
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_firebase_notification" />
             
+        <!-- Default notification color (applied as icon background) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
+            
         <!-- VPN notification icon -->
         <meta-data
             android:name="com.github.shadowsocks.plugin.v2ray.notification.icon"

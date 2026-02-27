@@ -20,6 +20,7 @@ import '../screens/speedtest_screen.dart';
 import '../screens/host_checker_screen.dart';
 import '../screens/dns_settings_screen.dart';
 import '../services/remote_config_service.dart';
+import '../services/analytics_service.dart';
 
 class ModernHomeScreen extends StatefulWidget {
   const ModernHomeScreen({super.key});
@@ -46,6 +47,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncVpnStatus();
       _loadServers();
+      AnalyticsService().logScreenView(screenName: 'Safheh_Asli');
     });
   }
   

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/app_background.dart';
+import '../services/analytics_service.dart';
 
 class IpInfoScreen extends StatefulWidget {
   const IpInfoScreen({super.key});
@@ -41,6 +42,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+    AnalyticsService().logScreenView(screenName: 'Safheh_Ettelaat_IP');
     _fetchIpInfo();
   }
 
@@ -200,7 +202,10 @@ class _IpInfoScreenState extends State<IpInfoScreen>
             ),
           ),
           GestureDetector(
-            onTap: _isLoading ? null : _fetchIpInfo,
+            onTap: _isLoading ? null : () {
+              AnalyticsService().logIpInfoRefresh();
+              _fetchIpInfo();
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 44,

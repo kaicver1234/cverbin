@@ -7,6 +7,7 @@ import '../providers/language_provider.dart';
 import '../widgets/error_snackbar.dart';
 import '../widgets/cyber_glow_background.dart';
 import '../widgets/app_background.dart';
+import '../services/analytics_service.dart';
 
 class LanguageSettingsScreen extends StatefulWidget {
   const LanguageSettingsScreen({super.key});
@@ -23,6 +24,7 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
   @override
   void initState() {
     super.initState();
+    AnalyticsService().logScreenView(screenName: 'Safheh_Tanzimate_Zaban');
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,

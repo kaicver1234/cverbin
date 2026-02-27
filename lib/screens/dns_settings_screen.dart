@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/dns_provider.dart';
 import '../providers/language_provider.dart';
+import '../services/analytics_service.dart';
 
 const _kBg     = Color(0xFF0A0A0A);
 const _kCard   = Color(0xFF111111);
@@ -22,6 +23,7 @@ class _DnsSettingsScreenState extends State<DnsSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService().logScreenView(screenName: 'Safheh_Tanzimate_DNS');
     final dns = Provider.of<DnsProvider>(context, listen: false);
     _primaryCtrl.text = dns.customPrimary;
   }
@@ -47,6 +49,7 @@ class _DnsSettingsScreenState extends State<DnsSettingsScreen> {
     final dns = Provider.of<DnsProvider>(context, listen: false);
     await dns.setCustomDns(_primaryCtrl.text);
     await dns.selectPreset(DnsPreset.custom);
+    AnalyticsService().logDnsChange(dnsType: 'custom', dnsValue: _primaryCtrl.text);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -221,7 +224,13 @@ class _DnsSettingsScreenState extends State<DnsSettingsScreen> {
     final badge = _badgeLabel(option.badge, isRtl);
 
     return GestureDetector(
-      onTap: () => dns.selectPreset(option.preset),
+      onTap: () {
+        dns.selectPreset(option.preset);
+        AnalyticsService().logDnsChange(
+          dnsType: option.preset.name,
+          dnsValue: option.name,
+        );
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
