@@ -293,7 +293,7 @@ class V2RayService extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      // Error connecting to V2Ray
+      debugPrint('❌ Connect error: $e');
       return false;
     }
   }

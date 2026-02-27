@@ -34,12 +34,11 @@ class VlessURL extends V2RayURL {
       streamSecurity: uri.queryParameters['security'] ?? '',
       allowInsecure: allowInsecure,
       sni: uri.queryParameters['sni'] ?? sni,
-      fingerprint: uri.queryParameters['fp'] ??
-          streamSetting['tlsSettings']?['fingerprint'],
+      fingerprint: uri.queryParameters['fp'],
       alpns: uri.queryParameters['alpn'],
-      publicKey: uri.queryParameters['pbk'] ?? '',
-      shortId: uri.queryParameters['sid'] ?? '',
-      spiderX: uri.queryParameters['spx'] ?? '',
+      publicKey: uri.queryParameters['pbk'],
+      shortId: uri.queryParameters['sid'],
+      spiderX: uri.queryParameters['spx'],
     );
     
     // Handle xhttp specific settings
@@ -113,7 +112,7 @@ class VlessURL extends V2RayURL {
                   'security': security,
                   'level': level,
                   'encryption': uri.queryParameters['encryption'] ?? 'none',
-                  'flow': uri.queryParameters['flow'] ?? '',
+                  'flow': uri.queryParameters['flow'],
                 }
               ]
             }
@@ -134,8 +133,8 @@ class VlessURL extends V2RayURL {
         'proxySettings': null,
         'sendThrough': null,
         'mux': {
-          'enabled': true,
-          'concurrency': 8,
+          'enabled': false,
+          'concurrency': -1,
         },
       };
 }

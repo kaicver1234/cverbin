@@ -352,29 +352,32 @@ abstract class V2RayURL {
     required String? spiderX,
   }) {
     streamSetting['security'] = streamSecurity;
-    final tlsSetting = <String, dynamic>{
-      'allowInsecure': allowInsecure,
-      'serverName': sni,
-      'alpn': alpns == '' ? null : alpns?.split(','),
-      'minVersion': null,
-      'maxVersion': null,
-      'preferServerCipherSuites': null,
-      'cipherSuites': null,
-      'fingerprint': fingerprint,
-      'certificates': null,
-      'disableSystemRoot': null,
-      'enableSessionResumption': null,
-      'show': false,
-      'publicKey': publicKey,
-      'shortId': shortId,
-      'spiderX': spiderX,
-    };
     if (streamSecurity == 'tls') {
       streamSetting['realitySettings'] = null;
-      streamSetting['tlsSettings'] = tlsSetting;
+      streamSetting['tlsSettings'] = <String, dynamic>{
+        'allowInsecure': allowInsecure,
+        'serverName': sni,
+        'alpn': alpns == '' ? null : alpns?.split(','),
+        'minVersion': null,
+        'maxVersion': null,
+        'preferServerCipherSuites': null,
+        'cipherSuites': null,
+        'fingerprint': fingerprint,
+        'certificates': null,
+        'disableSystemRoot': null,
+        'enableSessionResumption': null,
+        'show': false,
+      };
     } else if (streamSecurity == 'reality') {
       streamSetting['tlsSettings'] = null;
-      streamSetting['realitySettings'] = tlsSetting;
+      streamSetting['realitySettings'] = <String, dynamic>{
+        'serverName': sni,
+        'fingerprint': fingerprint,
+        'publicKey': publicKey,
+        'shortId': shortId,
+        'spiderX': spiderX,
+        'show': false,
+      };
     }
   }
 
