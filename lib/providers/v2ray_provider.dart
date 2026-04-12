@@ -447,7 +447,19 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       debugPrint('✅ Configs loaded, UI showing disconnected (safe initial state)');
 
       // STEP 3: Set up disconnect callback.
+      // This fires when V2Ray core reports an explicit disconnect state.
+      // We check the provider-level 120-second grace period here so that
+      // spurious disconnect events fired shortly after a successful connection
+      // (which may arrive after the service-level 120-second grace expires due
+      // to in-memory vs persisted timestamp differences) are safely ignored.
       _v2rayService.setDisconnectedCallback(() {
+        if (_lastSuccessfulConnection != null) {
+          final elapsed = DateTime.now().difference(_lastSuccessfulConnection!);
+          if (elapsed.inSeconds < 120) {
+            debugPrint('⏭️ V2Ray disconnect callback ignored — within ${elapsed.inSeconds}s grace period');
+            return;
+          }
+        }
         _handleNotificationDisconnect();
       });
 
@@ -537,17 +549,28 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   
   /// Authoritative VPN connection check used during cold-start and resume.
   ///
-  /// Strategy (most reliable to least reliable):
-  /// 1. Wait for the native status callback (up to 3 s).
-  /// 2. If native says "disconnected/stopped" → return false immediately.
-  /// 3. If native says "connected/running" → confirm with delay check.
-  ///    The delay check catches the teardown window where native still reports
-  ///    "connected" but traffic can no longer flow.
-  /// 4. Any timeout or ambiguous state → return false (safe default).
+  /// Strategy (two independent sources must agree):
+  /// 1. PRIORITY 1 – Android ConnectivityManager (isSystemVpnActive):
+  ///    Most reliable. If VPN interface is not registered → return false.
+  /// 2. PRIORITY 2 – V2Ray native status callback (waitForNativeStatus):
+  ///    Confirms V2Ray core state.
+  ///    - Explicit disconnect → return false.
+  ///    - Connected/running → return true.
+  ///    - Ambiguous/timeout BUT system VPN confirmed active → return true
+  ///      (V2Ray may be slow to respond on cold start; trust system check).
+  ///    - Ambiguous/timeout AND system check was uncertain → return false (safe).
+  ///
+  /// Note: The HTTP delay check was removed because on cold start the V2Ray
+  /// plugin may not yet be bound to the running service, causing the request
+  /// to fail with a false-negative that incorrectly shows the UI as disconnected.
+  /// The periodic state validator (every 15 s) handles actual tunnel failures.
   Future<bool> _confirmVpnConnectionState() async {
     debugPrint('🔒 Running authoritative VPN connection check...');
 
-    // PRIORITY 1: Check system VPN state first (fastest and most reliable)
+    // PRIORITY 1: Check system VPN state first (fastest and most reliable).
+    // Track whether the system explicitly confirmed VPN is active so we can
+    // use it as a tie-breaker when the native status times out.
+    bool systemVpnConfirmed = false;
     try {
       final systemVpnActive = await isSystemVpnActive();
       debugPrint('🔍 System VPN active: $systemVpnActive');
@@ -557,8 +580,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         return false;
       }
       
+      systemVpnConfirmed = true;
       debugPrint('✅ System confirms VPN is active');
-      // Continue to verify with V2Ray core for details
     } catch (e) {
       debugPrint('⚠️ System check failed: $e, falling back to native check');
     }
@@ -569,7 +592,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     );
     debugPrint('📡 Native status for confirmation: "$nativeState"');
 
-    // Definitively not connected.
+    // Definitively not connected — even if system said active, trust explicit disconnect.
     if (nativeState == 'disconnected' ||
         nativeState == 'stopped' ||
         nativeState == 'stop') {
@@ -577,29 +600,22 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       return false;
     }
 
-    // Timeout or unknown — treat as disconnected (safe default).
+    // Timeout or unknown state.
     if (nativeState != 'connected' && nativeState != 'running') {
-      debugPrint('⏱️ Native status ambiguous or timeout — treating as disconnected');
+      if (systemVpnConfirmed) {
+        // System explicitly confirmed VPN is active. V2Ray may be slow to
+        // report status on cold start — trust the system-level check.
+        debugPrint('⏱️ Native status ambiguous/timeout but system VPN is active — trusting system');
+        return true;
+      }
+      // System check was uncertain too — safe default is disconnected.
+      debugPrint('⏱️ Native status ambiguous/timeout and system uncertain — treating as disconnected');
       return false;
     }
 
-    // Native says "connected" — verify with delay check to rule out teardown.
-    debugPrint('🔎 Native says connected — running delay check to confirm...');
-    try {
-      final delay = await _v2rayService
-          .getConnectedServerDelayDirect()
-          .timeout(const Duration(seconds: 6), onTimeout: () => -2);
-      debugPrint('🔎 Delay check result: ${delay}ms');
-      if (delay >= 0 && delay < 10000) {
-        debugPrint('✅ Delay check passed — VPN is genuinely connected');
-        return true;
-      }
-      debugPrint('❌ Delay check failed (delay=$delay) — VPN not actually connected');
-      return false;
-    } catch (e) {
-      debugPrint('❌ Delay check threw: $e — treating as disconnected');
-      return false;
-    }
+    // Both system VPN active (or uncertain) AND native reports connected/running.
+    debugPrint('✅ Native confirmed connected — treating as connected');
+    return true;
   }
 
   // CRITICAL FIX: Enhanced method to synchronize with actual VPN service state
@@ -1689,6 +1705,21 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       // If system says VPN is NOT active but UI shows connected
       else if (!systemVpnActive && hasConnectedConfig) {
+        // SAFETY: Never reset UI during an active connection attempt —
+        // the system VPN interface may not yet be registered right after startV2Ray.
+        if (_isConnecting) {
+          debugPrint('⚡ Skipping disconnect reset — connection in progress');
+          return;
+        }
+        // SAFETY: Respect the 120-second grace period after a successful connect.
+        // The VPN interface may briefly appear inactive right after establishment.
+        if (_lastSuccessfulConnection != null) {
+          final elapsed = DateTime.now().difference(_lastSuccessfulConnection!);
+          if (elapsed.inSeconds < 120) {
+            debugPrint('⚡ Skipping disconnect reset — within ${elapsed.inSeconds}s grace period');
+            return;
+          }
+        }
         debugPrint('⚡ MISMATCH: System inactive but UI connected - fixing...');
         _v2rayService.forceDisconnectedState();
         for (var config in _configs) {

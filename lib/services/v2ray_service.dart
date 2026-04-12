@@ -169,15 +169,15 @@ class V2RayService extends ChangeNotifier {
 
     if (isExplicitDisconnect && _activeConfig != null) {
       // Grace period: ignore spurious disconnect callbacks that arrive within
-      // 10 seconds of THIS PROCESS's successful connect() call.
+      // 120 seconds of THIS PROCESS's successful connect() call.
       // _lastSuccessfulConnectTime is in-memory only (not persisted), so on cold
       // start it is always null — legitimate disconnects are always processed.
       if (_lastSuccessfulConnectTime != null) {
         final msSinceConnect =
             DateTime.now().difference(_lastSuccessfulConnectTime!).inMilliseconds;
-        if (msSinceConnect < 10000) {
+        if (msSinceConnect < 120000) {
           debugPrint(
-              '⏭️ Ignoring disconnect event – within 10 s grace period '
+              '⏭️ Ignoring disconnect event – within 120 s grace period '
               '(${msSinceConnect}ms since last in-process connect)');
           return;
         }
