@@ -36,7 +36,7 @@
         "tap_to_stop": "برای قطع ضربه بزنید",
         "connecting": "در حال اتصال...",
         "connected": "متصل",
-        "disconnected": "قطع شده",
+        "disconnected": "متصل نیستید",
         "connection_failed": "اتصال ناموفق",
         "connected_to": "متصل به",
         "secure_connection": "اتصال امن",
@@ -116,7 +116,7 @@
         "loading_servers": "در حال بارگذاری سرورها...",
         "connecting": "در حال اتصال",
         "connected": "متصل",
-        "disconnected": "قطع شده"
+        "disconnected": "متصل نیستید"
     },
     "privacy_welcome": {
         "skip": "رد کردن",

@@ -1686,13 +1686,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           }
           
           // If no match found, add the activeConfig to list
-          if (!foundMatch && activeConfig != null) {
+          if (!foundMatch) {
+            final config = activeConfig; // Local non-nullable variable
             debugPrint('⚡ No match found, adding activeConfig to list');
-            activeConfig.isConnected = true;
-            if (!_configs.any((c) => c.id == activeConfig!.id)) {
-              _configs.insert(0, activeConfig);
+            config.isConnected = true;
+            if (!_configs.any((c) => c.id == config.id)) {
+              _configs.insert(0, config);
             }
-            _selectedConfig = activeConfig;
+            _selectedConfig = config;
             _wasUsingSmartConnect = false;
           }
           

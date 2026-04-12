@@ -181,8 +181,8 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                     },
                     items: [
                       ModernNavItem(
-                        icon: Icons.apps_outlined,
-                        activeIcon: Icons.apps,
+                        icon: Icons.settings_outlined,
+                        activeIcon: Icons.settings,
                         label: AppLocalizations.of(context).translate('navigation.tools'),
                         color: const Color(0xFFFF6B9D),
                       ),
