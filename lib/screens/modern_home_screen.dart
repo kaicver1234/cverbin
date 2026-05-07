@@ -250,7 +250,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
               child: Icon(
                 Icons.language,
                 color: Colors.white,
-                size: responsive.scale(22),
+                size: responsive.scale(18),
               ),
             ),
           ),

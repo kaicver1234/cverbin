@@ -488,49 +488,100 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(responsive.scale(20).clamp(16.0, 26.0)),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF7C3AED), Color(0xFFA855F7)],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Premium icon with gradient background
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // Outer glow circle
+                Container(
+                  width: responsive.scale(140).clamp(110.0, 170.0),
+                  height: responsive.scale(140).clamp(110.0, 170.0),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
-                  shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.workspace_premium_rounded,
-                  size: responsive.scale(48).clamp(36.0, 60.0),
-                  color: Colors.white,
+                // Middle circle
+                Container(
+                  width: responsive.scale(100).clamp(80.0, 120.0),
+                  height: responsive.scale(100).clamp(80.0, 120.0),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF7C3AED), Color(0xFFA855F7)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                        blurRadius: 30,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.diamond_rounded,
+                    size: responsive.scale(50).clamp(40.0, 60.0),
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            
+            SizedBox(height: responsive.scale(32).clamp(24.0, 40.0)),
+            
+            // Premium title
+            Text(
+              AppLocalizations.of(context).translate('server_selection.premium'),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: responsive.scale(28).clamp(22.0, 34.0),
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            
+            SizedBox(height: responsive.scale(24).clamp(18.0, 30.0)),
+            
+            // Coming Soon badge
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.scale(24).clamp(18.0, 30.0),
+                vertical: responsive.scale(12).clamp(10.0, 16.0),
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                    const Color(0xFFA855F7).withValues(alpha: 0.2),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                  width: 1.5,
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                AppLocalizations.of(context).translate('server_selection.premium'),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: responsive.scale(22).clamp(18.0, 28.0),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
+              child: Text(
                 AppLocalizations.of(context).translate('server_selection.coming_soon'),
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: const Color(0xFFA855F7),
                   fontSize: responsive.scale(14).clamp(12.0, 17.0),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -673,7 +724,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
             _pingResults[config.id] = delay;
             successCount++;
           } else {
-            _pingResults[config.id] = 99999;
+            _pingResults[config.id] = -1;
           }
           completed++;
 
@@ -1007,19 +1058,27 @@ class _PingBadge extends StatelessWidget {
     final Color color;
     final String label;
 
-    if (ping >= 99999) {
+    if (ping < 0) {
+      // Server didn't respond to ping
+      color = const Color(0xFFEF4444);
+      label = '-1ms';
+    } else if (ping >= 99999) {
       color = Colors.white24;
       label = '—';
-    } else if (ping < 300) {
+    } else if (ping < 400) {
+      // Excellent (0-399ms) - Green
       color = const Color(0xFF00FFA3);
       label = '${ping}ms';
     } else if (ping < 700) {
+      // Good (400-699ms) - Yellow
       color = const Color(0xFFFBBF24);
       label = '${ping}ms';
     } else if (ping < 1500) {
+      // Average (700-1499ms) - Orange
       color = const Color(0xFFF97316);
       label = '${ping}ms';
     } else {
+      // Poor (1500+ms) - Red
       color = const Color(0xFFEF4444);
       label = '${ping}ms';
     }

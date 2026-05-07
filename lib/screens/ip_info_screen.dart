@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
-import '../providers/theme_provider.dart';
 import '../widgets/app_background.dart';
 import '../services/analytics_service.dart';
 
@@ -16,40 +15,39 @@ class IpInfoScreen extends StatefulWidget {
 }
 
 class _IpInfoScreenState extends State<IpInfoScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   Map<String, dynamic>? _ipData;
   String? _errorMessage;
   bool _copied = false;
 
-  late AnimationController _pulseController;
-  late AnimationController _fadeController;
-  late Animation<double> _pulseAnim;
-  late Animation<double> _fadeAnim;
+  late AnimationController _animController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
+    _animController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
     );
-    _pulseAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
     );
-    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+    
+    _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+    
     AnalyticsService().logScreenView(screenName: 'Safheh_Ettelaat_IP');
     _fetchIpInfo();
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
-    _fadeController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
@@ -59,7 +57,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       _isLoading = true;
       _errorMessage = null;
     });
-    _fadeController.reset();
+    _animController.reset();
 
     try {
       final response = await http.get(
@@ -79,7 +77,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
             _ipData = data;
             _isLoading = false;
           });
-          _fadeController.forward();
+          _animController.forward();
         } else {
           if (!mounted) return;
           setState(() {
@@ -115,7 +113,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
     setState(() => _copied = true);
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
     setState(() => _copied = false);
   }
@@ -123,25 +121,22 @@ class _IpInfoScreenState extends State<IpInfoScreen>
   @override
   Widget build(BuildContext context) {
     final languageProvider = Provider.of<LanguageProvider>(context);
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final colors = themeProvider.colors;
 
     return Directionality(
       textDirection: languageProvider.textDirection,
       child: AppBackground(
-        useSecondaryBackground: true,
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: SafeArea(
             child: Column(
               children: [
-                _buildHeader(context, colors),
+                _buildMinimalHeader(context, languageProvider),
                 Expanded(
                   child: _isLoading
-                      ? _buildLoadingState(colors)
+                      ? _buildMinimalLoading()
                       : _errorMessage != null
-                          ? _buildErrorState(colors)
-                          : _buildContent(colors),
+                          ? _buildMinimalError()
+                          : _buildMinimalContent(),
                 ),
               ],
             ),
@@ -151,75 +146,68 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     );
   }
 
-  Widget _buildHeader(BuildContext context, colors) {
+  Widget _buildMinimalHeader(BuildContext context, LanguageProvider langProvider) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Row(
         children: [
+          // Back button
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Consumer<LanguageProvider>(
-                builder: (context, langProvider, _) => Icon(
-                  langProvider.isRtl
-                      ? Icons.arrow_forward_ios_rounded
-                      : Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
+              child: Icon(
+                langProvider.isRtl
+                    ? Icons.arrow_forward_rounded
+                    : Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 20,
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          
+          const SizedBox(width: 16),
+          
+          // Title
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'IP Information',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                Text(
-                  'Your network identity',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+            child: Text(
+              'IP Information',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
+          
+          // Refresh button
           GestureDetector(
             onTap: _isLoading ? null : () {
               AnalyticsService().logIpInfoRefresh();
               _fetchIpInfo();
             },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 44,
-              height: 44,
+            child: Container(
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF00D9FF).withValues(alpha: _isLoading ? 0.3 : 1),
-                    const Color(0xFF00FFA3).withValues(alpha: _isLoading ? 0.3 : 1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(14),
+                color: _isLoading 
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : const Color(0xFF00D9FF).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+              child: Icon(
+                Icons.refresh_rounded,
+                color: _isLoading 
+                    ? Colors.white.withValues(alpha: 0.3)
+                    : const Color(0xFF00D9FF),
+                size: 20,
+              ),
             ),
           ),
         ],
@@ -227,41 +215,61 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     );
   }
 
-  Widget _buildLoadingState(colors) {
+  Widget _buildMinimalLoading() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedBuilder(
-            animation: _pulseAnim,
-            builder: (context, child) => Transform.scale(
-              scale: _pulseAnim.value,
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
-                      blurRadius: 24,
-                      spreadRadius: 4,
+          // Animated loading circle
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 1500),
+            builder: (context, value, child) {
+              return Transform.rotate(
+                angle: value * 6.28,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                      width: 3,
                     ),
-                  ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00D9FF),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: const Icon(Icons.language_rounded, color: Colors.white, size: 36),
-              ),
-            ),
+              );
+            },
+            onEnd: () {
+              if (mounted && _isLoading) {
+                setState(() {});
+              }
+            },
           ),
+          
           const SizedBox(height: 24),
-          const Text(
-            'Detecting your IP...',
+          
+          Text(
+            'Detecting IP...',
             style: TextStyle(
-              color: Colors.white70,
-              fontSize: 15,
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -270,68 +278,81 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     );
   }
 
-  Widget _buildErrorState(colors) {
+  Widget _buildMinimalError() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Error icon
             Container(
-              width: 80,
-              height: 80,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
-                color: const Color(0xFFEF4444).withValues(alpha: 0.12),
-                border: Border.all(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.3),
-                    width: 2),
               ),
-              child: const Icon(Icons.wifi_off_rounded,
-                  color: Color(0xFFEF4444), size: 36),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: Color(0xFFEF4444),
+                size: 32,
+              ),
             ),
-            const SizedBox(height: 24),
-            const Text(
+            
+            const SizedBox(height: 20),
+            
+            Text(
               'Connection Failed',
               style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold),
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
+            
             const SizedBox(height: 8),
+            
             Text(
               _errorMessage ?? 'Unable to fetch IP information',
               textAlign: TextAlign.center,
-              style:
-                  TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 14,
+              ),
             ),
+            
             const SizedBox(height: 32),
+            
+            // Retry button
             GestureDetector(
               onTap: _fetchIpInfo,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                      colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)]),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                        color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6)),
-                  ],
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                  ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.refresh_rounded, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text('Try Again',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600)),
+                    const Icon(
+                      Icons.refresh_rounded,
+                      color: Color(0xFF00D9FF),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Try Again',
+                      style: TextStyle(
+                        color: Color(0xFF00D9FF),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -342,57 +363,38 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     );
   }
 
-  Widget _buildContent(colors) {
+  Widget _buildMinimalContent() {
     if (_ipData == null) return const SizedBox();
+    
     return FadeTransition(
-      opacity: _fadeAnim,
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-        child: Column(
-          children: [
-            _buildHeroCard(),
-            const SizedBox(height: 16),
-            _buildStatsRow(),
-            const SizedBox(height: 16),
-            _buildSection(
-              icon: Icons.location_on_rounded,
-              iconColor: const Color(0xFF00D9FF),
-              title: 'Location',
-              items: [
-                _Item(Icons.flag_rounded, 'Country',
-                    '${_ipData!['country']} (${_ipData!['countryCode']})'),
-                _Item(Icons.map_rounded, 'Region',
-                    _ipData!['regionName'] ?? 'Unknown'),
-                _Item(Icons.location_city_rounded, 'City',
-                    _ipData!['city'] ?? 'Unknown'),
-                _Item(Icons.access_time_rounded, 'Timezone',
-                    _ipData!['timezone'] ?? 'Unknown'),
-                _Item(Icons.my_location_rounded, 'Coordinates',
-                    '${(_ipData!['lat'] as num).toStringAsFixed(4)}, ${(_ipData!['lon'] as num).toStringAsFixed(4)}'),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _buildSection(
-              icon: Icons.router_rounded,
-              iconColor: const Color(0xFF00FFA3),
-              title: 'Network',
-              items: [
-                _Item(Icons.business_rounded, 'ISP',
-                    _ipData!['isp'] ?? 'Unknown'),
-                _Item(Icons.corporate_fare_rounded, 'Organization',
-                    _ipData!['org'] ?? 'Unknown'),
-                _Item(Icons.numbers_rounded, 'AS Number',
-                    _ipData!['as'] ?? 'Unknown'),
-              ],
-            ),
-          ],
+      opacity: _fadeAnimation,
+      child: AnimatedBuilder(
+        animation: _slideAnimation,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(0, _slideAnimation.value),
+            child: child,
+          );
+        },
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildIPCard(),
+              const SizedBox(height: 20),
+              _buildLocationSection(),
+              const SizedBox(height: 16),
+              _buildNetworkSection(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeroCard() {
+  Widget _buildIPCard() {
     final ip = _ipData!['query'] ?? 'Unknown';
     final city = _ipData!['city'] ?? '';
     final country = _ipData!['country'] ?? '';
@@ -409,40 +411,27 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF00D9FF).withValues(alpha: 0.15),
-            const Color(0xFF00FFA3).withValues(alpha: 0.08),
-          ],
-        ),
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFF00D9FF).withValues(alpha: 0.25),
+          color: const Color(0xFF00D9FF).withValues(alpha: 0.15),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00D9FF).withValues(alpha: 0.08),
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Column(
         children: [
+          // Flag and status
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Live indicator
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00D9FF).withValues(alpha: 0.12),
+                  color: const Color(0xFF00FFA3).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: const Color(0xFF00D9FF).withValues(alpha: 0.2)),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 6,
@@ -456,52 +445,60 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                     const Text(
                       'LIVE',
                       style: TextStyle(
-                        color: Color(0xFF00D9FF),
+                        color: Color(0xFF00FFA3),
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 1,
                       ),
                     ),
                   ],
                 ),
               ),
+              
+              // Flag
               if (flagEmoji.isNotEmpty)
-                Text(flagEmoji, style: const TextStyle(fontSize: 32)),
+                Text(
+                  flagEmoji,
+                  style: const TextStyle(fontSize: 36),
+                ),
             ],
           ),
-          const SizedBox(height: 20),
+          
+          const SizedBox(height: 24),
+          
+          // IP Address
           Text(
             'Your IP Address',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 12,
-              letterSpacing: 1.5,
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: 11,
               fontWeight: FontWeight.w500,
+              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: 10),
+          
+          const SizedBox(height: 12),
+          
+          // IP with copy button
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Flexible(
-                child: ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
-                  ).createShader(bounds),
-                  child: Text(
-                    ip,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                child: Text(
+                  ip,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              
               const SizedBox(width: 12),
+              
               GestureDetector(
                 onTap: () => _copyToClipboard(ip),
                 child: AnimatedContainer(
@@ -509,193 +506,234 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: _copied
-                        ? const Color(0xFF00FFA3).withValues(alpha: 0.2)
-                        : Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _copied
-                          ? const Color(0xFF00FFA3).withValues(alpha: 0.4)
-                          : Colors.white.withValues(alpha: 0.1),
-                    ),
+                        ? const Color(0xFF00FFA3).withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     _copied ? Icons.check_rounded : Icons.copy_rounded,
                     size: 16,
-                    color:
-                        _copied ? const Color(0xFF00FFA3) : Colors.white54,
+                    color: _copied 
+                        ? const Color(0xFF00FFA3)
+                        : Colors.white.withValues(alpha: 0.6),
                   ),
                 ),
               ),
             ],
           ),
+          
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.location_on_rounded,
-                    size: 13, color: Colors.white.withValues(alpha: 0.5)),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    [city, country]
-                        .where((s) => s.isNotEmpty)
-                        .join(', '),
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          
+          // Location
+          if (city.isNotEmpty || country.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.location_on_rounded,
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.5),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      [city, country].where((s) => s.isNotEmpty).join(', '),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsRow() {
-    final lat = (_ipData!['lat'] as num?)?.toStringAsFixed(2) ?? '-';
-    final lon = (_ipData!['lon'] as num?)?.toStringAsFixed(2) ?? '-';
-    final tz = (_ipData!['timezone'] ?? '-').toString().split('/').last;
-
-    return Row(
+  Widget _buildLocationSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildStatCard(Icons.north_east_rounded, 'Latitude', lat, const Color(0xFF00D9FF)),
-        const SizedBox(width: 10),
-        _buildStatCard(Icons.north_rounded, 'Longitude', lon, const Color(0xFF00FFA3)),
-        const SizedBox(width: 10),
-        _buildStatCard(Icons.schedule_rounded, 'Timezone', tz, const Color(0xFFFBBF24)),
+        // Section title
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.public_rounded,
+                  color: Color(0xFF00D9FF),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Location',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // Location items
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              _buildInfoRow(
+                Icons.flag_rounded,
+                'Country',
+                '${_ipData!['country']} (${_ipData!['countryCode']})',
+              ),
+              _buildDivider(),
+              _buildInfoRow(
+                Icons.location_city_rounded,
+                'City',
+                _ipData!['city'] ?? 'Unknown',
+              ),
+              _buildDivider(),
+              _buildInfoRow(
+                Icons.map_rounded,
+                'Region',
+                _ipData!['regionName'] ?? 'Unknown',
+              ),
+              _buildDivider(),
+              _buildInfoRow(
+                Icons.schedule_rounded,
+                'Timezone',
+                _ipData!['timezone'] ?? 'Unknown',
+              ),
+              _buildDivider(),
+              _buildInfoRow(
+                Icons.my_location_rounded,
+                'Coordinates',
+                '${(_ipData!['lat'] as num).toStringAsFixed(4)}, ${(_ipData!['lon'] as num).toStringAsFixed(4)}',
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildStatCard(IconData icon, String label, String value, Color accent) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: accent.withValues(alpha: 0.18)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: accent, size: 18),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+  Widget _buildNetworkSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section title
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00FFA3).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.router_rounded,
+                  color: Color(0xFF00FFA3),
+                  size: 16,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 10,
+              const SizedBox(width: 10),
+              const Text(
+                'Network',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+        
+        // Network items
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              _buildInfoRow(
+                Icons.business_rounded,
+                'ISP',
+                _ipData!['isp'] ?? 'Unknown',
+              ),
+              _buildDivider(),
+              _buildInfoRow(
+                Icons.corporate_fare_rounded,
+                'Organization',
+                _ipData!['org'] ?? 'Unknown',
+              ),
+              _buildDivider(),
+              _buildInfoRow(
+                Icons.numbers_rounded,
+                'AS Number',
+                _ipData!['as'] ?? 'Unknown',
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildSection({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required List<_Item> items,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 16),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            height: 1,
-            color: Colors.white.withValues(alpha: 0.05),
-          ),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => Container(
-              height: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              color: Colors.white.withValues(alpha: 0.04),
-            ),
-            itemBuilder: (_, i) => _buildItem(items[i], iconColor),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItem(_Item item, Color accent) {
+  Widget _buildInfoRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Icon(item.icon, color: accent.withValues(alpha: 0.7), size: 15),
-          const SizedBox(width: 10),
-          Text(
-            item.label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.45),
-              fontSize: 13,
+          Icon(
+            icon,
+            color: Colors.white.withValues(alpha: 0.4),
+            size: 16,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          const Spacer(),
           Flexible(
+            flex: 2,
             child: Text(
-              item.value,
+              value,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 13,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.end,
               maxLines: 2,
@@ -706,11 +744,12 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       ),
     );
   }
-}
 
-class _Item {
-  final IconData icon;
-  final String label;
-  final String value;
-  _Item(this.icon, this.label, this.value);
+  Widget _buildDivider() {
+    return Container(
+      height: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      color: Colors.white.withValues(alpha: 0.03),
+    );
+  }
 }

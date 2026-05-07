@@ -24,6 +24,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   List<Subscription> _subscriptions = [];
   bool _isLoadingServers = false;
   bool _isInitializing = true; // Track initialization state
+  bool _serversFetchedOnce = false; // Track if servers were fetched at least once
   DateTime? _lastSuccessfulConnection; // Track last successful connection time
   Timer? _stateValidationTimer; // Periodic state validator
   
@@ -436,15 +437,33 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       await _v2rayService.initialize();
       debugPrint('✅ V2Ray service initialized');
       
-      // STEP 2: Load saved configs for UI display.
-      // Mark ALL as disconnected immediately — UI shows the correct "disconnected"
-      // state while we run the authoritative VPN check below.
-      await _loadSavedStateAndShowUI();
+      // STEP 2: Try to fetch fresh servers from internet first
+      // Only fetch if not already fetched during this session
+      if (!_serversFetchedOnce) {
+        try {
+          debugPrint('📡 Attempting to fetch fresh servers from internet...');
+          await fetchServers();
+          _serversFetchedOnce = true;
+          debugPrint('✅ Fresh servers loaded from internet: ${_configs.length} servers');
+        } catch (e) {
+          debugPrint('⚠️ Failed to fetch servers from internet: $e');
+          debugPrint('📦 Falling back to cached servers...');
+          // If fetch fails, load from cache
+          await _loadSavedStateAndShowUI();
+          debugPrint('✅ Loaded ${_configs.length} servers from cache');
+        }
+      } else {
+        debugPrint('⏭️ Skipping server fetch - already fetched this session');
+        // Load from cache if already fetched
+        await _loadSavedStateAndShowUI();
+      }
+      
+      // Mark ALL as disconnected initially
       for (var config in _configs) {
         config.isConnected = false;
       }
       notifyListeners();
-      debugPrint('✅ Configs loaded, UI showing disconnected (safe initial state)');
+      debugPrint('✅ Configs ready, UI showing disconnected (safe initial state)');
 
       // STEP 3: Set up disconnect callback.
       // This fires when V2Ray core reports an explicit disconnect state.
@@ -508,18 +527,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       notifyListeners();
       
-      // STEP 6: Fetch fresh server list (UI already shows correct state).
-      try {
-        await fetchServers();
-        debugPrint('✅ Servers loaded: ${_configs.length} servers');
-      } catch (e) {
-        debugPrint('⚠️ Failed to fetch servers during init: $e');
-        if (_configs.isEmpty) {
-          _setError('Could not load servers. Please check your internet connection.');
-        }
-      }
-      
-      // STEP 7: Default selection.
+      // STEP 6: Default selection.
       final hasConnectedConfig = _configs.any((c) => c.isConnected);
       if (hasConnectedConfig) {
         _selectedConfig = _configs.firstWhere((c) => c.isConnected);
@@ -808,6 +816,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         
         // COMPLETELY REPLACE all configs - no merging, no duplicates
         _configs = servers;
+        _serversFetchedOnce = true; // Mark as fetched
         
         // Preserve connection state: if VPN is currently running, re-mark the connected config
         final activeConfig = _v2rayService.activeConfig;

@@ -10,7 +10,7 @@ import 'providers/dns_provider.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/privacy_welcome_screen.dart';
 import 'screens/language_selection_screen.dart';
-import 'screens/splash_loading_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/notification_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -189,8 +189,8 @@ class MyApp extends StatelessWidget {
             targetScreen = const MainNavigationScreen();
           }
           
-          // Wrap with splash screen
-          final homeScreen = SplashLoadingScreen(nextScreen: targetScreen);
+          // Wrap with new splash screen
+          final homeScreen = SplashScreen(nextScreen: targetScreen);
           
           debugPrint('✅ Building MaterialApp with Splash → ${targetScreen.runtimeType}');
           

@@ -500,105 +500,118 @@ class _ScanningState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Modern loading animation
           RepaintBoundary(
             child: AnimatedBuilder(
               animation: radarCtrl,
-              builder: (_, __) => CustomPaint(
-                size: const Size(140, 140),
-                painter: _RadarPainter(radarCtrl.value),
-              ),
+              builder: (_, __) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outer pulsing circle
+                    AnimatedBuilder(
+                      animation: pulseCtrl,
+                      builder: (_, __) {
+                        final scale = 1.0 + (pulseCtrl.value * 0.3);
+                        final opacity = 0.3 - (pulseCtrl.value * 0.2);
+                        return Transform.scale(
+                          scale: scale,
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _kCyan.withValues(alpha: opacity),
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    // Middle circle
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _kCyan.withValues(alpha: 0.08),
+                        border: Border.all(
+                          color: _kCyan.withValues(alpha: 0.2),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    
+                    // Rotating dots
+                    SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: Stack(
+                        children: List.generate(3, (index) {
+                          final angle = (radarCtrl.value * 2 * math.pi) + (index * 2 * math.pi / 3);
+                          final x = 30 * math.cos(angle);
+                          final y = 30 * math.sin(angle);
+                          
+                          return Transform.translate(
+                            offset: Offset(x + 40, y + 40),
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _kCyan,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _kCyan.withValues(alpha: 0.5),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                    
+                    // Center icon
+                    const Icon(
+                      Icons.wifi_find_rounded,
+                      color: _kCyan,
+                      size: 32,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'SCANNING...',
-            style: GoogleFonts.robotoMono(
-              fontSize: 13,
-              color: _kCyan,
-              letterSpacing: 3,
-              fontWeight: FontWeight.w600,
-              decoration: TextDecoration.none,
-            ),
+          
+          const SizedBox(height: 28),
+          
+          // Animated text
+          AnimatedBuilder(
+            animation: pulseCtrl,
+            builder: (_, __) {
+              final opacity = 0.6 + (pulseCtrl.value * 0.4);
+              return Text(
+                'SCANNING...',
+                style: GoogleFonts.robotoMono(
+                  fontSize: 13,
+                  color: _kCyan.withValues(alpha: opacity),
+                  letterSpacing: 3,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.none,
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
-}
-
-// ─── Radar Painter ────────────────────────────────────────────────────────────
-
-class _RadarPainter extends CustomPainter {
-  final double progress;
-  _RadarPainter(this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    // Concentric circles
-    final circlePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (int i = 1; i <= 3; i++) {
-      circlePaint.color = _kCyan.withValues(alpha: 0.12);
-      canvas.drawCircle(center, radius * i / 3, circlePaint);
-    }
-
-    // Crosshairs
-    final linePaint = Paint()
-      ..color = _kCyan.withValues(alpha: 0.1)
-      ..strokeWidth = 1;
-    canvas.drawLine(Offset(center.dx, 0), Offset(center.dx, size.height), linePaint);
-    canvas.drawLine(Offset(0, center.dy), Offset(size.width, center.dy), linePaint);
-
-    // Sweep
-    final sweepAngle = progress * math.pi * 2;
-    final sweepPaint = Paint()
-      ..shader = SweepGradient(
-        colors: [
-          _kCyan.withValues(alpha: 0.0),
-          _kCyan.withValues(alpha: 0.55),
-        ],
-        startAngle: sweepAngle - math.pi / 2,
-        endAngle: sweepAngle + math.pi * 0.75,
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(center, radius - 1, sweepPaint);
-
-    // Sweep line
-    final lineSweepPaint = Paint()
-      ..color = _kCyan.withValues(alpha: 0.9)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    final lineEnd = Offset(
-      center.dx + (radius - 2) * math.cos(sweepAngle - math.pi / 2),
-      center.dy + (radius - 2) * math.sin(sweepAngle - math.pi / 2),
-    );
-    canvas.drawLine(center, lineEnd, lineSweepPaint);
-
-    // Dot at center
-    canvas.drawCircle(
-      center,
-      3,
-      Paint()..color = _kCyan,
-    );
-
-    // Outer ring
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = _kCyan.withValues(alpha: 0.3)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_RadarPainter old) => old.progress != progress;
 }
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
@@ -704,13 +717,32 @@ class _ScanningListTile extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Simple rotating icon instead of radar
           RepaintBoundary(
             child: AnimatedBuilder(
               animation: radarCtrl,
-              builder: (_, __) => CustomPaint(
-                size: const Size(32, 32),
-                painter: _RadarPainter(radarCtrl.value),
-              ),
+              builder: (_, __) {
+                return Transform.rotate(
+                  angle: radarCtrl.value * 2 * math.pi,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _kCyan.withValues(alpha: 0.1),
+                      border: Border.all(
+                        color: _kCyan.withValues(alpha: 0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.wifi_find_rounded,
+                      color: _kCyan,
+                      size: 16,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(width: 14),
