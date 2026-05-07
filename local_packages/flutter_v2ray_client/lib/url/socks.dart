@@ -72,6 +72,6 @@ class SocksURL extends V2RayURL {
         },
         'streamSettings': streamSetting,
         'tag': 'proxy',
-        'mux': {'concurrency': 16, 'enabled': true},  // Increased for better performance
+        'mux': {'concurrency': 32, 'enabled': true, 'xudpConcurrency': 32, 'xudpProxyUDP443': 'reject'},
       };
 }

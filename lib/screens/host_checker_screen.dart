@@ -68,7 +68,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
     {'name': 'Facebook', 'host': 'facebook.com', 'color': Color(0xFF1877F2)},
     {'name': 'GitHub', 'host': 'github.com', 'color': Color(0xFF6e40c9)},
     {'name': 'Telegram', 'host': 'telegram.org', 'color': Color(0xFF2CA5E0)},
-    {'name': 'Cloudflare', 'host': '1.1.1.1', 'color': Color(0xFFF38020)},
+    {'name': 'Cloudflare', 'host': 'cloudflare.com', 'color': Color(0xFFF38020)},
   ];
 
   @override
@@ -401,7 +401,7 @@ class _InputBar extends StatelessWidget {
                   gradient: isChecking
                       ? null
                       : const LinearGradient(
-                          colors: [_kCyan, _kGreen],
+                          colors: [Color(0xFF3A3A3A), Color(0xFF2A2A2A)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -414,12 +414,12 @@ class _InputBar extends StatelessWidget {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                            color: _kCyan,
+                            color: Colors.white54,
                             strokeWidth: 2,
                           ),
                         ),
                       )
-                    : const Icon(Icons.wifi_find_rounded, color: Colors.black, size: 20),
+                    : const Icon(Icons.search_rounded, color: Colors.white, size: 20),
               ),
             ),
           ],
@@ -588,15 +588,15 @@ class _EmptyState extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: _kCyan.withValues(alpha: 0.2),
+                color: Colors.white.withValues(alpha: 0.1),
                 width: 1.5,
               ),
-              color: _kCyan.withValues(alpha: 0.04),
+              color: Colors.white.withValues(alpha: 0.03),
             ),
-            child: const Icon(
-              Icons.radar_rounded,
+            child: Icon(
+              Icons.language_rounded,
               size: 38,
-              color: _kCyan,
+              color: Colors.white.withValues(alpha: 0.4),
             ),
           ),
           const SizedBox(height: 20),

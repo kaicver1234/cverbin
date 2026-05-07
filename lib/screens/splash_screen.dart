@@ -138,45 +138,15 @@ class _SplashScreenState extends State<SplashScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // "TIKSAR VPN" - Large text with glow
-                ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Colors.white, Colors.white],
-                  ).createShader(bounds),
-                  child: AnimatedBuilder(
-                    animation: _waveController,
-                    builder: (context, child) {
-                      // Pulsing glow effect
-                      final glowIntensity = 0.5 + (0.3 * (0.5 + 0.5 * 
-                        (1 + ((_waveController.value * 2) % 1.0) * 2 - 1)));
-                      
-                      return Container(
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF4A4A4A).withValues(alpha: glowIntensity * 0.4),
-                              blurRadius: 40,
-                              spreadRadius: 10,
-                            ),
-                            BoxShadow(
-                              color: const Color(0xFF5A5A5A).withValues(alpha: glowIntensity * 0.2),
-                              blurRadius: 60,
-                              spreadRadius: 20,
-                            ),
-                          ],
-                        ),
-                        child: const Text(
-                          'TIKSAR VPN',
-                          style: TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                            height: 1,
-                          ),
-                        ),
-                      );
-                    },
+                // "TIKSAR VPN" - Large text without glow
+                const Text(
+                  'TIKSAR VPN',
+                  style: TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 2,
+                    height: 1,
                   ),
                 ),
                 
