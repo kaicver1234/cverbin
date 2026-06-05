@@ -670,22 +670,17 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
   Widget _buildServerIconContent(String? countryCode, bool isSmartConnect) {
     if (countryCode != null && CountryFlags.isValidCountryCode(countryCode)) {
-      return Container(
-        color: Colors.white.withValues(alpha: 0.04),
-        padding: const EdgeInsets.all(4),
-        child: CachedNetworkImage(
-          imageUrl: CountryFlags.getFlagUrl(countryCode),
-          // contain (not cover) so the entire flag stays visible inside
-          // the square server-icon container. cover was cutting off the
-          // sides of wide flags (US, UK, AU, NP...).
-          fit: BoxFit.contain,
-          placeholder: (context, url) => Container(
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
-          errorWidget: (context, url, error) => Container(
-            color: Colors.white.withValues(alpha: 0.1),
-            child: const Icon(Icons.public, color: Colors.white, size: 24),
-          ),
+      return CachedNetworkImage(
+        imageUrl: CountryFlags.getFlagUrl(countryCode),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        placeholder: (context, url) => Container(
+          color: Colors.white.withValues(alpha: 0.1),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: Colors.white.withValues(alpha: 0.1),
+          child: const Icon(Icons.public, color: Colors.white, size: 24),
         ),
       );
     }

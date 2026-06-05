@@ -490,9 +490,9 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                     borderRadius: BorderRadius.circular(6.5),
                     child: Image.network(
                       'https://flagcdn.com/w160/$countryCode.png',
-                      // 4:3 box + contain shows the whole flag without
-                      // cropping the edges (US stars, UK union jack, etc.).
-                      fit: BoxFit.contain,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
                       errorBuilder: (context, error, stackTrace) {
                         // Fallback to emoji if image fails to load
                         final flagEmoji = countryCode.toUpperCase().split('').map((c) {

@@ -94,7 +94,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
   
-  // Smart Connect: Find and connect to fastest server (tests first 15 servers)
+  // Smart Connect: Find and connect to fastest server (tests first 15 servers in parallel)
   // Uses V2Ray core delay for accurate results
   Future<void> smartConnect() async {
     // Prevent multiple simultaneous calls
@@ -132,15 +132,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       debugPrint('📋 Total servers available: ${servers.length}');
-      debugPrint('🎯 Testing first 10 servers using V2Ray core delay...');
-      
-      // Test first 10 servers using V2Ray core delay
-      final serversToTest = servers.take(10).toList();
+      debugPrint('🎯 Testing first 15 servers using V2Ray core delay...');
+
+      // Test first 15 servers using V2Ray core delay
+      final serversToTest = servers.take(15).toList();
       debugPrint('📦 Servers to test: ${serversToTest.length}');
       
       // Test servers in batches (10 at a time)
       final results = <String, int>{};
-      final batchSize = 10;
+      final batchSize = 15;
       
       for (int i = 0; i < serversToTest.length; i += batchSize) {
         final end = (i + batchSize < serversToTest.length) ? i + batchSize : serversToTest.length;
