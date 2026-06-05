@@ -18,7 +18,10 @@ class ModernBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     
-    return Container(
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: responsive.isTablet ? 560.0 : double.infinity),
+        child: Container(
       margin: EdgeInsets.fromLTRB(
         responsive.horizontalPadding,
         0,
@@ -36,9 +39,11 @@ class ModernBottomNav extends StatelessWidget {
               isActive: currentIndex == i,
               onTap: () => onTap(i),
             ),
-            if (i < items.length - 1) const SizedBox(width: 12),
+            if (i < items.length - 1) SizedBox(width: responsive.scale(12).clamp(6.0, 18.0)),
           ],
         ],
+      ),
+    ),
       ),
     );
   }

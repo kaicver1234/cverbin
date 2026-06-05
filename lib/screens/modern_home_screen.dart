@@ -158,13 +158,18 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 children: [
                   _buildModernHeader(context, languageProvider),
                   Expanded(
-                    child: IndexedStack(
-                      index: _currentPage,
-                      children: [
-                        _buildToolsPage(context),
-                        _buildVPNPage(v2rayProvider),
-                        _buildAboutPage(context),
-                      ],
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: ResponsiveHelper(context).maxContentWidth),
+                        child: IndexedStack(
+                          index: _currentPage,
+                          children: [
+                            _buildToolsPage(context),
+                            _buildVPNPage(v2rayProvider),
+                            _buildAboutPage(context),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   ModernBottomNav(
@@ -261,13 +266,17 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       {'name': 'English', 'code': 'en', 'flag': '🇺🇸'},
     ];
 
+    final r = ResponsiveHelper(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(20),
-        padding: const EdgeInsets.all(24),
+      builder: (context) => Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: r.dialogMaxWidth + 40),
+          child: Container(
+        margin: EdgeInsets.all(r.scale(20).clamp(14.0, 28.0)),
+        padding: EdgeInsets.all(r.scale(24).clamp(16.0, 32.0)),
         decoration: BoxDecoration(
           color: const Color(0xFF1a1a1a),
           borderRadius: BorderRadius.circular(20),
@@ -359,6 +368,8 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
           ],
         ),
       ),
+        ),
+      ),
     );
   }
 
@@ -427,7 +438,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             // Stats Grid
             _buildStatsGrid(provider),
             
-            const SizedBox(height: 100), // Space for bottom nav
+            SizedBox(height: responsive.scale(100).clamp(70.0, 130.0)), // Space for bottom nav
           ],
         ),
       ),
@@ -696,7 +707,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 value: isConnected ? v2rayService.getFormattedDownload() : '0 B',
               ),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: ResponsiveHelper(context).scale(16).clamp(10.0, 22.0)),
             Expanded(
               child: _buildStatCard(
                 icon: Icons.arrow_upward_rounded,
@@ -818,7 +829,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             ),
           )),
           
-          const SizedBox(height: 80), // Space for bottom nav
+          SizedBox(height: responsive.scale(80).clamp(60.0, 110.0)), // Space for bottom nav
         ],
       ),
     );

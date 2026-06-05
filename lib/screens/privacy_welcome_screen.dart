@@ -110,7 +110,10 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
           textDirection: languageProvider.textDirection,
           child: CyberGlowBackground(
             child: SafeArea(
-              child: FadeTransition(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: Column(
                   children: [
@@ -125,6 +128,8 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
                     ),
                     _buildBottomNav(),
                   ],
+                ),
+                  ),
                 ),
               ),
             ),

@@ -135,7 +135,8 @@ class _IpInfoScreenState extends State<IpInfoScreen>
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: SafeArea(
-            child: Column(
+            child: ResponsivePageWrapper(
+              child: Column(
               children: [
                 _buildMinimalHeader(context, languageProvider),
                 Expanded(
@@ -146,6 +147,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                           : _buildMinimalContent(),
                 ),
               ],
+            ),
             ),
           ),
         ),

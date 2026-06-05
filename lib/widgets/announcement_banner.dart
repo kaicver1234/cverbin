@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/remote_config_service.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
+import '../utils/responsive_helper.dart';
 
 class AnnouncementBannerWidget extends StatefulWidget {
   const AnnouncementBannerWidget({super.key});
@@ -144,138 +145,208 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
 
     final color = _getColor(_banner!.type);
     final hasAction = _banner!.actionUrl != null && _banner!.actionUrl!.isNotEmpty;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 360;
+    final r = ResponsiveHelper(context);
+    final isSmallScreen = r.shortestSide < 360;
+    final isTablet = r.isTablet;
+
+    // Sizing — tablet a bit more breathing room, small phones stay compact.
+    final double padH      = isSmallScreen ? 14 : (isTablet ? 20 : 16);
+    final double padV      = isSmallScreen ? 12 : (isTablet ? 16 : 14);
+    final double radius    = isSmallScreen ? 14 : (isTablet ? 18 : 16);
+    final double msgFont   = isSmallScreen ? 12.5 : (isTablet ? 15 : 13.5);
+    final double actionFont   = isSmallScreen ? 12 : (isTablet ? 14.5 : 13);
+    final double actionIcon   = isSmallScreen ? 14 : (isTablet ? 18 : 16);
+    final double closeIcon    = isSmallScreen ? 14 : (isTablet ? 18 : 16);
+    final double closeBtn     = isSmallScreen ? 24 : (isTablet ? 30 : 26);
+    final double bottomMargin = isSmallScreen ? 12 : (isTablet ? 18 : 14);
+    final double accentWidth  = isSmallScreen ? 3 : 3.5;
+    final double actionHeight = isSmallScreen ? 36 : (isTablet ? 46 : 40);
 
     return SlideTransition(
       position: _slideAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Container(
-          margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 14),
-          padding: EdgeInsets.fromLTRB(
-            isSmallScreen ? 12 : 14,
-            isSmallScreen ? 10 : 12,
-            isSmallScreen ? 8 : 10,
-            isSmallScreen ? 10 : 12,
-          ),
+          margin: EdgeInsets.only(bottom: bottomMargin),
           decoration: BoxDecoration(
             gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF080808),
-                const Color(0xFF040404),
+                const Color(0xFF0A0A0A),
+                const Color(0xFF050505),
               ],
             ),
-            borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 14),
+            borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: color.withValues(alpha: 0.3),
-              width: 1.5,
+              color: color.withValues(alpha: 0.32),
+              width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: color.withValues(alpha: 0.15),
-                blurRadius: 12,
+                color: color.withValues(alpha: 0.18),
+                blurRadius: 14,
+                spreadRadius: -2,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Message row with close button
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Message text - centered and flexible
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(radius),
+            child: Stack(
+              children: [
+                // Left accent bar — color reflects announcement type, no icon needed
+                Positioned.fill(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: accentWidth,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              color.withValues(alpha: 0.9),
+                              color.withValues(alpha: 0.45),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.45),
+                              blurRadius: 10,
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Content
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    padH + accentWidth,
+                    padV,
+                    padH,
+                    padV,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Message — reserve space on the right so close button never overlaps text
+                      Padding(
+                        padding: EdgeInsets.only(right: closeBtn + 6),
+                        child: Text(
                           _banner!.message,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: isSmallScreen ? 12 : 13,
-                            height: 1.5,
+                            color: Colors.white.withValues(alpha: 0.92),
+                            fontSize: msgFont,
+                            height: 1.55,
                             fontWeight: FontWeight.w500,
                           ),
-                          maxLines: 3,
+                          maxLines: 4,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        // Action button below message (centered)
-                        if (hasAction) ...[
-                          SizedBox(height: isSmallScreen ? 8 : 10),
-                          GestureDetector(
-                            onTap: () => _launchUrl(_banner!.actionUrl!),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isSmallScreen ? 12 : 14,
-                                vertical: isSmallScreen ? 7 : 8,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    color,
-                                    color.withValues(alpha: 0.8),
+                      ),
+
+                      // Action button — full-width, balanced, well below the message
+                      if (hasAction) ...[
+                        SizedBox(height: isSmallScreen ? 10 : (isTablet ? 14 : 12)),
+                        Consumer<LanguageProvider>(
+                          builder: (context, langProvider, _) => Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _launchUrl(_banner!.actionUrl!),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Ink(
+                                height: actionHeight,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      color,
+                                      Color.lerp(color, Colors.white, 0.15) ?? color,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withValues(alpha: 0.35),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
                                   ],
                                 ),
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: color.withValues(alpha: 0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Consumer<LanguageProvider>(
-                                builder: (context, langProvider, _) => Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      _banner!.actionText ?? AppLocalizations.of(context).translate('announcement.view'),
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: isSmallScreen ? 11 : 12,
-                                        fontWeight: FontWeight.w700,
+                                    Flexible(
+                                      child: Text(
+                                        _banner!.actionText ?? AppLocalizations.of(context).translate('announcement.view'),
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: actionFont,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.2,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    SizedBox(width: isSmallScreen ? 4 : 6),
+                                    SizedBox(width: isSmallScreen ? 6 : 8),
                                     Icon(
-                                      langProvider.isRtl ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded,
+                                      langProvider.isRtl
+                                          ? Icons.arrow_back_rounded
+                                          : Icons.arrow_forward_rounded,
                                       color: Colors.white,
-                                      size: isSmallScreen ? 14 : 16,
+                                      size: actionIcon,
                                     ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                        ],
+                        ),
                       ],
+                    ],
+                  ),
+                ),
+
+                // Close button — absolutely positioned so it doesn't shift the message
+                Positioned(
+                  top: isSmallScreen ? 6 : 8,
+                  right: isSmallScreen ? 6 : 8,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _dismiss,
+                      borderRadius: BorderRadius.circular(closeBtn / 2),
+                      child: Container(
+                        width: closeBtn,
+                        height: closeBtn,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Colors.white.withValues(alpha: 0.55),
+                          size: closeIcon,
+                        ),
+                      ),
                     ),
                   ),
-                  SizedBox(width: isSmallScreen ? 8 : 10),
-                  // Close button
-                  GestureDetector(
-                    onTap: _dismiss,
-                    child: Container(
-                      padding: EdgeInsets.all(isSmallScreen ? 4 : 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: Colors.white.withValues(alpha: 0.5),
-                        size: isSmallScreen ? 16 : 18,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

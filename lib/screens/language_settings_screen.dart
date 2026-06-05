@@ -81,7 +81,8 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
             useSecondaryBackground: true,
             child: CyberGlowBackground(
               child: SafeArea(
-                child: Column(
+                child: ResponsivePageWrapper(
+                  child: Column(
                 children: [
                   // Custom App Bar
                   Container(
@@ -181,6 +182,8 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen>
                     ),
                   ),
                 ],
+              ),
+                ),
               ),
             ),
           ),

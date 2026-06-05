@@ -5,6 +5,7 @@ import '../models/v2ray_config.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
+import '../utils/responsive_helper.dart';
 
 class ServerListItem extends StatefulWidget {
   final V2RayConfig config;
@@ -49,8 +50,12 @@ class _ServerListItemState extends State<ServerListItem> {
     bool isActive,
     bool isSelected,
   ) {
+    final r = ResponsiveHelper(context);
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: EdgeInsets.symmetric(
+        horizontal: r.scale(16).clamp(10.0, 24.0),
+        vertical: r.scale(8).clamp(5.0, 14.0),
+      ),
       elevation: 0,
       color: isSelected 
           ? const Color(0xFF00D9FF).withValues(alpha: 0.08) 
@@ -70,7 +75,7 @@ class _ServerListItemState extends State<ServerListItem> {
           await provider.selectConfig(widget.config);
         },
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(r.scale(16).clamp(11.0, 22.0)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -80,8 +85,8 @@ class _ServerListItemState extends State<ServerListItem> {
                   // Country Flag Icon
                   if (widget.config.countryCode != null) ...[
                     Container(
-                      width: 48,
-                      height: 36,
+                      width: r.flagWidth,
+                      height: r.flagHeight,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
@@ -116,7 +121,7 @@ class _ServerListItemState extends State<ServerListItem> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: r.scale(12).clamp(8.0, 18.0)),
                   ],
                   Expanded(
                     child: Column(
@@ -126,7 +131,7 @@ class _ServerListItemState extends State<ServerListItem> {
                         Text(
                           widget.config.remark,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: r.scale(16).clamp(13.0, 20.0),
                             fontWeight: FontWeight.w600,
                             color: isActive
                                 ? Theme.of(context).colorScheme.primary
@@ -140,7 +145,7 @@ class _ServerListItemState extends State<ServerListItem> {
                           Text(
                             widget.config.countryName,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: r.scale(13).clamp(11.0, 16.0),
                               color: Colors.grey[400],
                               fontWeight: FontWeight.w400,
                             ),

@@ -150,7 +150,10 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       textDirection: languageProvider.textDirection,
       child: AppBackground(
         child: SafeArea(
-          child: Column(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+              child: Column(
             children: [
               _buildHeader(context, responsive),
               _buildTabBar(responsive),
@@ -168,6 +171,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
               ),
             ],
           ),
+            ),
+          ),
         ),
       ),
     );
@@ -177,9 +182,9 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     return Padding(
       padding: EdgeInsets.fromLTRB(
         responsive.horizontalPadding,
-        12,
+        responsive.scale(12).clamp(8.0, 18.0),
         responsive.horizontalPadding,
-        12,
+        responsive.scale(12).clamp(8.0, 18.0),
       ),
       child: Row(
         children: [
@@ -661,29 +666,37 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   }
 
   Widget _buildEmptyState() {
+    final r = ResponsiveHelper(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.dns_outlined, size: 56, color: Colors.white.withValues(alpha: 0.2)),
-          const SizedBox(height: 16),
-          Text(
-            AppLocalizations.of(context).translate('server_selection.no_servers_available'),
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 15),
+          Icon(Icons.dns_outlined, size: r.scale(56).clamp(40.0, 72.0), color: Colors.white.withValues(alpha: 0.2)),
+          SizedBox(height: r.scale(16).clamp(10.0, 22.0)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: r.horizontalPadding),
+            child: Text(
+              AppLocalizations.of(context).translate('server_selection.no_servers_available'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: r.scale(15).clamp(12.0, 18.0)),
+            ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: r.scale(20).clamp(14.0, 28.0)),
           GestureDetector(
             onTap: _refreshServers,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: r.scale(24).clamp(16.0, 32.0),
+                vertical: r.scale(12).clamp(8.0, 16.0),
+              ),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               ),
-              child: const Text(
+              child: Text(
                 'Refresh',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(color: Colors.white, fontSize: r.scale(14).clamp(12.0, 17.0), fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -770,6 +783,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
           final config = configs[idx];
           final delay = await _testSingleServer(config, provider);
 
+          if (!mounted || !_isTesting) break;
+
           if (delay >= 0 && delay < 10000) {
             _pingResults[config.id] = delay;
             successCount++;
@@ -811,8 +826,10 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
 
   Future<int> _testSingleServer(V2RayConfig config, V2RayProvider provider) async {
     try {
-      final delay = await provider.v2rayService.getServerDelay(config).timeout(
-        const Duration(seconds: 8),
+      // Use direct (uncached) ping for manual "Test all" so each tap reflects
+      // real-time latency instead of stale 30s-cached values.
+      final delay = await provider.v2rayService.getServerDelayDirect(config).timeout(
+        const Duration(seconds: 6),
         onTimeout: () => -1,
       );
       return delay ?? -1;
@@ -824,8 +841,10 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   void _sortServersByPing(V2RayProvider provider, Map<String, int> pingResults) {
     final servers = List<V2RayConfig>.from(provider.serverConfigs)
       ..sort((a, b) {
-        final pA = pingResults[a.id] ?? 99999;
-        final pB = pingResults[b.id] ?? 99999;
+        final rawA = pingResults[a.id];
+        final rawB = pingResults[b.id];
+        final pA = (rawA == null || rawA < 0) ? 99999999 : rawA;
+        final pB = (rawB == null || rawB < 0) ? 99999999 : rawB;
         return pA.compareTo(pB);
       });
     _sortedConfigs = [V2RayConfig.smartConnect(), ...servers];
@@ -846,9 +865,10 @@ class _SmartConnectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelected = provider.wasUsingSmartConnect;
+    final r = ResponsiveHelper(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: r.scale(10).clamp(6.0, 14.0)),
       child: GestureDetector(
         onTap: () {
           if (provider.activeConfig != null) {
@@ -860,7 +880,10 @@ class _SmartConnectCard extends StatelessWidget {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: EdgeInsets.symmetric(
+            horizontal: r.scale(16).clamp(11.0, 22.0),
+            vertical: r.scale(14).clamp(10.0, 20.0),
+          ),
           decoration: BoxDecoration(
             gradient: isSelected
                 ? LinearGradient(
@@ -884,8 +907,8 @@ class _SmartConnectCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: r.scale(44).clamp(36.0, 56.0),
+                height: r.scale(44).clamp(36.0, 56.0),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
@@ -897,24 +920,24 @@ class _SmartConnectCard extends StatelessWidget {
                   child: Image.asset(
                     'assets/images/apk.png',
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, __, ___) => Icon(
                       Icons.flash_on_rounded,
                       color: Colors.white,
-                      size: 22,
+                      size: r.scale(22).clamp(18.0, 28.0),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: r.scale(14).clamp(10.0, 18.0)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       AppLocalizations.of(context).translate('server_selection.smart_connect'),
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
-                        fontSize: 15,
+                        fontSize: r.scale(15).clamp(13.0, 19.0),
                         fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
@@ -925,7 +948,7 @@ class _SmartConnectCard extends StatelessWidget {
                       AppLocalizations.of(context).translate('server_selection.smart_connect_description'),
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.45),
-                        fontSize: 12,
+                        fontSize: r.scale(12).clamp(10.0, 15.0),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -977,14 +1000,18 @@ class _ServerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final countryCode = config.countryCode ?? CountryFlags.extractCountryCode(config.remark);
+    final r = ResponsiveHelper(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: r.scale(10).clamp(6.0, 14.0)),
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          padding: EdgeInsets.symmetric(
+            horizontal: r.scale(14).clamp(10.0, 20.0),
+            vertical: r.scale(13).clamp(9.0, 18.0),
+          ),
           decoration: BoxDecoration(
             color: isSelected
                 ? Colors.white.withValues(alpha: 0.1)
@@ -999,14 +1026,14 @@ class _ServerCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _buildFlag(countryCode),
-              const SizedBox(width: 12),
+              _buildFlag(countryCode, r),
+              SizedBox(width: r.scale(12).clamp(8.0, 16.0)),
               Expanded(
                 child: Text(
                   _cleanName(config.remark),
                   style: TextStyle(
                     color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9),
-                    fontSize: 14,
+                    fontSize: r.scale(14).clamp(12.0, 18.0),
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   ),
                   maxLines: 1,
@@ -1014,14 +1041,14 @@ class _ServerCard extends StatelessWidget {
                 ),
               ),
               if (ping != null) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: r.scale(8).clamp(5.0, 12.0)),
                 _PingBadge(ping: ping!),
               ],
-              const SizedBox(width: 8),
+              SizedBox(width: r.scale(8).clamp(5.0, 12.0)),
               if (isSelected)
                 Container(
-                  width: 20,
-                  height: 20,
+                  width: r.scale(20).clamp(16.0, 26.0),
+                  height: r.scale(20).clamp(16.0, 26.0),
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
@@ -1043,9 +1070,9 @@ class _ServerCard extends StatelessWidget {
     );
   }
 
-  Widget _buildFlag(String? countryCode) {
-    const w = 40.0;
-    const h = 28.0;
+  Widget _buildFlag(String? countryCode, ResponsiveHelper r) {
+    final w = r.flagWidth * 0.85;
+    final h = r.flagHeight * 0.78;
 
     if (countryCode == null || !CountryFlags.isValidCountryCode(countryCode)) {
       return Container(
@@ -1055,7 +1082,7 @@ class _ServerCard extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: const Icon(Icons.public_rounded, color: Colors.white38, size: 16),
+        child: Icon(Icons.public_rounded, color: Colors.white38, size: r.scale(16).clamp(12.0, 20.0)),
       );
     }
 
@@ -1133,8 +1160,12 @@ class _PingBadge extends StatelessWidget {
       label = '${ping}ms';
     }
 
+    final r = ResponsiveHelper(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: EdgeInsets.symmetric(
+        horizontal: r.scale(7).clamp(5.0, 11.0),
+        vertical: r.scale(3).clamp(2.0, 6.0),
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
@@ -1144,7 +1175,7 @@ class _PingBadge extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: 11,
+          fontSize: r.scale(11).clamp(9.5, 14.0),
           fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
         ),

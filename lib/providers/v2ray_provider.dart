@@ -15,9 +15,42 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final ServerService _serverService = ServerService();
   final AnalyticsService _analyticsService = AnalyticsService();
   DnsProvider? _dnsProvider;
+  List<String>? _lastAppliedDnsServers;
 
   void setDnsProvider(DnsProvider dns) {
+    final previous = _dnsProvider;
     _dnsProvider = dns;
+
+    // If the DNS provider instance is being attached for the first time,
+    // initialize the baseline so we don't trigger an immediate reconnect.
+    if (previous == null) {
+      _lastAppliedDnsServers = List<String>.from(dns.activeServers);
+      return;
+    }
+
+    // If the active DNS servers actually changed AND the VPN is currently
+    // running, reconnect so the new DNS takes effect. Otherwise the user
+    // would have to manually disconnect + reconnect every time.
+    final newServers = List<String>.from(dns.activeServers);
+    final changed = _lastAppliedDnsServers == null ||
+        _lastAppliedDnsServers!.length != newServers.length ||
+        !_lastAppliedDnsServers!.every((s) => newServers.contains(s));
+
+    if (changed) {
+      _lastAppliedDnsServers = newServers;
+      final active = _v2rayService.activeConfig;
+      if (active != null && !_isConnecting) {
+        debugPrint('🌐 DNS changed while connected → reconnecting to apply');
+        // Fire and forget; UI will update via notifyListeners in connectToServer.
+        Future(() async {
+          try {
+            await connectToServer(active);
+          } catch (e) {
+            debugPrint('⚠️ Reconnect after DNS change failed: $e');
+          }
+        });
+      }
+    }
   }
   bool statusPingOnly = false;
   List<V2RayConfig> _configs = [];
@@ -42,8 +75,21 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   void cancelConnect() {
     if (_isConnecting) {
       _cancelRequested = true;
-      _isConnecting = false;
       debugPrint('🛑 Cancel requested by user');
+      // Tear down any in-flight v2ray start so a connect() that is currently
+      // awaiting startV2Ray cannot leave the VPN actually running after the
+      // user pressed cancel. Fire-and-forget — the connect flow will see
+      // _cancelRequested and bail out cleanly.
+      _v2rayService.disconnect().catchError((e) {
+        debugPrint('⚠️ Error tearing down v2ray on cancel: $e');
+      });
+      // Clear the grace period so the disconnect above is not ignored.
+      _lastSuccessfulConnection = null;
+      _clearConnectionTimestamp();
+      // Reset UI state immediately. The in-flight connect flow checks
+      // _cancelRequested before mutating connected state, so this is safe.
+      _isConnecting = false;
+      _errorMessage = '';
       notifyListeners();
     }
   }
@@ -198,6 +244,25 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Connect to the selected server
       debugPrint('🔌 Connecting to selected server...');
       await connectToServer(serverToConnect);
+
+      // Safety net: if user cancelled while connectToServer was running and
+      // the VPN somehow ended up active, tear it down here.
+      if (_cancelRequested && _v2rayService.activeConfig != null) {
+        debugPrint('🛑 SmartConnect post-check: cancel requested, disconnecting');
+        try {
+          await _v2rayService.disconnect();
+        } catch (e) {
+          debugPrint('⚠️ Error in smartConnect cancel teardown: $e');
+        }
+        for (var c in _configs) {
+          c.isConnected = false;
+        }
+        _lastSuccessfulConnection = null;
+        _clearConnectionTimestamp();
+        _cancelRequested = false;
+        _isConnecting = false;
+        notifyListeners();
+      }
       
     } catch (e, stackTrace) {
       debugPrint('');
@@ -425,61 +490,45 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> _initialize() async {
     _setLoading(true);
     _isInitializing = true;
-    
+
     try {
       debugPrint('🚀 Starting app initialization...');
-      
-      // STEP 1: Initialize V2Ray plugin FIRST (required for getConnectionState)
+
+      // ───── PHASE 1: FAST PATH (< 200ms) ─────
+      // Goal: render correct connect/disconnect state on the very first frame.
+      // Everything heavy (network fetch) is deferred to PHASE 2.
+
+      // 1a. Initialize V2Ray plugin (required for state queries). ~50ms.
       await _v2rayService.initialize();
       debugPrint('✅ V2Ray service initialized');
-      
-      // STEP 2: Get INSTANT VPN status from native (like defyxVPN)
-      // This is FAST (< 100ms) and doesn't require configs to be loaded
-      final connectionState = await _v2rayService.getConnectionState();
-      debugPrint('📡 Native VPN state: $connectionState');
-      
-      final isActuallyConnected = connectionState == 'V2RAY_CONNECTED' || connectionState == 'V2RAY_CONNECTING';
-      
-      // STEP 3: Load connection timestamp for grace period protection
+
+      // 1b. Load grace-period timestamp. ~2ms.
       await _loadConnectionTimestamp();
-      
-      // STEP 4: Try to fetch fresh servers from internet first
-      // Only fetch if not already fetched during this session
-      if (!_serversFetchedOnce) {
-        try {
-          debugPrint('📡 Attempting to fetch fresh servers from internet...');
-          await fetchServers();
-          _serversFetchedOnce = true;
-          debugPrint('✅ Fresh servers loaded from internet: ${_configs.length} servers');
-        } catch (e) {
-          debugPrint('⚠️ Failed to fetch servers from internet: $e');
-          debugPrint('📦 Falling back to cached servers...');
-          // If fetch fails, load from cache
-          await _loadSavedStateAndShowUI();
-          debugPrint('✅ Loaded ${_configs.length} servers from cache');
-        }
-      } else {
-        debugPrint('⏭️ Skipping server fetch - already fetched this session');
-        // Load from cache if already fetched
-        await _loadSavedStateAndShowUI();
-      }
 
-      // STEP 5: Set up disconnect callback.
-      _v2rayService.setDisconnectedCallback(() {
-        if (_lastSuccessfulConnection != null) {
-          final elapsed = DateTime.now().difference(_lastSuccessfulConnection!);
-          if (elapsed.inSeconds < 120) {
-            debugPrint('⏭️ V2Ray disconnect callback ignored — within ${elapsed.inSeconds}s grace period');
-            return;
-          }
-        }
-        _handleNotificationDisconnect();
-      });
+      // 1c. Load cached configs from disk so we can match the saved
+      //     active config against a real server entry. ~50ms.
+      await _loadSavedStateAndShowUI();
 
-      // STEP 6: Apply VPN state based on native status
+      // 1d. Detect VPN state using two fast, parallel native checks:
+      //     - getConnectionState() reads V2RayController's in-process state.
+      //     - isSystemVpnActive() queries the OS tunnel interface.
+      //     The OS tunnel is the source of truth — if it is up the user is
+      //     genuinely connected, regardless of what the plugin thinks.
+      final results = await Future.wait([
+        _v2rayService.getConnectionState().catchError((_) => 'V2RAY_DISCONNECTED'),
+        isSystemVpnActive().catchError((_) => false),
+      ]);
+      final connectionState = results[0] as String;
+      final systemActive = results[1] as bool;
+      debugPrint('📡 Init: native state=$connectionState, systemActive=$systemActive');
+
+      final isActuallyConnected = systemActive ||
+          connectionState == 'V2RAY_CONNECTED' ||
+          connectionState == 'V2RAY_CONNECTING';
+
+      // 1e. Apply state and notify listeners immediately.
       if (isActuallyConnected) {
-        debugPrint('✅ VPN is connected, restoring config...');
-        // VPN is genuinely running — restore config and mark UI as connected.
+        debugPrint('✅ Init: VPN active, restoring config');
         await _v2rayService.restoreActiveConfig();
         final activeConfig = _v2rayService.activeConfig;
         if (activeConfig != null) {
@@ -503,22 +552,47 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             _selectedConfig = activeConfig;
             _wasUsingSmartConnect = false;
           }
-          debugPrint('✅ VPN is connected to: ${_selectedConfig?.remark}');
-          
-          // CRITICAL: Notify listeners immediately after setting connected state
-          notifyListeners();
+          debugPrint('✅ Init: connected to ${_selectedConfig?.remark}');
+        } else {
+          debugPrint('⚠️ Init: VPN active but no saved config — UI cannot show which server');
         }
       } else {
-        debugPrint('❌ VPN not connected, clearing state...');
-        // VPN is not running — ensure all state is clean.
+        debugPrint('❌ Init: VPN not active, clearing state');
         _v2rayService.forceDisconnectedState();
         for (var config in _configs) {
           config.isConnected = false;
         }
-        debugPrint('❌ VPN not connected — UI showing disconnected');
-        
-        // CRITICAL: Notify listeners immediately after clearing state
-        notifyListeners();
+      }
+
+      // CRITICAL: First UI render with correct state. Splash is still on
+      // screen; by the time it transitions to home, the connect button
+      // already reflects reality — no flash of "Disconnected" first.
+      notifyListeners();
+
+      // 1f. Wire up the native disconnect callback (cheap, in-memory).
+      _v2rayService.setDisconnectedCallback(() {
+        if (_lastSuccessfulConnection != null) {
+          final elapsed = DateTime.now().difference(_lastSuccessfulConnection!);
+          if (elapsed.inSeconds < 120) {
+            debugPrint('⏭️ V2Ray disconnect callback ignored — within ${elapsed.inSeconds}s grace period');
+            return;
+          }
+        }
+        _handleNotificationDisconnect();
+      });
+
+      // ───── PHASE 2: BACKGROUND (does not block UI) ─────
+      // Refresh server list from the internet. fetchServers() already
+      // preserves the active config's connected flag when it replaces
+      // _configs, so the UI state stays correct after this completes.
+      if (!_serversFetchedOnce) {
+        // Intentionally NOT awaited.
+        unawaited(fetchServers().then((_) {
+          _serversFetchedOnce = true;
+          debugPrint('✅ Background fetch complete: ${_configs.length} servers');
+        }).catchError((e) {
+          debugPrint('⚠️ Background fetch failed (cache already loaded): $e');
+        }));
       }
       
       // STEP 7: Default selection.
@@ -745,10 +819,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         final activeConfig = _v2rayService.activeConfig;
         if (activeConfig != null) {
           for (var config in _configs) {
-            config.isConnected =
+            final shouldBeConnected =
                 config.id == activeConfig.id ||
                 config.fullConfig == activeConfig.fullConfig ||
                 (config.address == activeConfig.address && config.port == activeConfig.port);
+            config.isConnected = shouldBeConnected;
+            if (shouldBeConnected) {
+              _selectedConfig = config;
+            }
           }
         }
         
@@ -1156,6 +1234,23 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
               );
 
           if (success) {
+            // CRITICAL: If user pressed cancel while startV2Ray was awaiting,
+            // tear the connection down instead of marking it as established.
+            if (_cancelRequested) {
+              debugPrint('🛑 Connection succeeded but cancel was requested — tearing down');
+              try {
+                await _v2rayService.disconnect();
+              } catch (e) {
+                debugPrint('⚠️ Error tearing down after cancel: $e');
+              }
+              _lastSuccessfulConnection = null;
+              _clearConnectionTimestamp();
+              success = false;
+              _cancelRequested = false;
+              _isConnecting = false;
+              notifyListeners();
+              return;
+            }
             debugPrint('🎉 Connection attempt $attempt succeeded!');
             break;
           } else {
@@ -1689,8 +1784,26 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Get instant VPN status from native (like defyxVPN)
       final connectionState = await _v2rayService.getConnectionState();
       debugPrint('📡 Resume: Native VPN state: $connectionState');
-      
-      final isConfirmedConnected = connectionState == 'V2RAY_CONNECTED' || connectionState == 'V2RAY_CONNECTING';
+
+      bool isConfirmedConnected = connectionState == 'V2RAY_CONNECTED' || connectionState == 'V2RAY_CONNECTING';
+
+      // FIX: getConnectionState() may return empty/disconnected right after
+      // resume before the native callback fires. Cross-check with the system
+      // VPN interface — that is the source of truth for "is the OS-level VPN
+      // tunnel up right now". If the system says inactive we trust it (the
+      // user may have disconnected from the notification bar while we were
+      // backgrounded), so the UI correctly shows disconnected.
+      if (!isConfirmedConnected) {
+        try {
+          final systemActive = await isSystemVpnActive();
+          if (systemActive) {
+            debugPrint('🛡️ Resume: native state ambiguous but system VPN active → treating as connected');
+            isConfirmedConnected = true;
+          }
+        } catch (e) {
+          debugPrint('⚠️ Resume system check failed: $e');
+        }
+      }
       debugPrint('🔒 Resume: VPN confirmed connected: $isConfirmedConnected');
 
       bool stateChanged = false;

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/app_update_info.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
+import '../utils/responsive_helper.dart';
 
 class UpdateDialog extends StatefulWidget {
   final AppUpdateInfo updateInfo;
@@ -84,7 +85,10 @@ class _UpdateDialogState extends State<UpdateDialog>
             canPop: !widget.updateInfo.isForced,
             child: Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: ResponsiveHelper(context).scale(20).clamp(16.0, 48.0),
+                vertical: ResponsiveHelper(context).scale(40).clamp(24.0, 72.0),
+              ),
               child: AnimatedBuilder(
                 animation: Listenable.merge([_enterController, _pulseController]),
                 builder: (context, _) {
@@ -108,8 +112,9 @@ class _UpdateDialogState extends State<UpdateDialog>
   }
 
   Widget _buildCard(BuildContext context, LanguageProvider langProvider) {
+    final r = ResponsiveHelper(context);
     return Container(
-      constraints: const BoxConstraints(maxWidth: 360),
+      constraints: BoxConstraints(maxWidth: r.isTablet ? 460 : 360),
       decoration: BoxDecoration(
         color: _bgDark,
         borderRadius: BorderRadius.circular(28),
@@ -144,10 +149,18 @@ class _UpdateDialogState extends State<UpdateDialog>
   }
 
   Widget _buildTopBanner() {
+    final r = ResponsiveHelper(context);
     final glowOpacity = 0.15 + _pulseAnim.value * 0.1;
+    final ringSize = r.scale(88).clamp(72.0, 110.0);
+    final iconSize = r.scale(72).clamp(58.0, 92.0);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+      padding: EdgeInsets.fromLTRB(
+        r.scale(24).clamp(18.0, 32.0),
+        r.scale(32).clamp(22.0, 42.0),
+        r.scale(24).clamp(18.0, 32.0),
+        r.scale(28).clamp(20.0, 38.0),
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -172,8 +185,8 @@ class _UpdateDialogState extends State<UpdateDialog>
             children: [
               // Glow ring
               Container(
-                width: 88,
-                height: 88,
+                width: ringSize,
+                height: ringSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _cyan.withValues(alpha: glowOpacity),
@@ -181,8 +194,8 @@ class _UpdateDialogState extends State<UpdateDialog>
               ),
               // Icon container
               Container(
-                width: 72,
-                height: 72,
+                width: iconSize,
+                height: iconSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
@@ -195,28 +208,28 @@ class _UpdateDialogState extends State<UpdateDialog>
                     width: 1.5,
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.rocket_launch_rounded,
                   color: _cyan,
-                  size: 34,
+                  size: r.scale(34).clamp(26.0, 44.0),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: r.scale(18).clamp(12.0, 26.0)),
           // Title
           Text(
             widget.updateInfo.title,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: r.scale(20).clamp(16.0, 26.0),
               fontWeight: FontWeight.w700,
               letterSpacing: -0.3,
               decoration: TextDecoration.none,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: r.scale(10).clamp(6.0, 16.0)),
           // Version pill
           _buildVersionBadge(),
         ],
@@ -271,8 +284,10 @@ class _UpdateDialogState extends State<UpdateDialog>
   }
 
   Widget _buildBody(BuildContext context, LanguageProvider langProvider) {
+    final r = ResponsiveHelper(context);
+    final pad = r.scale(20).clamp(14.0, 28.0);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      padding: EdgeInsets.fromLTRB(pad, pad, pad, pad),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -350,11 +365,12 @@ class _UpdateDialogState extends State<UpdateDialog>
   }
 
   Widget _buildUpdateButton(BuildContext context) {
+    final r = ResponsiveHelper(context);
     return GestureDetector(
       onTap: _handleUpdate,
       child: Container(
         width: double.infinity,
-        height: 52,
+        height: r.scale(52).clamp(44.0, 64.0),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [_cyan, _green],
@@ -379,9 +395,9 @@ class _UpdateDialogState extends State<UpdateDialog>
               widget.updateInfo.isForced
                   ? AppLocalizations.of(context).translate('update.forced_update')
                   : AppLocalizations.of(context).translate('update.download_update'),
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.black87,
-                fontSize: 15,
+                fontSize: r.scale(15).clamp(13.0, 18.0),
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.2,
                 decoration: TextDecoration.none,
@@ -394,11 +410,12 @@ class _UpdateDialogState extends State<UpdateDialog>
   }
 
   Widget _buildLaterButton(BuildContext context) {
+    final r = ResponsiveHelper(context);
     return GestureDetector(
       onTap: () => Navigator.of(context).pop(),
       child: Container(
         width: double.infinity,
-        height: 46,
+        height: r.scale(46).clamp(40.0, 58.0),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(14),

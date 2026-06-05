@@ -9,6 +9,7 @@ import '../widgets/speed_test/speed_test_progress_indicator.dart';
 import '../widgets/speed_test/speed_test_start_button.dart';
 import '../utils/app_localizations.dart';
 import '../services/analytics_service.dart';
+import '../utils/responsive_helper.dart';
 
 // Colors for speed test
 const Color _downloadColor = Color(0xFF00FFA3);
@@ -29,13 +30,18 @@ class SpeedTestScreen extends StatelessWidget {
           child: SafeArea(
             child: Consumer<SpeedTestProvider>(
               builder: (context, provider, child) {
-                return Column(
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: ResponsiveHelper(context).maxContentWidth),
+                    child: Column(
                   children: [
                     _buildHeader(context, provider.state),
                     Expanded(
                       child: _buildContent(context, provider),
                     ),
                   ],
+                    ),
+                  ),
                 );
               },
             ),

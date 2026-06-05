@@ -211,6 +211,20 @@ class MyApp extends StatelessWidget {
             ],
 
             home: homeScreen,
+            builder: (context, child) {
+              // Clamp system text scaling so very large device font settings
+              // don't break tightly laid-out screens. UI remains responsive
+              // via ResponsiveHelper scaling.
+              final mq = MediaQuery.of(context);
+              final clamped = mq.textScaler.clamp(
+                minScaleFactor: 0.85,
+                maxScaleFactor: 1.30,
+              );
+              return MediaQuery(
+                data: mq.copyWith(textScaler: clamped),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
           );
         },
       ),

@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
 import '../services/analytics_service.dart';
+import '../widgets/app_background.dart';
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -192,7 +193,8 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
       child: Scaffold(
         backgroundColor: _kSurface,
         body: SafeArea(
-          child: Column(
+          child: ResponsivePageWrapper(
+            child: Column(
             children: [
               _Header(
                 isChecking: _isChecking,
@@ -227,6 +229,7 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
                           ),
               ),
             ],
+          ),
           ),
         ),
       ),

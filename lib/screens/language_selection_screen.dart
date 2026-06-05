@@ -105,7 +105,10 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
         body: FadeTransition(
           opacity: _fadeAnim,
           child: SafeArea(
-            child: Padding(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Padding(
               padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -116,6 +119,8 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
                   _buildCards(w, h),
                   const Spacer(flex: 3),
                 ],
+              ),
+                ),
               ),
             ),
           ),

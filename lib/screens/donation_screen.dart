@@ -33,31 +33,40 @@ class _DonationScreenState extends State<DonationScreen> with TickerProviderStat
     'Toncoin (TON)': 'UQBRCtsfiqEVVdjO9lejWdcq1OumwL2dvht2P0G7aTlXo8mQ',
   };
 
-  static const _intervals = [
-    [0.0, 0.35],
-    [0.1, 0.45],
-    [0.2, 0.55],
-    [0.35, 0.7],
-    [0.55, 0.85],
-    [0.7, 0.95],
-  ];
+  // Total animated items: icon, title, description, N wallet cards, trust button, thank-you card
+  int get _animatedItemCount => 3 + _wallets.length + 2;
+
+  List<List<double>> _buildIntervals(int count) {
+    // Distribute staggered intervals across [0, 1]
+    final intervals = <List<double>>[];
+    const double itemDuration = 0.45; // each item's animation span
+    final double maxStart = (1.0 - itemDuration).clamp(0.0, 1.0);
+    for (int i = 0; i < count; i++) {
+      final double start = count <= 1 ? 0.0 : (i / (count - 1)) * maxStart;
+      final double end = (start + itemDuration).clamp(0.0, 1.0);
+      intervals.add([start, end]);
+    }
+    return intervals;
+  }
 
   @override
   void initState() {
     super.initState();
-    
+
     // Main animation controller
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
-    _fadeAnims = _intervals.map((iv) => CurvedAnimation(
+    final intervals = _buildIntervals(_animatedItemCount);
+
+    _fadeAnims = intervals.map((iv) => CurvedAnimation(
       parent: _controller,
       curve: Interval(iv[0], iv[1], curve: Curves.easeOut),
     )).toList();
 
-    _slideAnims = _intervals.map((iv) => Tween<Offset>(
+    _slideAnims = intervals.map((iv) => Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(
@@ -183,7 +192,8 @@ class _DonationScreenState extends State<DonationScreen> with TickerProviderStat
             useSecondaryBackground: true,
             child: CyberGlowBackground(
               child: SafeArea(
-                child: Column(
+                child: ResponsivePageWrapper(
+                  child: Column(
                   children: [
                     // Header
                     _buildHeader(context, responsive, languageProvider),
@@ -272,6 +282,7 @@ class _DonationScreenState extends State<DonationScreen> with TickerProviderStat
                       ),
                     ),
                   ],
+                ),
                 ),
               ),
             ),

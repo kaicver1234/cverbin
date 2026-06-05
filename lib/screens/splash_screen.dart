@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../utils/responsive_helper.dart';
 
 /// Modern Splash Screen based on the approved HTML design
 /// Features:
@@ -115,7 +116,7 @@ class _SplashScreenState extends State<SplashScreen>
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 40,
+                bottom: ResponsiveHelper(context).scale(40).clamp(24.0, 64.0),
                 child: _buildBottomSection(),
               ),
             ],
@@ -126,6 +127,9 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildAppName() {
+    final r = ResponsiveHelper(context);
+    final titleSize = r.scale(48).clamp(34.0, 72.0);
+    final taglineSize = r.scale(14).clamp(11.0, 19.0);
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 800),
       tween: Tween(begin: 0.0, end: 1.0),
@@ -139,24 +143,24 @@ class _SplashScreenState extends State<SplashScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 // "TIKSAR VPN" - Large text without glow
-                const Text(
+                Text(
                   'TIKSAR VPN',
                   style: TextStyle(
-                    fontSize: 48,
+                    fontSize: titleSize,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
                     letterSpacing: 2,
                     height: 1,
                   ),
                 ),
-                
-                const SizedBox(height: 12),
-                
+
+                SizedBox(height: r.scale(12).clamp(8.0, 18.0)),
+
                 // Features text - Small text
                 Text(
                   'Fast, Secure, Private',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: taglineSize,
                     fontWeight: FontWeight.w400,
                     color: Colors.white.withValues(alpha: 0.6),
                     letterSpacing: 1.5,
@@ -172,6 +176,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildBottomSection() {
+    final r = ResponsiveHelper(context);
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 800),
       tween: Tween(begin: 0.0, end: 1.0),
@@ -184,14 +189,14 @@ class _SplashScreenState extends State<SplashScreen>
             children: [
               // 5-bar wave loading animation
               _buildWaveLoading(),
-              
-              const SizedBox(height: 25),
-              
+
+              SizedBox(height: r.scale(25).clamp(16.0, 34.0)),
+
               // Version number
               Text(
                 'v1.1.5',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: r.scale(11).clamp(9.0, 14.0),
                   fontWeight: FontWeight.w300,
                   color: Colors.white.withValues(alpha: 0.3),
                   letterSpacing: 1,
@@ -205,6 +210,11 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildWaveLoading() {
+    final r = ResponsiveHelper(context);
+    final barW = r.scale(4).clamp(3.0, 6.0);
+    final barH = r.scale(30).clamp(22.0, 44.0);
+    final hPad = r.scale(3).clamp(2.0, 5.0);
+    final bounce = r.scale(15).clamp(10.0, 22.0);
     return AnimatedBuilder(
       animation: _waveController,
       builder: (context, child) {
@@ -214,19 +224,19 @@ class _SplashScreenState extends State<SplashScreen>
             // Calculate wave animation with delay for each bar
             final delay = index * 0.15;
             final progress = (_waveController.value + delay) % 1.0;
-            
+
             // Calculate vertical offset (bounce up and down)
             final offset = progress < 0.5
-                ? -15.0 * (progress * 2)
-                : -15.0 * (2 - progress * 2);
+                ? -bounce * (progress * 2)
+                : -bounce * (2 - progress * 2);
 
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Transform.translate(
                 offset: Offset(0, offset),
                 child: Container(
-                  width: 4,
-                  height: 30,
+                  width: barW,
+                  height: barH,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       begin: Alignment.topCenter,

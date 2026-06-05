@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../providers/dns_provider.dart';
 import '../providers/language_provider.dart';
 import '../services/analytics_service.dart';
+import '../widgets/app_background.dart';
+import '../utils/responsive_helper.dart';
 
 const _kBg     = Color(0xFF0A0A0A);
 const _kCard   = Color(0xFF111111);
@@ -116,8 +118,10 @@ class _DnsSettingsScreenState extends State<DnsSettingsScreen> {
         ),
         body: Consumer<DnsProvider>(
           builder: (context, dns, _) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+            final r = ResponsiveHelper(context);
+            return ResponsivePageWrapper(
+              child: SingleChildScrollView(
+              padding: EdgeInsets.all(r.horizontalPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -196,6 +200,7 @@ class _DnsSettingsScreenState extends State<DnsSettingsScreen> {
                   const SizedBox(height: 80),
                 ],
               ),
+            ),
             );
           },
         ),
