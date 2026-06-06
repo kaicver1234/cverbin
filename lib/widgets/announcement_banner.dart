@@ -195,38 +195,10 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
             borderRadius: BorderRadius.circular(radius),
             child: Stack(
               children: [
-                // Left accent bar — color reflects announcement type, no icon needed
-                Positioned.fill(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: accentWidth,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              color.withValues(alpha: 0.9),
-                              color.withValues(alpha: 0.45),
-                            ],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: color.withValues(alpha: 0.45),
-                              blurRadius: 10,
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
                 // Content
                 Padding(
                   padding: EdgeInsets.fromLTRB(
-                    padH + accentWidth,
+                    padH,
                     padV,
                     padH,
                     padV,

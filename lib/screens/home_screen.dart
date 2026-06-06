@@ -375,64 +375,116 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildVPNTab(V2RayProvider provider) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    final verticalPadding = screenHeight < 700 ? 12.0 : 20.0;
-    final horizontalPadding = screenHeight < 700 ? 16.0 : 20.0;
-    
-    // Responsive dimensions based on screen size
     final isSmallScreen = screenHeight < 700 || screenWidth < 360;
-    final serverCardHeight = isSmallScreen ? 82.0 : 88.0;
-    
+    final horizontalPadding = isSmallScreen ? 20.0 : 24.0;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: isSmallScreen ? 8 : 12),
         child: Column(
           children: [
             const AnnouncementBannerWidget(),
-            SizedBox(height: screenHeight < 700 ? 16 : 20),
-            
-            // Connection button
+            SizedBox(height: isSmallScreen ? 8 : 12),
+
+            // Status chip
+            _buildStatusChip(provider),
+
+            SizedBox(height: isSmallScreen ? 28 : 40),
+
+            // Connection button (minimal)
             _buildConnectionButton(provider),
-            
-            SizedBox(height: screenHeight < 700 ? 20 : 32),
-            
-            // Server selection card
-            _buildServerCard(provider, serverCardHeight, isSmallScreen),
-            
-            SizedBox(height: screenHeight < 700 ? 24 : 36),
-            
+
+            SizedBox(height: isSmallScreen ? 20 : 28),
+
             // Timer
             _buildTimerSection(provider, isSmallScreen),
-            
-            SizedBox(height: screenHeight < 700 ? 16 : 20),
-            
-            // Download and Upload stats
+
+            SizedBox(height: isSmallScreen ? 28 : 40),
+
+            // Minimal stats row
             _buildStatsRow(provider, isSmallScreen),
-            
-            SizedBox(height: screenHeight < 700 ? 16 : 20),
+
+            SizedBox(height: isSmallScreen ? 28 : 40),
+
+            // Server selection card (minimal)
+            _buildServerCard(provider, isSmallScreen),
+
+            SizedBox(height: isSmallScreen ? 8 : 12),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildStatusChip(V2RayProvider provider) {
+    final isConnected = provider.activeConfig != null;
+    final Color dot;
+    final String label;
+
+    if (_isConnecting) {
+      dot = const Color(0xFF00D9FF);
+      label = AppLocalizations.of(context).translate('home.connecting');
+    } else if (isConnected) {
+      dot = const Color(0xFF00FFA3);
+      label = AppLocalizations.of(context).translate('home.connected');
+    } else {
+      dot = Colors.white.withValues(alpha: 0.4);
+      label = AppLocalizations.of(context).translate('home.disconnected');
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: dot,
+              boxShadow: [
+                BoxShadow(color: dot.withValues(alpha: 0.6), blurRadius: 8, spreadRadius: 1),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTimerSection(V2RayProvider provider, bool isSmallScreen) {
     final isConnected = provider.activeConfig != null;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final timerFontSize = screenHeight < 700 ? 32.0 : 38.0;
-    
+    final timerFontSize = isSmallScreen ? 26.0 : 30.0;
+
     return StreamBuilder(
       stream: Stream.periodic(const Duration(seconds: 1)),
       builder: (context, snapshot) {
         return Text(
-          isConnected 
+          isConnected
               ? provider.v2rayService.getFormattedConnectedTime()
               : '00:00:00',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.jetBrainsMono(
             fontSize: timerFontSize,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            letterSpacing: 2,
+            fontWeight: FontWeight.w300,
+            color: Colors.white.withValues(alpha: isConnected ? 0.95 : 0.35),
+            letterSpacing: 3,
           ),
         );
       },
@@ -442,32 +494,44 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildStatsRow(V2RayProvider provider, bool isSmallScreen) {
     final v2rayService = provider.v2rayService;
     final isConnected = provider.activeConfig != null;
-    
-    // Update every 500ms for real-time display
+
     return StreamBuilder(
       stream: Stream.periodic(const Duration(milliseconds: 500)),
       builder: (context, snapshot) {
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 30 : 50),
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 18 : 22,
+            vertical: isSmallScreen ? 14 : 16,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Download (Left)
-              _buildStatWithCircleIcon(
-                label: 'Download',
-                value: isConnected ? v2rayService.getFormattedDownload() : '0 B',
-                color: const Color(0xFF00FFA3),
-                icon: Icons.arrow_downward_rounded,
-                isSmallScreen: isSmallScreen,
+              Expanded(
+                child: _buildMinimalStat(
+                  label: 'DOWNLOAD',
+                  value: isConnected ? v2rayService.getFormattedDownload() : '0 B',
+                  color: const Color(0xFF00FFA3),
+                  icon: Icons.arrow_downward_rounded,
+                  isSmallScreen: isSmallScreen,
+                ),
               ),
-              
-              // Upload (Right)
-              _buildStatWithCircleIcon(
-                label: 'Upload',
-                value: isConnected ? v2rayService.getFormattedUpload() : '0 B',
-                color: const Color(0xFF00D9FF),
-                icon: Icons.arrow_upward_rounded,
-                isSmallScreen: isSmallScreen,
+              Container(
+                width: 1,
+                height: isSmallScreen ? 36 : 42,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+              Expanded(
+                child: _buildMinimalStat(
+                  label: 'UPLOAD',
+                  value: isConnected ? v2rayService.getFormattedUpload() : '0 B',
+                  color: const Color(0xFF00D9FF),
+                  icon: Icons.arrow_upward_rounded,
+                  isSmallScreen: isSmallScreen,
+                ),
               ),
             ],
           ),
@@ -476,52 +540,41 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildStatWithCircleIcon({
+  Widget _buildMinimalStat({
     required String label,
     required String value,
     required Color color,
     required IconData icon,
     required bool isSmallScreen,
   }) {
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Circle icon
-        Container(
-          width: isSmallScreen ? 40 : 48,
-          height: isSmallScreen ? 40 : 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: 0.15),
-            border: Border.all(
-              color: color.withValues(alpha: 0.3),
-              width: 2,
+        Icon(icon, color: color, size: isSmallScreen ? 16 : 18),
+        SizedBox(width: isSmallScreen ? 8 : 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: isSmallScreen ? 9 : 10,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 1.2,
+              ),
             ),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: isSmallScreen ? 20 : 24,
-          ),
-        ),
-        SizedBox(height: isSmallScreen ? 8 : 10),
-        // Label
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.6),
-            fontSize: isSmallScreen ? 12 : 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 4),
-        // Value
-        Text(
-          value,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: isSmallScreen ? 15 : 17,
-            fontWeight: FontWeight.w700,
-          ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: isSmallScreen ? 13 : 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -530,138 +583,117 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildConnectionButton(V2RayProvider provider) {
     final isConnected = provider.activeConfig != null;
     final screenHeight = MediaQuery.of(context).size.height;
-    
-    // Responsive sizing based on screen height
-    final double buttonSize = screenHeight < 700 ? 140 : 160;
-    final double glowSize = screenHeight < 700 ? 180 : 210;
-    final double iconSize = screenHeight < 700 ? 50 : 60;
-    
-    // Colors based on state
-    final Color buttonColor;
-    final Color glowColor;
-    final Color iconColor;
-    
+
+    final double buttonSize = screenHeight < 700 ? 150 : 175;
+    final double iconSize = screenHeight < 700 ? 46 : 54;
+
+    final Color accent;
     if (_isConnecting) {
-      buttonColor = const Color(0xFF00D9FF);
-      glowColor = const Color(0xFF00D9FF);
-      iconColor = Colors.white;
+      accent = const Color(0xFF00D9FF);
     } else if (isConnected) {
-      buttonColor = const Color(0xFF00FFA3);
-      glowColor = const Color(0xFF00FFA3);
-      iconColor = Colors.white;
+      accent = const Color(0xFF00FFA3);
     } else {
-      buttonColor = const Color(0xFF1E3A4A);
-      glowColor = const Color(0xFF00D9FF);
-      iconColor = const Color(0xFF00D9FF);
+      accent = const Color(0xFF00D9FF);
     }
-    
+
     return GestureDetector(
       onTap: _handleConnectionToggle,
+      behavior: HitTestBehavior.opaque,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Outer glow effect - only show when connected or connecting
-          if (isConnected || _isConnecting)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              width: glowSize,
-              height: glowSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: glowColor.withValues(alpha: 0.4),
-                    blurRadius: 80,
-                    spreadRadius: 15,
-                  ),
-                  BoxShadow(
-                    color: glowColor.withValues(alpha: 0.2),
-                    blurRadius: 120,
-                    spreadRadius: 25,
-                  ),
-                ],
-              ),
+          // Soft ambient glow
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 500),
+            width: buttonSize + 60,
+            height: buttonSize + 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withValues(alpha: (isConnected || _isConnecting) ? 0.25 : 0.08),
+                  blurRadius: 60,
+                  spreadRadius: 8,
+                ),
+              ],
             ),
-          
-          // Pulsing ring for connecting state
+          ),
+
+          // Animated pulsing ring while connecting
           if (_isConnecting)
             TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.9, end: 1.1),
-              duration: const Duration(milliseconds: 1000),
-              curve: Curves.easeInOut,
+              tween: Tween(begin: 0.95, end: 1.15),
+              duration: const Duration(milliseconds: 1200),
+              curve: Curves.easeOut,
               builder: (context, value, child) {
-                return Transform.scale(
-                  scale: value,
-                  child: Container(
-                    width: buttonSize + 20,
-                    height: buttonSize + 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: glowColor.withValues(alpha: 0.6),
-                        width: 3,
-                      ),
+                return Container(
+                  width: buttonSize * value,
+                  height: buttonSize * value,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: accent.withValues(alpha: 1.2 - value),
+                      width: 1.5,
                     ),
                   ),
                 );
               },
               onEnd: () {
-                if (mounted && _isConnecting) {
-                  setState(() {}); // Trigger rebuild to restart animation
-                }
+                if (mounted && _isConnecting) setState(() {});
               },
             ),
-          
-          // Main button with gradient
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
+
+          // Outer thin ring
+          Container(
             width: buttonSize,
             height: buttonSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: (isConnected || _isConnecting)
-                  ? RadialGradient(
-                      colors: [
-                        buttonColor,
-                        buttonColor.withValues(alpha: 0.8),
-                      ],
-                    )
-                  : null,
-              color: (isConnected || _isConnecting) ? null : buttonColor,
               border: Border.all(
-                color: (isConnected || _isConnecting)
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : const Color(0xFF00D9FF).withValues(alpha: 0.5),
-                width: 3,
+                color: accent.withValues(alpha: 0.25),
+                width: 1,
               ),
-              boxShadow: [
-                if (isConnected || _isConnecting)
-                  BoxShadow(
-                    color: buttonColor.withValues(alpha: 0.5),
-                    blurRadius: 40,
-                    spreadRadius: 5,
-                  ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+            ),
+          ),
+
+          // Inner button
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+            width: buttonSize - 24,
+            height: buttonSize - 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: (isConnected || _isConnecting)
+                    ? [
+                        accent.withValues(alpha: 0.35),
+                        accent.withValues(alpha: 0.08),
+                      ]
+                    : [
+                        Colors.white.withValues(alpha: 0.06),
+                        Colors.white.withValues(alpha: 0.01),
+                      ],
+              ),
+              border: Border.all(
+                color: accent.withValues(alpha: (isConnected || _isConnecting) ? 0.6 : 0.35),
+                width: 1.5,
+              ),
             ),
             child: Center(
               child: _isConnecting
                   ? SizedBox(
-                      width: iconSize * 0.7,
-                      height: iconSize * 0.7,
-                      child: CircularProgressIndicator(
+                      width: iconSize * 0.6,
+                      height: iconSize * 0.6,
+                      child: const CircularProgressIndicator(
                         color: Colors.white,
-                        strokeWidth: 4,
+                        strokeWidth: 2,
                       ),
                     )
                   : Icon(
                       Icons.power_settings_new_rounded,
                       size: iconSize,
-                      color: iconColor,
+                      color: isConnected ? Colors.white : accent,
                     ),
             ),
           ),
@@ -671,14 +703,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
 
-  Widget _buildServerCard(V2RayProvider provider, double cardHeight, bool isSmallScreen) {
+  Widget _buildServerCard(V2RayProvider provider, bool isSmallScreen) {
     final isSmartConnect = provider.wasUsingSmartConnect;
     final selectedConfig = provider.selectedConfig ?? provider.activeConfig;
-    
+
     String serverName;
     String? subtitle;
     String? countryCode;
-    
+
     if (provider.activeConfig != null) {
       serverName = _cleanServerName(provider.activeConfig!.remark);
       countryCode = provider.activeConfig!.countryCode ?? _extractCountryCode(provider.activeConfig!.remark);
@@ -691,70 +723,80 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     } else {
       serverName = AppLocalizations.of(context).translate('server_selection.select_server');
     }
-    
-    final iconSize = isSmallScreen ? 48.0 : 52.0;
-    final titleFontSize = isSmallScreen ? 15.0 : 16.0;
-    final subtitleFontSize = isSmallScreen ? 12.0 : 13.0;
-    final subtitleHeight = isSmallScreen ? 16.0 : 18.0;
-    final cardPadding = isSmallScreen ? 16.0 : 18.0;
-    
-    return GestureDetector(
-      onTap: () => _onServerCardTap(provider),
-      child: Container(
-        padding: EdgeInsets.all(cardPadding),
-        height: cardHeight,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          border: Border.all(color: const Color(0xFF00D9FF).withValues(alpha: 0.2)),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            // Icon/Flag
-            _buildServerIcon(countryCode, isSmartConnect && provider.activeConfig == null, iconSize),
-            SizedBox(width: isSmallScreen ? 12 : 14),
-            // Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    serverName,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: titleFontSize,
-                      fontWeight: FontWeight.w600,
+
+    final iconSize = isSmallScreen ? 40.0 : 44.0;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _onServerCardTap(provider),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 14 : 16,
+            vertical: isSmallScreen ? 12 : 14,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            children: [
+              _buildServerIcon(countryCode, isSmartConnect && provider.activeConfig == null, iconSize),
+              SizedBox(width: isSmallScreen ? 12 : 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      AppLocalizations.of(context).translate('home.server_location_label'),
+                      style: GoogleFonts.poppins(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: isSmallScreen ? 10 : 11,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.8,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    SizedBox(
-                      height: subtitleHeight,
-                      child: Text(
+                    const SizedBox(height: 3),
+                    Text(
+                      serverName,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: isSmallScreen ? 14 : 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
                         subtitle,
                         style: TextStyle(
-                          color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
-                          fontSize: subtitleFontSize,
+                          color: Colors.white.withValues(alpha: 0.45),
+                          fontSize: isSmallScreen ? 11 : 12,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            Consumer<LanguageProvider>(
-              builder: (context, langProvider, _) => Icon(
-                langProvider.isRtl ? Icons.chevron_left : Icons.chevron_right,
-                color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
-                size: isSmallScreen ? 18 : 20,
+              Consumer<LanguageProvider>(
+                builder: (context, langProvider, _) => Icon(
+                  langProvider.isRtl ? Icons.chevron_left : Icons.chevron_right,
+                  color: Colors.white.withValues(alpha: 0.4),
+                  size: isSmallScreen ? 20 : 22,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
