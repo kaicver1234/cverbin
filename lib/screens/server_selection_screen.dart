@@ -158,7 +158,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
               _buildHeader(context, responsive),
               _buildTabBar(responsive),
               if (_activeTabIndex == 0)
-                _buildActionButtons(responsive),
+                _buildActionToolbar(responsive),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -327,59 +327,54 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
     );
   }
 
-  Widget _buildActionButtons(ResponsiveHelper responsive) {
+  Widget _buildActionToolbar(ResponsiveHelper responsive) {
+    final hasPingResults = _pingResults.isNotEmpty;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         responsive.horizontalPadding,
-        12,
+        0,
         responsive.horizontalPadding,
-        8,
+        10,
       ),
       child: Row(
         children: [
-          _buildIconActionBtn(
-            icon: Icons.refresh_rounded,
-            isLoading: _isRefreshing,
-            onTap: _isRefreshing ? null : _refreshServers,
-            animController: _refreshAnimController,
+          // Primary action: Test Ping
+          Expanded(child: _buildPingActionBtn(responsive)),
+          const SizedBox(width: 8),
+          // Sort by best (enabled after a ping run)
+          _ToolbarIconButton(
+            icon: Icons.sort_rounded,
+            tooltip: AppLocalizations.of(context)
+                .translate('server_selection.sort_by_best'),
+            color: const Color(0xFF00FFA3),
+            enabled: hasPingResults && !_isTesting,
+            onTap: hasPingResults && !_isTesting ? _sortByBest : null,
             responsive: responsive,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _buildPingActionBtn(responsive),
+          const SizedBox(width: 8),
+          // Refresh server list
+          _ToolbarIconButton(
+            icon: Icons.refresh_rounded,
+            tooltip: AppLocalizations.of(context)
+                .translate('server_selection.refresh'),
+            color: Colors.white,
+            enabled: !_isRefreshing,
+            spinning: _isRefreshing,
+            animController: _refreshAnimController,
+            onTap: _isRefreshing ? null : _refreshServers,
+            responsive: responsive,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildIconActionBtn({
-    required IconData icon,
-    required bool isLoading,
-    required VoidCallback? onTap,
-    required AnimationController animController,
-    required ResponsiveHelper responsive,
-  }) {
-    final size = responsive.scale(44).clamp(38.0, 54.0);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        child: RotationTransition(
-          turns: animController,
-          child: Icon(
-            icon,
-            color: isLoading ? Colors.white : Colors.white.withValues(alpha: 0.7),
-            size: responsive.scale(20).clamp(16.0, 24.0),
-          ),
-        ),
-      ),
+  void _sortByBest() {
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    setState(() => _sortServersByPing(provider, _pingResults));
+    _showSnackBar(
+      AppLocalizations.of(context).translate('server_selection.sorted_by_best'),
+      const Color(0xFF00FFA3),
     );
   }
 
@@ -848,6 +843,62 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
         return pA.compareTo(pB);
       });
     _sortedConfigs = [V2RayConfig.smartConnect(), ...servers];
+  }
+}
+
+// ─── Toolbar Icon Button ─────────────────────────────────────────────────────
+
+class _ToolbarIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final bool enabled;
+  final bool spinning;
+  final AnimationController? animController;
+  final VoidCallback? onTap;
+  final ResponsiveHelper responsive;
+
+  const _ToolbarIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.enabled,
+    required this.responsive,
+    this.spinning = false,
+    this.animController,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final size = responsive.scale(44).clamp(40.0, 52.0);
+    final iconColor = enabled ? color : Colors.white.withValues(alpha: 0.25);
+    final iconWidget = Icon(icon, color: iconColor, size: 20);
+
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: enabled ? 0.06 : 0.03),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: enabled
+                  ? color.withValues(alpha: 0.2)
+                  : Colors.white.withValues(alpha: 0.06),
+            ),
+          ),
+          child: Center(
+            child: spinning && animController != null
+                ? RotationTransition(turns: animController!, child: iconWidget)
+                : iconWidget,
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -22,11 +22,11 @@ class SpeedTestProvider with ChangeNotifier {
 
   static const List<Map<String, dynamic>> _measurements = [
     {'type': 'latency', 'numPackets': 20},
-    {'type': 'download', 'bytes': 100000,  'count': 3},
-    {'type': 'download', 'bytes': 1000000, 'count': 5},
-    {'type': 'download', 'bytes': 10000000,'count': 4},
-    {'type': 'upload',   'bytes': 100000,  'count': 3},
-    {'type': 'upload',   'bytes': 1000000, 'count': 5},
+    {'type': 'download', 'bytes': 1000000,  'count': 2, 'warmup': true},
+    {'type': 'download', 'bytes': 10000000, 'count': 4},
+    {'type': 'download', 'bytes': 25000000, 'count': 3},
+    {'type': 'upload',   'bytes': 1000000,  'count': 2, 'warmup': true},
+    {'type': 'upload',   'bytes': 5000000,  'count': 4},
   ];
 
   String _measurementId = '';
@@ -234,6 +234,7 @@ class SpeedTestProvider with ChangeNotifier {
   Future<void> _runDownloadMeasurement(Map<String, dynamic> config, double progress) async {
     final bytes = config['bytes'] as int;
     final count = config['count'] as int;
+    final isWarmup = config['warmup'] as bool? ?? false;
     final sizeLabel = _formatBytes(bytes);
     int consecutiveFailures = 0;
 
@@ -250,22 +251,25 @@ class SpeedTestProvider with ChangeNotifier {
       try {
         final speed = await _measureDownloadSpeed(bytes);
         if (speed > 0) {
-          _downloadSpeeds.add(speed);
           consecutiveFailures = 0;
+          if (!isWarmup) {
+            _downloadSpeeds.add(speed);
+          }
 
-          final percentileSpeed = _calculatePercentile(_downloadSpeeds, 0.9);
-          final avgSpeed = _downloadSpeeds.reduce((a, b) => a + b) / _downloadSpeeds.length;
+          // Display: rolling median of recent samples (more stable than percentile)
+          final samples = _downloadSpeeds.isNotEmpty ? _downloadSpeeds : [speed];
+          final stable = _calculatePercentile(samples, 0.5);
 
           _state = _state.copyWith(
-            currentSpeed: avgSpeed,
+            currentSpeed: speed,
             result: _state.result.copyWith(
-              downloadSpeed: percentileSpeed,
+              downloadSpeed: stable,
               ping: _latencies.isNotEmpty ? _latencies.last : 0,
             ),
           );
           notifyListeners();
 
-          debugPrint('   📥 Download ${i + 1}/$count ($sizeLabel): ${speed.toStringAsFixed(2)} Mbps');
+          debugPrint('   📥 Download ${i + 1}/$count ($sizeLabel)${isWarmup ? " [warmup]" : ""}: ${speed.toStringAsFixed(2)} Mbps');
         }
       } catch (e) {
         consecutiveFailures++;
@@ -283,32 +287,49 @@ class SpeedTestProvider with ChangeNotifier {
   Future<double> _measureDownloadSpeed(int bytes) async {
     if (_isCanceled) return 0.0;
 
-    final sw = Stopwatch()..start();
+    final sw = Stopwatch();
     DateTime? lastUpdateTime;
     final List<double> realtimeSpeeds = [];
+    int totalReceived = 0;
+    bool started = false;
 
     try {
-      final response = await _dio.get<List<int>>(
+      await _dio.get<List<int>>(
         '$_downloadUrl?bytes=$bytes&measId=$_measurementId&during=download',
         options: Options(
           responseType: ResponseType.bytes,
-          headers: {'Cache-Control': 'no-cache, no-store'},
+          headers: {
+            'Cache-Control': 'no-cache, no-store',
+            'Accept-Encoding': 'identity', // avoid compression skewing byte count
+          },
         ),
         cancelToken: _cancelToken,
         onReceiveProgress: (received, total) {
           if (_isCanceled) return;
 
+          // Start timing on first received byte (excludes connect/TTFB)
+          if (!started && received > 0) {
+            sw.start();
+            started = true;
+          }
+          totalReceived = received;
+
+          if (!started) return;
+
           final now = DateTime.now();
           final elapsed = sw.elapsedMilliseconds / 1000.0;
 
           if (elapsed > 0.05 &&
-              (lastUpdateTime == null || now.difference(lastUpdateTime!).inMilliseconds > 100)) {
+              (lastUpdateTime == null ||
+                  now.difference(lastUpdateTime!).inMilliseconds > 100)) {
             final currentSpeedMbps = (received * 8) / elapsed / 1000000;
             realtimeSpeeds.add(currentSpeedMbps);
-            
-            // Use smoothed average instead of raw speed
+
             final smoothedSpeed = realtimeSpeeds.length > 3
-                ? realtimeSpeeds.sublist(realtimeSpeeds.length - 3).reduce((a, b) => a + b) / 3
+                ? realtimeSpeeds
+                        .sublist(realtimeSpeeds.length - 3)
+                        .reduce((a, b) => a + b) /
+                    3
                 : currentSpeedMbps;
             final roundedSpeed = _roundSpeed(smoothedSpeed);
             _state = _state.copyWith(currentSpeed: roundedSpeed);
@@ -319,13 +340,13 @@ class SpeedTestProvider with ChangeNotifier {
       );
 
       if (_isCanceled) return 0.0;
+      if (!started) return 0.0;
 
       sw.stop();
       final durationSeconds = sw.elapsedMilliseconds / 1000.0;
-      if (durationSeconds < 0.01) return 0.0;
+      if (durationSeconds < 0.05) return 0.0;
 
-      final actualBytes = response.data?.length ?? 0;
-      return (actualBytes * 8) / durationSeconds / 1000000;
+      return (totalReceived * 8) / durationSeconds / 1000000;
     } catch (e) {
       debugPrint('   ❌ Download measurement error: $e');
       throw Exception('Download failed: $e');
@@ -335,6 +356,7 @@ class SpeedTestProvider with ChangeNotifier {
   Future<void> _runUploadMeasurement(Map<String, dynamic> config, double progress) async {
     final bytes = config['bytes'] as int;
     final count = config['count'] as int;
+    final isWarmup = config['warmup'] as bool? ?? false;
     final sizeLabel = _formatBytes(bytes);
     int consecutiveFailures = 0;
 
@@ -351,11 +373,13 @@ class SpeedTestProvider with ChangeNotifier {
       try {
         final speed = await _measureUploadSpeed(bytes);
         if (speed > 0) {
-          _uploadSpeeds.add(speed);
           consecutiveFailures = 0;
+          if (!isWarmup) {
+            _uploadSpeeds.add(speed);
+          }
 
-          final percentileSpeed = _calculatePercentile(_uploadSpeeds, 0.9);
-          final avgSpeed = _uploadSpeeds.reduce((a, b) => a + b) / _uploadSpeeds.length;
+          final samples = _uploadSpeeds.isNotEmpty ? _uploadSpeeds : [speed];
+          final stable = _calculatePercentile(samples, 0.5);
 
           int jitter = 0;
           if (_latencies.length >= 2) {
@@ -367,15 +391,15 @@ class SpeedTestProvider with ChangeNotifier {
           }
 
           _state = _state.copyWith(
-            currentSpeed: avgSpeed,
+            currentSpeed: speed,
             result: _state.result.copyWith(
-              uploadSpeed: percentileSpeed,
+              uploadSpeed: stable,
               jitter: jitter,
             ),
           );
           notifyListeners();
 
-          debugPrint('   📤 Upload ${i + 1}/$count ($sizeLabel): ${speed.toStringAsFixed(2)} Mbps');
+          debugPrint('   📤 Upload ${i + 1}/$count ($sizeLabel)${isWarmup ? " [warmup]" : ""}: ${speed.toStringAsFixed(2)} Mbps');
         }
       } catch (e) {
         consecutiveFailures++;
@@ -451,12 +475,13 @@ class SpeedTestProvider with ChangeNotifier {
   }
 
   void _calculateFinalResults() {
+    // Use median of non-warmup samples for stable, representative result
     final downloadSpeed = _downloadSpeeds.isEmpty
         ? 0.0
-        : _calculatePercentile(_downloadSpeeds, 0.9);
+        : _calculatePercentile(_downloadSpeeds, 0.5);
     final uploadSpeed = _uploadSpeeds.isEmpty
         ? 0.0
-        : _calculatePercentile(_uploadSpeeds, 0.9);
+        : _calculatePercentile(_uploadSpeeds, 0.5);
     final ping = _latencies.isEmpty ? 0 : _latencies.reduce(min);
     final latency = _latencies.isEmpty
         ? 0

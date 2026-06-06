@@ -138,14 +138,18 @@ abstract class V2RayURL {
   };
 
   /// Policy configuration for optimized performance.
+  /// bufferSize is per-connection in KB; 10240 = 10MB gives high-throughput
+  /// connections more headroom without risking OOM on low-RAM devices.
+  /// handshakeSec raised to tolerate slow / lossy networks (e.g. Iranian ISPs)
+  /// without dropping the TLS handshake mid-way.
   Map<String, dynamic> policy = {
     'levels': {
       '8': {
-        'handshakeSec': 4,
-        'connIdle': 600,
-        'uplinkOnly': 2,
-        'downlinkOnly': 5,
-        'bufferSize': 4096,
+        'handshakeSec': 8,
+        'connIdle': 300,
+        'uplinkOnly': 1,
+        'downlinkOnly': 1,
+        'bufferSize': 10240,
         'statsUserUplink': false,
         'statsUserDownlink': false,
       }
@@ -197,9 +201,10 @@ abstract class V2RayURL {
     'dsSettings': null,
     'sockopt': {
       'tcpFastOpen': true,
-      'tcpKeepAliveInterval': 30,
-      'tcpKeepAliveIdle': 100,
+      'tcpKeepAliveInterval': 15,
+      'tcpKeepAliveIdle': 30,
       'tcpNoDelay': true,
+      'tcpMptcp': true,
     }
   };
 
@@ -271,11 +276,11 @@ abstract class V2RayURL {
       streamSetting['kcpSettings'] = {
         'mtu': 1350,
         'tti': 20,
-        'uplinkCapacity': 50,
-        'downlinkCapacity': 200,
+        'uplinkCapacity': 100,
+        'downlinkCapacity': 1000,
         'congestion': true,
-        'readBufferSize': 8,
-        'writeBufferSize': 8,
+        'readBufferSize': 64,
+        'writeBufferSize': 64,
         'header': {
           'type': headerType ?? 'none',
         },
