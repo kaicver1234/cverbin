@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
@@ -20,6 +22,7 @@ class PerAppProxyScreen extends StatefulWidget {
 class _PerAppProxyScreenState extends State<PerAppProxyScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  Timer? _searchDebounce;
   bool _hasUnappliedChanges = false;
 
   @override
@@ -34,6 +37,7 @@ class _PerAppProxyScreenState extends State<PerAppProxyScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -143,61 +147,228 @@ class _PerAppProxyScreenState extends State<PerAppProxyScreen> {
 
   Widget _buildBody(PerAppProxyProvider provider, bool isRtl) {
     final r = ResponsiveHelper(context);
-    return SingleChildScrollView(
+    final padding = r.horizontalPadding;
+
+    // Pre-filter once per build instead of inside _buildAppList — used by
+    // both the SliverList builder and the empty-state fallback.
+    final query = _query;
+    final filtered = (provider.mode == PerAppProxyMode.off)
+        ? const <InstalledAppInfo>[]
+        : (query.isEmpty
+            ? provider.installedApps
+            : provider.installedApps
+                .where((a) =>
+                    a.name.toLowerCase().contains(query) ||
+                    a.packageName.toLowerCase().contains(query))
+                .toList(growable: false));
+
+    return CustomScrollView(
       physics: const ClampingScrollPhysics(),
-      padding: EdgeInsets.all(r.horizontalPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionLabel(_t('حالت', 'Mode')),
-          const SizedBox(height: 12),
-          _buildModeCard(
-            provider: provider,
-            mode: PerAppProxyMode.off,
-            title: _t('همه برنامه‌ها', 'All apps'),
-            subtitle: _t(
-              'تمام ترافیک از طریق VPN عبور می‌کند',
-              'All traffic goes through the VPN',
-            ),
-            badge: _t('پیش‌فرض', 'Default'),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(padding, padding, padding, 0),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate.fixed([
+              _buildSectionLabel(_t('حالت', 'Mode')),
+              const SizedBox(height: 12),
+              _buildModeCard(
+                provider: provider,
+                mode: PerAppProxyMode.off,
+                title: _t('همه برنامه‌ها', 'All apps'),
+                subtitle: _t(
+                  'تمام ترافیک از طریق VPN عبور می‌کند',
+                  'All traffic goes through the VPN',
+                ),
+                badge: _t('پیش‌فرض', 'Default'),
+              ),
+              const SizedBox(height: 10),
+              _buildModeCard(
+                provider: provider,
+                mode: PerAppProxyMode.excludeOnly,
+                title: _t('استثنا کردن برنامه‌ها', 'Exclude apps'),
+                subtitle: _t(
+                  'برنامه‌های انتخاب شده از VPN خارج می‌شوند',
+                  'Selected apps bypass the VPN',
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildModeCard(
+                provider: provider,
+                mode: PerAppProxyMode.includeOnly,
+                title: _t('فقط برنامه‌های انتخابی', 'Only selected apps'),
+                subtitle: _t(
+                  'فقط برنامه‌های انتخاب شده از VPN استفاده می‌کنند',
+                  'Only selected apps use the VPN',
+                ),
+              ),
+              const SizedBox(height: 28),
+              if (provider.mode != PerAppProxyMode.off) ...[
+                _buildSectionLabel(_t('برنامه‌ها', 'Apps')),
+                const SizedBox(height: 12),
+                _buildSelectionSummary(provider, isRtl),
+                const SizedBox(height: 14),
+                _buildSearchField(isRtl),
+                const SizedBox(height: 14),
+              ],
+            ]),
           ),
-          const SizedBox(height: 10),
-          _buildModeCard(
-            provider: provider,
-            mode: PerAppProxyMode.excludeOnly,
-            title: _t('استثنا کردن برنامه‌ها', 'Exclude apps'),
-            subtitle: _t(
-              'برنامه‌های انتخاب شده از VPN خارج می‌شوند',
-              'Selected apps bypass the VPN',
-            ),
-          ),
-          const SizedBox(height: 10),
-          _buildModeCard(
-            provider: provider,
-            mode: PerAppProxyMode.includeOnly,
-            title: _t('فقط برنامه‌های انتخابی', 'Only selected apps'),
-            subtitle: _t(
-              'فقط برنامه‌های انتخاب شده از VPN استفاده می‌کنند',
-              'Only selected apps use the VPN',
-            ),
-          ),
+        ),
 
-          const SizedBox(height: 28),
+        if (provider.mode != PerAppProxyMode.off)
+          ..._buildAppListSlivers(provider, filtered, padding, isRtl),
 
-          if (provider.mode != PerAppProxyMode.off) ...[
-            _buildSectionLabel(_t('برنامه‌ها', 'Apps')),
-            const SizedBox(height: 12),
-            _buildSelectionSummary(provider, isRtl),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(padding, 24, padding, 80),
+          sliver: SliverToBoxAdapter(child: _buildInfoBox(isRtl)),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildAppListSlivers(
+    PerAppProxyProvider provider,
+    List<InstalledAppInfo> filtered,
+    double padding,
+    bool isRtl,
+  ) {
+    // Loading / error / empty states are simple BoxAdapters; the list itself
+    // is a real SliverList so rows are built lazily as the user scrolls.
+    if (provider.isLoadingApps && provider.installedApps.isEmpty) {
+      return [
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: padding),
+          sliver: SliverToBoxAdapter(child: _buildLoadingState()),
+        ),
+      ];
+    }
+    if (provider.loadError != null) {
+      return [
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: padding),
+          sliver: SliverToBoxAdapter(child: _buildErrorState(provider)),
+        ),
+      ];
+    }
+    if (filtered.isEmpty) {
+      return [
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: padding),
+          sliver: SliverToBoxAdapter(child: _buildEmptyState()),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: padding),
+        sliver: DecoratedSliver(
+          decoration: BoxDecoration(
+            color: _kCard,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _kBorder),
+          ),
+          sliver: SliverList.builder(
+            itemCount: filtered.length,
+            itemBuilder: (context, i) {
+              final app = filtered[i];
+              final isLast = i == filtered.length - 1;
+              return Column(
+                children: [
+                  _buildAppRow(provider, app),
+                  if (!isLast)
+                    Divider(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      height: 1,
+                      thickness: 1,
+                      indent: 60,
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildLoadingState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: Column(
+          children: [
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                valueColor: AlwaysStoppedAnimation(Colors.white),
+              ),
+            ),
             const SizedBox(height: 14),
-            _buildSearchField(isRtl),
-            const SizedBox(height: 14),
-            _buildAppList(provider, isRtl),
-            const SizedBox(height: 24),
+            Text(
+              _t('در حال بارگذاری برنامه‌ها...', 'Loading apps...'),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 12.5,
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
 
-          _buildInfoBox(isRtl),
-          const SizedBox(height: 80),
+  Widget _buildErrorState(PerAppProxyProvider provider) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            color: const Color(0xFFEF4444).withValues(alpha: 0.7),
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              provider.loadError!,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 12.5,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => provider.loadInstalledApps(force: true),
+            child: Text(
+              _t('تلاش دوباره', 'Retry'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      child: Center(
+        child: Text(
+          _t('برنامه‌ای پیدا نشد', 'No apps found'),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.4),
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }
@@ -385,7 +556,17 @@ class _PerAppProxyScreenState extends State<PerAppProxyScreen> {
       controller: _searchCtrl,
       style: const TextStyle(color: Colors.white, fontSize: 14),
       cursorColor: Colors.white,
-      onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+      onChanged: (v) {
+        final next = v.trim().toLowerCase();
+        _searchDebounce?.cancel();
+        // Short keys feel responsive; for longer typing we debounce so we
+        // don't rebuild the whole sliver list on every keystroke.
+        _searchDebounce = Timer(const Duration(milliseconds: 180), () {
+          if (!mounted) return;
+          if (_query == next) return;
+          setState(() => _query = next);
+        });
+      },
       decoration: InputDecoration(
         hintText: _t('جستجو در برنامه‌ها...', 'Search apps...'),
         hintStyle: TextStyle(
@@ -405,6 +586,7 @@ class _PerAppProxyScreenState extends State<PerAppProxyScreen> {
                   size: 18,
                 ),
                 onPressed: () {
+                  _searchDebounce?.cancel();
                   _searchCtrl.clear();
                   setState(() => _query = '');
                 },
@@ -425,122 +607,6 @@ class _PerAppProxyScreenState extends State<PerAppProxyScreen> {
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-    );
-  }
-
-  Widget _buildAppList(PerAppProxyProvider provider, bool isRtl) {
-    if (provider.isLoadingApps && provider.installedApps.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: Column(
-            children: [
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                _t('در حال بارگذاری برنامه‌ها...', 'Loading apps...'),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
-                  fontSize: 12.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (provider.loadError != null) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEF4444).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.error_outline_rounded,
-              color: const Color(0xFFEF4444).withValues(alpha: 0.7),
-              size: 18,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                provider.loadError!,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 12.5,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => provider.loadInstalledApps(force: true),
-              child: Text(
-                _t('تلاش دوباره', 'Retry'),
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final query = _query;
-    final filtered = query.isEmpty
-        ? provider.installedApps
-        : provider.installedApps
-            .where((a) =>
-                a.name.toLowerCase().contains(query) ||
-                a.packageName.toLowerCase().contains(query))
-            .toList();
-
-    if (filtered.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 30),
-        child: Center(
-          child: Text(
-            _t('برنامه‌ای پیدا نشد', 'No apps found'),
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 13,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          for (int i = 0; i < filtered.length; i++) ...[
-            _buildAppRow(provider, filtered[i]),
-            if (i != filtered.length - 1)
-              Divider(
-                color: Colors.white.withValues(alpha: 0.05),
-                height: 1,
-                thickness: 1,
-                indent: 60,
-              ),
-          ],
-        ],
       ),
     );
   }

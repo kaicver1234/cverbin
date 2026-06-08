@@ -8,17 +8,18 @@ import 'package:provider/provider.dart';
 
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
+import '../utils/responsive_helper.dart';
 import '../services/analytics_service.dart';
 import '../widgets/app_background.dart';
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
+// ─── Design tokens (aligned with the app's main theme) ─────────────────────────
 
-const _kCyan    = Color(0xFF00D9FF);
-const _kGreen   = Color(0xFF00FFA3);
-const _kRed     = Color(0xFFEF4444);
-const _kAmber   = Color(0xFFF59E0B);
-const _kSurface = Color(0xFF0D0D0D);
-const _kCard    = Color(0xFF111111);
+const _kCard   = Color(0xFF111111);
+const _kBorder = Color(0xFF222222);
+const _kAccent = Color(0xFFFF6B9D); // host-checker tool color (see home tools)
+const _kGreen  = Color(0xFF00FFA3);
+const _kRed    = Color(0xFFEF4444);
+const _kAmber  = Color(0xFFF59E0B);
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 
@@ -52,14 +53,13 @@ class HostCheckerScreen extends StatefulWidget {
 }
 
 class _HostCheckerScreenState extends State<HostCheckerScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   final TextEditingController _hostController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final List<HostCheckResult> _results = [];
   bool _isChecking = false;
 
-  late AnimationController _radarController;
-  late AnimationController _pulseController;
+  late final AnimationController _waveController;
 
   static const _quickHosts = [
     {'name': 'Google', 'host': 'google.com', 'color': Color(0xFF4285F4)},
@@ -76,13 +76,9 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
   void initState() {
     super.initState();
     AnalyticsService().logScreenView(screenName: 'Safheh_Baresi_Host');
-    _radarController = AnimationController(
+    _waveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
-    );
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
     );
   }
 
@@ -90,19 +86,17 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
   void dispose() {
     _hostController.dispose();
     _focusNode.dispose();
-    _radarController.dispose();
-    _pulseController.dispose();
+    _waveController.dispose();
     super.dispose();
   }
 
   Future<void> _checkHost(String host) async {
-    if (host.trim().isEmpty) return;
+    if (host.trim().isEmpty || _isChecking) return;
     _focusNode.unfocus();
     HapticFeedback.lightImpact();
 
     setState(() => _isChecking = true);
-    _radarController.repeat();
-    _pulseController.repeat(reverse: true);
+    _waveController.repeat();
 
     final startTime = DateTime.now();
 
@@ -177,10 +171,8 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
     } finally {
       if (mounted) {
         setState(() => _isChecking = false);
-        _radarController.stop();
-        _radarController.reset();
-        _pulseController.stop();
-        _pulseController.reset();
+        _waveController.stop();
+        _waveController.reset();
       }
     }
   }
@@ -190,46 +182,44 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
     final isRtl = context.watch<LanguageProvider>().isRtl;
     return Directionality(
       textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
-        backgroundColor: _kSurface,
-        body: SafeArea(
-          child: ResponsivePageWrapper(
-            child: Column(
-            children: [
-              _Header(
-                isChecking: _isChecking,
-                hasResults: _results.isNotEmpty,
-                onBack: () => Navigator.pop(context),
-                onClear: () => setState(() => _results.clear()),
-                isRtl: isRtl,
+      child: AppBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: ResponsivePageWrapper(
+              child: Column(
+                children: [
+                  _Header(
+                    hasResults: _results.isNotEmpty,
+                    onBack: () => Navigator.pop(context),
+                    onClear: () => setState(() => _results.clear()),
+                    isRtl: isRtl,
+                  ),
+                  _InputBar(
+                    controller: _hostController,
+                    focusNode: _focusNode,
+                    isChecking: _isChecking,
+                    onSubmit: _checkHost,
+                  ),
+                  _QuickRow(
+                    hosts: _quickHosts,
+                    isChecking: _isChecking,
+                    onTap: _checkHost,
+                  ),
+                  Expanded(
+                    child: _isChecking && _results.isEmpty
+                        ? _ScanningState(waveCtrl: _waveController)
+                        : _results.isEmpty
+                            ? const _EmptyState()
+                            : _ResultList(
+                                results: _results,
+                                isChecking: _isChecking,
+                                waveCtrl: _waveController,
+                              ),
+                  ),
+                ],
               ),
-              _InputBar(
-                controller: _hostController,
-                focusNode: _focusNode,
-                isChecking: _isChecking,
-                onSubmit: _checkHost,
-              ),
-              _QuickRow(
-                hosts: _quickHosts,
-                isChecking: _isChecking,
-                onTap: _checkHost,
-              ),
-              Expanded(
-                child: _isChecking && _results.isEmpty
-                    ? _ScanningState(
-                        radarCtrl: _radarController,
-                        pulseCtrl: _pulseController,
-                      )
-                    : _results.isEmpty
-                        ? const _EmptyState()
-                        : _ResultList(
-                            results: _results,
-                            isChecking: _isChecking,
-                            radarCtrl: _radarController,
-                          ),
-              ),
-            ],
-          ),
+            ),
           ),
         ),
       ),
@@ -240,14 +230,12 @@ class _HostCheckerScreenState extends State<HostCheckerScreen>
 // ─── Header ──────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
-  final bool isChecking;
   final bool hasResults;
   final VoidCallback onBack;
   final VoidCallback onClear;
   final bool isRtl;
 
   const _Header({
-    required this.isChecking,
     required this.hasResults,
     required this.onBack,
     required this.onClear,
@@ -256,28 +244,25 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
+    final btn = r.scale(40).clamp(36.0, 50.0);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: EdgeInsets.fromLTRB(
+        r.horizontalPadding,
+        r.scale(12).clamp(8.0, 18.0),
+        r.horizontalPadding,
+        r.scale(8).clamp(6.0, 14.0),
+      ),
       child: Row(
         children: [
-          GestureDetector(
+          _SquareIconButton(
+            size: btn,
+            icon: isRtl
+                ? Icons.arrow_forward_ios_rounded
+                : Icons.arrow_back_ios_new_rounded,
             onTap: onBack,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: Icon(
-                isRtl ? Icons.arrow_forward_ios_rounded : Icons.arrow_back_ios_new_rounded,
-                color: Colors.white70,
-                size: 18,
-              ),
-            ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: r.scale(12).clamp(8.0, 16.0)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,19 +270,18 @@ class _Header extends StatelessWidget {
                 Text(
                   AppLocalizations.of(context).translate('host_checker.title'),
                   style: GoogleFonts.poppins(
-                    fontSize: 20,
+                    fontSize: r.scale(20).clamp(16.0, 26.0),
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                     letterSpacing: -0.3,
-                    decoration: TextDecoration.none,
                   ),
                 ),
                 Text(
-                  AppLocalizations.of(context).translate('host_checker.start_checking'),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.white38,
-                    decoration: TextDecoration.none,
+                  AppLocalizations.of(context)
+                      .translate('host_checker.start_checking'),
+                  style: GoogleFonts.poppins(
+                    fontSize: r.scale(11).clamp(9.5, 13.5),
+                    color: Colors.white.withValues(alpha: 0.4),
                   ),
                 ),
               ],
@@ -306,29 +290,59 @@ class _Header extends StatelessWidget {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: hasResults
-                ? GestureDetector(
+                ? _SquareIconButton(
                     key: const ValueKey('clear'),
+                    size: btn,
+                    icon: Icons.delete_sweep_rounded,
+                    color: _kRed,
                     onTap: onClear,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: _kRed.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(11),
-                        border: Border.all(
-                          color: _kRed.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.delete_sweep_rounded,
-                        color: _kRed,
-                        size: 20,
-                      ),
-                    ),
                   )
-                : const SizedBox(key: ValueKey('empty'), width: 40),
+                : SizedBox(key: const ValueKey('empty'), width: btn),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SquareIconButton extends StatelessWidget {
+  final double size;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _SquareIconButton({
+    super.key,
+    required this.size,
+    required this.icon,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: (c ?? Colors.white).withValues(alpha: c != null ? 0.1 : 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: (c ?? Colors.white).withValues(alpha: c != null ? 0.25 : 0.08),
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: c ?? Colors.white70,
+            size: size * 0.45,
+          ),
+        ),
       ),
     );
   }
@@ -351,23 +365,31 @@ class _InputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
+    final h = r.scale(54).clamp(48.0, 64.0);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: EdgeInsets.fromLTRB(
+        r.horizontalPadding,
+        0,
+        r.horizontalPadding,
+        r.scale(12).clamp(8.0, 16.0),
+      ),
       child: Container(
-        height: 54,
+        height: h,
         decoration: BoxDecoration(
           color: _kCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isChecking
-                ? _kCyan.withValues(alpha: 0.4)
-                : Colors.white.withValues(alpha: 0.08),
+                ? _kAccent.withValues(alpha: 0.45)
+                : _kBorder,
           ),
         ),
         child: Row(
           children: [
             const SizedBox(width: 16),
-            const Icon(Icons.language_rounded, color: Colors.white30, size: 20),
+            Icon(Icons.language_rounded,
+                color: Colors.white.withValues(alpha: 0.3), size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
@@ -376,14 +398,13 @@ class _InputBar extends StatelessWidget {
                 style: GoogleFonts.robotoMono(
                   fontSize: 14,
                   color: Colors.white,
-                  decoration: TextDecoration.none,
                 ),
                 decoration: InputDecoration(
-                  hintText: AppLocalizations.of(context).translate('host_checker.enter_host'),
+                  hintText: AppLocalizations.of(context)
+                      .translate('host_checker.enter_host'),
                   hintStyle: GoogleFonts.robotoMono(
                     fontSize: 13,
-                    color: Colors.white24,
-                    decoration: TextDecoration.none,
+                    color: Colors.white.withValues(alpha: 0.24),
                   ),
                   border: InputBorder.none,
                   isDense: true,
@@ -398,17 +419,12 @@ class _InputBar extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 margin: const EdgeInsets.all(6),
-                width: 42,
-                height: 42,
+                width: h - 12,
+                height: h - 12,
                 decoration: BoxDecoration(
-                  gradient: isChecking
-                      ? null
-                      : const LinearGradient(
-                          colors: [Color(0xFF3A3A3A), Color(0xFF2A2A2A)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                  color: isChecking ? Colors.white10 : null,
+                  color: isChecking
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: isChecking
@@ -422,7 +438,8 @@ class _InputBar extends StatelessWidget {
                           ),
                         ),
                       )
-                    : const Icon(Icons.search_rounded, color: Colors.white, size: 20),
+                    : const Icon(Icons.search_rounded,
+                        color: Colors.black, size: 20),
               ),
             ),
           ],
@@ -447,21 +464,22 @@ class _QuickRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
     return SizedBox(
-      height: 36,
+      height: r.scale(36).clamp(32.0, 44.0),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(horizontal: r.horizontalPadding),
         physics: const BouncingScrollPhysics(),
         itemCount: hosts.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
-          final h = hosts[i];
-          final color = h['color'] as Color;
+          final host = hosts[i];
+          final color = host['color'] as Color;
           return GestureDetector(
-            onTap: isChecking ? null : () => onTap(h['host'] as String),
+            onTap: isChecking ? null : () => onTap(host['host'] as String),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 0),
+              padding: const EdgeInsets.symmetric(horizontal: 13),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
@@ -469,12 +487,11 @@ class _QuickRow extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                h['name'] as String,
-                style: TextStyle(
+                host['name'] as String,
+                style: GoogleFonts.poppins(
                   color: color,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  decoration: TextDecoration.none,
                 ),
               ),
             ),
@@ -485,84 +502,45 @@ class _QuickRow extends StatelessWidget {
   }
 }
 
-// ─── Scanning State ───────────────────────────────────────────────────────────
+// ─── Wave loading (shared, matches splash aesthetic) ──────────────────────────
 
-class _ScanningState extends StatelessWidget {
-  final AnimationController radarCtrl;
-  final AnimationController pulseCtrl;
+class _WaveLoading extends StatelessWidget {
+  final AnimationController controller;
+  final double barWidth;
+  final double barHeight;
+  final double bounce;
 
-  const _ScanningState({
-    required this.radarCtrl,
-    required this.pulseCtrl,
+  const _WaveLoading({
+    required this.controller,
+    this.barWidth = 5,
+    this.barHeight = 34,
+    this.bounce = 18,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Wave loading animation (3 bars)
-          _buildWaveLoading(),
-          
-          const SizedBox(height: 28),
-          
-          // Simple text
-          Text(
-            'Checking...',
-            style: GoogleFonts.robotoMono(
-              fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.6),
-              letterSpacing: 1,
-              fontWeight: FontWeight.w500,
-              decoration: TextDecoration.none,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWaveLoading() {
     return AnimatedBuilder(
-      animation: radarCtrl,
+      animation: controller,
       builder: (context, child) {
         return Row(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(3, (index) {
-            // Calculate wave animation with delay for each bar
-            final delay = index * 0.2;
-            final progress = (radarCtrl.value + delay) % 1.0;
-            
-            // Calculate vertical offset (bounce up and down)
+          children: List.generate(4, (index) {
+            final delay = index * 0.18;
+            final progress = (controller.value + delay) % 1.0;
             final offset = progress < 0.5
-                ? -20.0 * (progress * 2)
-                : -20.0 * (2 - progress * 2);
-
+                ? -bounce * (progress * 2)
+                : -bounce * (2 - progress * 2);
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: EdgeInsets.symmetric(horizontal: barWidth * 0.55),
               child: Transform.translate(
                 offset: Offset(0, offset),
                 child: Container(
-                  width: 5,
-                  height: 35,
+                  width: barWidth,
+                  height: barHeight,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF5A5A5A),
-                        Color(0xFF3A3A3A),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(2.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF4A4A4A).withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ],
+                    color: Colors.white.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(barWidth * 0.5),
                   ),
                 ),
               ),
@@ -574,10 +552,12 @@ class _ScanningState extends StatelessWidget {
   }
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
+// ─── Scanning State ───────────────────────────────────────────────────────────
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+class _ScanningState extends StatelessWidget {
+  final AnimationController waveCtrl;
+
+  const _ScanningState({required this.waveCtrl});
 
   @override
   Widget build(BuildContext context) {
@@ -585,9 +565,39 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          _WaveLoading(controller: waveCtrl),
+          const SizedBox(height: 28),
+          Text(
+            '${AppLocalizations.of(context).translate('host_checker.quick_check')}...',
+            style: GoogleFonts.robotoMono(
+              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.6),
+              letterSpacing: 1,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
+    final box = r.scale(80).clamp(64.0, 104.0);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
           Container(
-            width: 80,
-            height: 80,
+            width: box,
+            height: box,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -598,8 +608,8 @@ class _EmptyState extends StatelessWidget {
             ),
             child: Icon(
               Icons.language_rounded,
-              size: 38,
-              color: Colors.white.withValues(alpha: 0.4),
+              size: box * 0.46,
+              color: _kAccent.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 20),
@@ -609,16 +619,15 @@ class _EmptyState extends StatelessWidget {
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: Colors.white70,
-              decoration: TextDecoration.none,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            AppLocalizations.of(context).translate('host_checker.enter_host_to_check'),
-            style: const TextStyle(
+            AppLocalizations.of(context)
+                .translate('host_checker.enter_host_to_check'),
+            style: GoogleFonts.poppins(
               fontSize: 12,
-              color: Colors.white30,
-              decoration: TextDecoration.none,
+              color: Colors.white.withValues(alpha: 0.3),
             ),
             textAlign: TextAlign.center,
           ),
@@ -633,26 +642,35 @@ class _EmptyState extends StatelessWidget {
 class _ResultList extends StatelessWidget {
   final List<HostCheckResult> results;
   final bool isChecking;
-  final AnimationController radarCtrl;
+  final AnimationController waveCtrl;
 
   const _ResultList({
     required this.results,
     required this.isChecking,
-    required this.radarCtrl,
+    required this.waveCtrl,
   });
 
   @override
   Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: EdgeInsets.fromLTRB(
+        r.horizontalPadding,
+        r.scale(16).clamp(12.0, 22.0),
+        r.horizontalPadding,
+        r.scale(80).clamp(60.0, 110.0),
+      ),
       physics: const BouncingScrollPhysics(),
       itemCount: results.length + (isChecking ? 1 : 0),
       itemBuilder: (context, index) {
         if (isChecking && index == 0) {
-          return _ScanningListTile(radarCtrl: radarCtrl);
+          return _ScanningListTile(waveCtrl: waveCtrl);
         }
         final result = results[isChecking ? index - 1 : index];
-        return _ResultTile(result: result, isFirst: index == (isChecking ? 1 : 0));
+        return _ResultTile(
+          result: result,
+          isFirst: index == (isChecking ? 1 : 0),
+        );
       },
     );
   }
@@ -661,9 +679,9 @@ class _ResultList extends StatelessWidget {
 // ─── Scanning List Tile ───────────────────────────────────────────────────────
 
 class _ScanningListTile extends StatelessWidget {
-  final AnimationController radarCtrl;
+  final AnimationController waveCtrl;
 
-  const _ScanningListTile({required this.radarCtrl});
+  const _ScanningListTile({required this.waveCtrl});
 
   @override
   Widget build(BuildContext context) {
@@ -673,73 +691,26 @@ class _ScanningListTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: _kCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: _kAccent.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          // Wave loading animation (3 bars - smaller)
-          _buildSmallWaveLoading(),
+          _WaveLoading(
+            controller: waveCtrl,
+            barWidth: 3,
+            barHeight: 20,
+            bounce: 10,
+          ),
           const SizedBox(width: 14),
           Text(
-            'Checking...',
+            '${AppLocalizations.of(context).translate('host_checker.quick_check')}...',
             style: GoogleFonts.robotoMono(
               fontSize: 13,
               color: Colors.white.withValues(alpha: 0.6),
-              decoration: TextDecoration.none,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSmallWaveLoading() {
-    return AnimatedBuilder(
-      animation: radarCtrl,
-      builder: (context, child) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (index) {
-            // Calculate wave animation with delay for each bar
-            final delay = index * 0.2;
-            final progress = (radarCtrl.value + delay) % 1.0;
-            
-            // Calculate vertical offset (bounce up and down)
-            final offset = progress < 0.5
-                ? -10.0 * (progress * 2)
-                : -10.0 * (2 - progress * 2);
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Transform.translate(
-                offset: Offset(0, offset),
-                child: Container(
-                  width: 3,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF5A5A5A),
-                        Color(0xFF3A3A3A),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF4A4A4A).withValues(alpha: 0.3),
-                        blurRadius: 6,
-                        spreadRadius: 0.5,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        );
-      },
     );
   }
 }
@@ -772,7 +743,6 @@ class _ResultTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Status dot
           Container(
             width: 8,
             height: 8,
@@ -785,7 +755,6 @@ class _ResultTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Host
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,7 +765,6 @@ class _ResultTile extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.87),
-                    decoration: TextDecoration.none,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -818,10 +786,9 @@ class _ResultTile extends StatelessWidget {
                       Flexible(
                         child: Text(
                           result.error!,
-                          style: TextStyle(
+                          style: GoogleFonts.robotoMono(
                             fontSize: 10,
                             color: _kRed.withValues(alpha: 0.7),
-                            decoration: TextDecoration.none,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -834,13 +801,11 @@ class _ResultTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // Time
           Text(
             _fmt(result.timestamp),
             style: GoogleFonts.robotoMono(
               fontSize: 10,
               color: Colors.white24,
-              decoration: TextDecoration.none,
             ),
           ),
         ],
@@ -883,11 +848,8 @@ class _Badge extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: color == Colors.white24 ? Colors.white54 : color,
           letterSpacing: 0.5,
-          decoration: TextDecoration.none,
         ),
       ),
     );
   }
 }
-
-

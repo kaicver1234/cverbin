@@ -29,7 +29,9 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     )..repeat();
 
-    Timer(const Duration(milliseconds: 3000), () {
+    // Shorter splash so the home screen (with the correct connect state)
+    // appears quickly when the user reopens the app after a VPN connection.
+    Timer(const Duration(milliseconds: 2000), () {
       if (mounted) {
         _navigateToNext();
       }

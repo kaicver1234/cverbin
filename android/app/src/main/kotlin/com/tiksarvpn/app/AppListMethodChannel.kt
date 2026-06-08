@@ -87,7 +87,7 @@ class AppListMethodChannel(private val context: Context) : MethodCallHandler {
 
     private fun drawableToPngBytes(drawable: Drawable): ByteArray? {
         return try {
-            val size = 96
+            val size = 64
             val bitmap = if (drawable is BitmapDrawable && drawable.bitmap != null) {
                 Bitmap.createScaledBitmap(drawable.bitmap, size, size, true)
             } else {
@@ -98,7 +98,7 @@ class AppListMethodChannel(private val context: Context) : MethodCallHandler {
                 bmp
             }
             val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 90, stream)
+            bitmap.compress(Bitmap.CompressFormat.PNG, 75, stream)
             stream.toByteArray()
         } catch (_: Exception) {
             null

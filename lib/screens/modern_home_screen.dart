@@ -457,7 +457,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
   Widget _buildStatusPill(V2RayProvider provider) {
     final isConnected = provider.activeConfig != null;
-    final isConnecting = _isConnecting;
+    final isConnecting = _isConnecting || provider.isConnecting;
 
     final String text;
     final Color color;
@@ -508,7 +508,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
   Widget _buildConnectionButtonWithStatus(V2RayProvider provider) {
     final responsive = ResponsiveHelper(context);
     final isConnected = provider.activeConfig != null;
-    final isConnecting = _isConnecting;
+    final isConnecting = _isConnecting || provider.isConnecting;
 
     final btnSize = responsive.connectionButtonSize;
     return ModernConnectionButton(

@@ -180,6 +180,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: perAppProxyProvider),
         ChangeNotifierProvider.value(value: routingProvider),
         ChangeNotifierProxyProvider3<DnsProvider, PerAppProxyProvider, RoutingProvider, V2RayProvider>(
+          // Eager init — start the VPN state restore while the splash is on
+          // screen so the home page renders the correct connect state on the
+          // very first frame instead of flashing "Disconnected" first.
+          lazy: false,
           create: (_) => V2RayProvider(),
           update: (_, dns, perApp, routing, v2ray) {
             v2ray?.setDnsProvider(dns);

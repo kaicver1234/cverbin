@@ -2110,7 +2110,41 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         final connectedConfigIndex = _configs.indexWhere((c) => c.isConnected);
         if (connectedConfigIndex != -1) {
           _selectedConfig = _configs[connectedConfigIndex];
+          _wasUsingSmartConnect = false;
           debugPrint('📂 Found connected config: ${_selectedConfig?.remark}');
+        }
+
+        // OPTIMISTIC ACTIVE-CONFIG RESTORE
+        // The home screen reads `provider.activeConfig != null` to decide
+        // whether to render the "connected" state. On cold start that field
+        // is null until the native VPN-state check finishes (~50–200 ms),
+        // which is exactly the lag the user sees as a flash of
+        // "Disconnected" right after the splash. If our saved state says
+        // we were connected AND the saved timestamp is still inside the
+        // 120s grace window, restore the saved active config straight away.
+        // The native check that runs immediately after this in _initialize()
+        // either confirms it (no UI change) or calls forceDisconnectedState
+        // to clear it.
+        final wasConnected = prefs.getBool('vpn_was_connected') ?? false;
+        if (wasConnected &&
+            _lastSuccessfulConnection != null &&
+            DateTime.now().difference(_lastSuccessfulConnection!).inSeconds < 120 &&
+            _v2rayService.activeConfig == null) {
+          await _v2rayService.restoreActiveConfig();
+          final restored = _v2rayService.activeConfig;
+          if (restored != null) {
+            for (var c in _configs) {
+              final shouldBeConnected = c.id == restored.id ||
+                  c.fullConfig == restored.fullConfig ||
+                  (c.address == restored.address && c.port == restored.port);
+              if (shouldBeConnected) {
+                c.isConnected = true;
+                _selectedConfig = c;
+                _wasUsingSmartConnect = false;
+              }
+            }
+            debugPrint('⚡ Optimistic activeConfig restored: ${restored.remark}');
+          }
         }
         
         notifyListeners();

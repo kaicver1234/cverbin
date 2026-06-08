@@ -4,10 +4,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
-import '../widgets/cyber_glow_background.dart';
-import 'main_navigation_screen.dart';
 import '../utils/app_localizations.dart';
 import '../utils/responsive_helper.dart';
+import 'main_navigation_screen.dart';
+
+// Match the rest of the app's minimal black/white theme.
+const _kBg            = Color(0xFF000000);
+const _kSurface       = Color(0xFF0F0F0F);
+const _kSurfaceHigh   = Color(0xFF161616);
+const _kBorder        = Color(0xFF1F1F1F);
+const _kBorderStrong  = Color(0xFF2A2A2A);
+const _kAccent        = Color(0xFFA78BFA); // brand "VPN" purple, kept subtle
 
 class PrivacyWelcomeScreen extends StatefulWidget {
   const PrivacyWelcomeScreen({super.key});
@@ -17,57 +24,71 @@ class PrivacyWelcomeScreen extends StatefulWidget {
 }
 
 class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  static const int _pageCount = 3;
+  bool _completing = false;
 
-  late AnimationController _fadeController;
-  late AnimationController _scaleController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-
-  static const _cyan   = Color(0xFF00D9FF);
-  static const _green  = Color(0xFF00FFA3);
-  static const _purple = Color(0xFFa78bfa);
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fade;
 
   @override
   void initState() {
     super.initState();
-    _fadeController  = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _scaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light.copyWith(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: _kBg,
+    ));
 
-    _fadeAnimation  = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _fadeController,  curve: Curves.easeOut));
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1).animate(CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut));
-
-    _fadeController.forward();
-    _scaleController.forward();
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _fade = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    _fadeCtrl.forward();
   }
 
   @override
   void dispose() {
     _pageController.dispose();
-    _fadeController.dispose();
-    _scaleController.dispose();
+    _fadeCtrl.dispose();
     super.dispose();
   }
 
-  void _nextPage() {
+  bool get _isRtl {
+    final code = context.read<LanguageProvider>().currentLanguage.code;
+    return code == 'fa' || code == 'ar';
+  }
+
+  TextStyle _heading(double size) => _headingStyle(context, size);
+
+  void _onNext() {
     HapticFeedback.lightImpact();
-    if (_currentPage < 2) {
-      _pageController.animateToPage(_currentPage + 1, duration: const Duration(milliseconds: 400), curve: Curves.easeInOutCubic);
+    if (_currentPage < _pageCount - 1) {
+      _pageController.animateToPage(
+        _currentPage + 1,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
     } else {
       _completeOnboarding();
     }
   }
 
-  void _previousPage() {
+  void _onPrev() {
+    if (_currentPage == 0) return;
     HapticFeedback.lightImpact();
-    if (_currentPage > 0) {
-      _pageController.previousPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOutCubic);
-    }
+    _pageController.animateToPage(
+      _currentPage - 1,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
-  void _completeOnboarding() async {
+  Future<void> _completeOnboarding() async {
+    if (_completing) return;
+    _completing = true;
     HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('privacy_accepted', true);
@@ -76,59 +97,46 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
       context,
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => const MainNavigationScreen(),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
-        transitionDuration: const Duration(milliseconds: 500),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 320),
       ),
     );
-  }
-
-  bool get _isRtl {
-    final lang = context.read<LanguageProvider>().currentLanguage.code;
-    return lang == 'fa' || lang == 'ar';
-  }
-
-  TextStyle _heading(double size) {
-    final base = TextStyle(fontSize: size, fontWeight: FontWeight.w700, color: Colors.white, height: 1.2, letterSpacing: -0.4, decoration: TextDecoration.none);
-    return _isRtl ? base : GoogleFonts.poppins(textStyle: base);
-  }
-
-  TextStyle _body(double size, {Color? color}) {
-    final base = TextStyle(fontSize: size, fontWeight: FontWeight.w400, color: color ?? Colors.white.withValues(alpha: 0.6), height: 1.65, decoration: TextDecoration.none);
-    return _isRtl ? base : GoogleFonts.poppins(textStyle: base);
-  }
-
-  TextStyle _label(double size, Color color) {
-    final base = TextStyle(fontSize: size, fontWeight: FontWeight.w600, color: color, decoration: TextDecoration.none);
-    return _isRtl ? base : GoogleFonts.poppins(textStyle: base);
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<LanguageProvider>(
-      builder: (context, languageProvider, child) {
+      builder: (context, lang, _) {
         return Directionality(
-          textDirection: languageProvider.textDirection,
-          child: CyberGlowBackground(
-            child: SafeArea(
+          textDirection: lang.textDirection,
+          child: Scaffold(
+            backgroundColor: _kBg,
+            body: SafeArea(
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
                   child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    Expanded(
-                      child: PageView(
-                        controller: _pageController,
-                        physics: const BouncingScrollPhysics(),
-                        onPageChanged: (page) => setState(() => _currentPage = page),
-                        children: [_buildWelcomePage(), _buildFeaturePage(), _buildGetStartedPage()],
-                      ),
+                    opacity: _fade,
+                    child: Column(
+                      children: [
+                        _buildHeader(),
+                        Expanded(
+                          child: PageView(
+                            controller: _pageController,
+                            physics: const ClampingScrollPhysics(),
+                            onPageChanged: (i) =>
+                                setState(() => _currentPage = i),
+                            children: const [
+                              _WelcomePage(),
+                              _FeaturesPage(),
+                              _GetStartedPage(),
+                            ],
+                          ),
+                        ),
+                        _buildBottomNav(),
+                      ],
                     ),
-                    _buildBottomNav(),
-                  ],
-                ),
                   ),
                 ),
               ),
@@ -139,217 +147,414 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
     );
   }
 
-  // ─── Header ────────────────────────────────────────────────────────────────
-
   Widget _buildHeader() {
+    final tr = AppLocalizations.of(context);
     final r = ResponsiveHelper(context);
-    final hPad = r.scale(24).clamp(16.0, 32.0);
-    final vPad = r.scale(16).clamp(10.0, 22.0);
+
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+      padding: EdgeInsets.fromLTRB(
+        r.scale(20).clamp(14.0, 28.0),
+        r.scale(16).clamp(10.0, 22.0),
+        r.scale(20).clamp(14.0, 28.0),
+        r.scale(8).clamp(6.0, 14.0),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           RichText(
             text: TextSpan(
-              style: _heading(r.scale(20).clamp(16.0, 26.0)),
-              children: [
-                const TextSpan(text: 'Tiksar'),
-                TextSpan(text: 'VPN', style: TextStyle(color: _purple, decoration: TextDecoration.none)),
+              style: _heading(r.scale(19).clamp(15.0, 24.0)),
+              children: const [
+                TextSpan(text: 'Tiksar'),
+                TextSpan(
+                  text: 'VPN',
+                  style: TextStyle(
+                    color: _kAccent,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
               ],
             ),
           ),
-          GestureDetector(
-            onTap: _completeOnboarding,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: r.scale(16).clamp(10.0, 22.0),
-                vertical:   r.scale(8).clamp(5.0, 12.0),
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(r.scale(20).clamp(14.0, 26.0)),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: Text(
-                AppLocalizations.of(context).translate('privacy_welcome.skip'),
-                style: _label(r.scale(13).clamp(10.0, 16.0), Colors.white.withValues(alpha: 0.5)),
-              ),
+          if (_currentPage < _pageCount - 1)
+            _SkipButton(
+              label: tr.translate('privacy_welcome.skip'),
+              onTap: _completeOnboarding,
+              isRtl: _isRtl,
             ),
-          ),
         ],
       ),
     );
   }
 
-  // ─── Page 1: Welcome ───────────────────────────────────────────────────────
+  Widget _buildBottomNav() {
+    final r = ResponsiveHelper(context);
+    final isLast = _currentPage == _pageCount - 1;
 
-  Widget _buildWelcomePage() {
-    final tr = AppLocalizations.of(context);
-    final r  = ResponsiveHelper(context);
-    final hPad = r.scale(32).clamp(20.0, 44.0);
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: hPad),
-        child: Column(
-          children: [
-            SizedBox(height: r.scale(40).clamp(24.0, 56.0)),
-            ScaleTransition(
-              scale: _scaleAnimation,
-              child: Container(
-                width:  r.scale(130).clamp(96.0, 164.0),
-                height: r.scale(130).clamp(96.0, 164.0),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF10b981), Color(0xFF06b6d4)],
-                  ),
-                  boxShadow: [BoxShadow(color: const Color(0xFF10b981).withValues(alpha: 0.35), blurRadius: 40, spreadRadius: 4)],
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        r.horizontalPadding,
+        r.scale(12).clamp(8.0, 18.0),
+        r.horizontalPadding,
+        r.scale(20).clamp(14.0, 28.0),
+      ),
+      child: Column(
+        children: [
+          // Page indicator dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_pageCount, (i) {
+              final active = _currentPage == i;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                margin: EdgeInsets.symmetric(
+                  horizontal: r.scale(4).clamp(3.0, 6.0),
                 ),
-                child: Icon(Icons.shield_rounded, size: r.scale(60).clamp(44.0, 76.0), color: Colors.white),
+                width: active
+                    ? r.scale(22).clamp(16.0, 28.0)
+                    : r.scale(7).clamp(5.0, 9.0),
+                height: r.scale(7).clamp(5.0, 9.0),
+                decoration: BoxDecoration(
+                  color: active
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+          SizedBox(height: r.scale(18).clamp(12.0, 24.0)),
+          Row(
+            children: [
+              if (_currentPage > 0)
+                _NavSquareButton(
+                  icon: Icons.arrow_back_rounded,
+                  onTap: _onPrev,
+                  isRtl: _isRtl,
+                )
+              else
+                SizedBox(width: r.scale(48).clamp(40.0, 60.0)),
+              SizedBox(width: r.scale(12).clamp(8.0, 16.0)),
+              Expanded(
+                child: _PrimaryButton(
+                  label: isLast
+                      ? AppLocalizations.of(context)
+                          .translate('privacy_welcome.get_started')
+                      : _isRtl ? 'ادامه' : 'Continue',
+                  onTap: _onNext,
+                ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Page 1: Welcome ─────────────────────────────────────────────────────────
+
+class _WelcomePage extends StatelessWidget {
+  const _WelcomePage();
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = AppLocalizations.of(context);
+    final r = ResponsiveHelper(context);
+    final hPad = r.scale(28).clamp(18.0, 40.0);
+
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: hPad),
+      child: Column(
+        children: [
+          SizedBox(height: r.scale(36).clamp(20.0, 56.0)),
+          _HeroIcon(
+            icon: Icons.shield_rounded,
+            size: r.scale(120).clamp(92.0, 156.0),
+            iconSize: r.scale(54).clamp(40.0, 70.0),
+          ),
+          SizedBox(height: r.scale(40).clamp(24.0, 56.0)),
+          Text(
+            tr.translate('privacy_welcome.welcome_title'),
+            textAlign: TextAlign.center,
+            style: _headingStyle(
+              context,
+              r.scale(28).clamp(20.0, 36.0),
             ),
-            SizedBox(height: r.scale(48).clamp(28.0, 64.0)),
-            Text(
-              tr.translate('privacy_welcome.welcome_title'),
-              textAlign: TextAlign.center,
-              style: _heading(r.scale(30).clamp(22.0, 40.0)),
+          ),
+          SizedBox(height: r.scale(12).clamp(8.0, 18.0)),
+          Text(
+            tr.translate('privacy_welcome.welcome_subtitle'),
+            textAlign: TextAlign.center,
+            style: _bodyStyle(
+              context,
+              r.scale(14.5).clamp(12.0, 17.0),
             ),
-            SizedBox(height: r.scale(14).clamp(10.0, 20.0)),
-            Text(
-              tr.translate('privacy_welcome.welcome_subtitle'),
-              textAlign: TextAlign.center,
-              style: _body(r.scale(15).clamp(12.0, 18.0)),
+          ),
+          SizedBox(height: r.scale(32).clamp(20.0, 44.0)),
+          Wrap(
+            spacing: r.scale(8).clamp(6.0, 12.0),
+            runSpacing: r.scale(8).clamp(6.0, 10.0),
+            alignment: WrapAlignment.center,
+            children: [
+              _Pill(icon: Icons.lock_rounded,   label: tr.translate('privacy_welcome.secure')),
+              _Pill(icon: Icons.bolt_rounded,   label: tr.translate('privacy_welcome.fast')),
+              _Pill(icon: Icons.public_rounded, label: tr.translate('privacy_welcome.global')),
+            ],
+          ),
+          SizedBox(height: r.scale(32).clamp(20.0, 44.0)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Page 2: Features ────────────────────────────────────────────────────────
+
+class _FeaturesPage extends StatelessWidget {
+  const _FeaturesPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = AppLocalizations.of(context);
+    final r = ResponsiveHelper(context);
+    final hPad = r.scale(24).clamp(16.0, 32.0);
+
+    final items = <_Feature>[
+      _Feature(Icons.verified_user_rounded,
+          tr.translate('privacy_welcome.military_grade_encryption'),
+          tr.translate('privacy_welcome.military_grade_desc')),
+      _Feature(Icons.bolt_rounded,
+          tr.translate('privacy_welcome.lightning_fast'),
+          tr.translate('privacy_welcome.lightning_fast_desc')),
+      _Feature(Icons.public_rounded,
+          tr.translate('privacy_welcome.global_network'),
+          tr.translate('privacy_welcome.global_network_desc')),
+      _Feature(Icons.visibility_off_rounded,
+          tr.translate('privacy_welcome.no_logs'),
+          tr.translate('privacy_welcome.no_logs_desc')),
+    ];
+
+    return ListView(
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(hPad, r.scale(20).clamp(12.0, 32.0), hPad, r.scale(16).clamp(10.0, 22.0)),
+      children: [
+        Text(
+          tr.translate('privacy_welcome.why_choose_us'),
+          textAlign: TextAlign.center,
+          style: _headingStyle(
+            context,
+            r.scale(24).clamp(18.0, 30.0),
+          ),
+        ),
+        SizedBox(height: r.scale(8).clamp(6.0, 12.0)),
+        Text(
+          tr.translate('privacy_welcome.features_subtitle'),
+          textAlign: TextAlign.center,
+          style: _bodyStyle(
+            context,
+            r.scale(13.5).clamp(11.0, 16.0),
+          ),
+        ),
+        SizedBox(height: r.scale(24).clamp(14.0, 32.0)),
+        for (final f in items) ...[
+          _FeatureCard(feature: f),
+          SizedBox(height: r.scale(10).clamp(8.0, 14.0)),
+        ],
+      ],
+    );
+  }
+}
+
+// ─── Page 3: Get Started ─────────────────────────────────────────────────────
+
+class _GetStartedPage extends StatelessWidget {
+  const _GetStartedPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = AppLocalizations.of(context);
+    final r = ResponsiveHelper(context);
+    final hPad = r.scale(28).clamp(18.0, 40.0);
+
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: hPad),
+      child: Column(
+        children: [
+          SizedBox(height: r.scale(48).clamp(28.0, 72.0)),
+          _HeroIcon(
+            icon: Icons.check_rounded,
+            size: r.scale(116).clamp(88.0, 148.0),
+            iconSize: r.scale(54).clamp(40.0, 68.0),
+          ),
+          SizedBox(height: r.scale(40).clamp(24.0, 56.0)),
+          Text(
+            tr.translate('privacy_welcome.ready_to_start'),
+            textAlign: TextAlign.center,
+            style: _headingStyle(
+              context,
+              r.scale(26).clamp(20.0, 32.0),
             ),
-            SizedBox(height: r.scale(44).clamp(28.0, 56.0)),
-            _buildPillRow(r),
-            SizedBox(height: r.scale(40).clamp(24.0, 52.0)),
-          ],
+          ),
+          SizedBox(height: r.scale(12).clamp(8.0, 18.0)),
+          Text(
+            tr.translate('privacy_welcome.one_tap_away'),
+            textAlign: TextAlign.center,
+            style: _bodyStyle(
+              context,
+              r.scale(14.5).clamp(12.0, 17.0),
+            ),
+          ),
+          SizedBox(height: r.scale(32).clamp(20.0, 44.0)),
+          _NoRegistrationChip(
+            label: tr.translate('privacy_welcome.no_registration'),
+          ),
+          SizedBox(height: r.scale(28).clamp(18.0, 40.0)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Shared widgets ──────────────────────────────────────────────────────────
+
+class _HeroIcon extends StatelessWidget {
+  final IconData icon;
+  final double size;
+  final double iconSize;
+  const _HeroIcon({
+    required this.icon,
+    required this.size,
+    required this.iconSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: _kSurfaceHigh,
+        border: Border.all(color: _kBorderStrong, width: 1.2),
+      ),
+      child: Center(
+        child: Icon(
+          icon,
+          size: iconSize,
+          color: Colors.white.withValues(alpha: 0.92),
         ),
       ),
     );
   }
+}
 
-  Widget _buildPillRow(ResponsiveHelper r) {
-    final tr = AppLocalizations.of(context);
-    return Wrap(
-      spacing: r.scale(10).clamp(6.0, 14.0),
-      runSpacing: r.scale(8).clamp(6.0, 12.0),
-      alignment: WrapAlignment.center,
-      children: [
-        _buildPill(r, Icons.lock_rounded,   tr.translate('privacy_welcome.secure'), const Color(0xFF10b981)),
-        _buildPill(r, Icons.bolt_rounded,   tr.translate('privacy_welcome.fast'),   const Color(0xFF06b6d4)),
-        _buildPill(r, Icons.public_rounded, tr.translate('privacy_welcome.global'), _purple),
-      ],
-    );
-  }
+class _Pill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _Pill({required this.icon, required this.label});
 
-  Widget _buildPill(ResponsiveHelper r, IconData icon, String label, Color color) {
+  @override
+  Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: r.scale(12).clamp(8.0, 16.0),
-        vertical:   r.scale(8).clamp(5.0, 11.0),
+        horizontal: r.scale(12).clamp(9.0, 16.0),
+        vertical: r.scale(7).clamp(5.0, 10.0),
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(r.scale(20).clamp(14.0, 26.0)),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _kBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: r.scale(15).clamp(12.0, 18.0)),
-          SizedBox(width: r.scale(5).clamp(3.0, 8.0)),
-          Text(label, style: _label(r.scale(11).clamp(9.0, 14.0), color)),
+          Icon(
+            icon,
+            color: Colors.white.withValues(alpha: 0.7),
+            size: r.scale(14).clamp(11.0, 17.0),
+          ),
+          SizedBox(width: r.scale(6).clamp(4.0, 9.0)),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: r.scale(12).clamp(10.0, 14.0),
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  // ─── Page 2: Features ──────────────────────────────────────────────────────
+class _Feature {
+  final IconData icon;
+  final String title;
+  final String desc;
+  const _Feature(this.icon, this.title, this.desc);
+}
 
-  Widget _buildFeaturePage() {
-    final tr = AppLocalizations.of(context);
-    final r  = ResponsiveHelper(context);
-    final features = [
-      {'icon': Icons.verified_user_rounded, 'title': tr.translate('privacy_welcome.military_grade_encryption'), 'desc': tr.translate('privacy_welcome.military_grade_desc'),  'color': const Color(0xFF10b981)},
-      {'icon': Icons.speed_rounded,         'title': tr.translate('privacy_welcome.lightning_fast'),            'desc': tr.translate('privacy_welcome.lightning_fast_desc'), 'color': const Color(0xFF06b6d4)},
-      {'icon': Icons.language_rounded,      'title': tr.translate('privacy_welcome.global_network'),            'desc': tr.translate('privacy_welcome.global_network_desc'), 'color': _purple},
-      {'icon': Icons.visibility_off_rounded,'title': tr.translate('privacy_welcome.no_logs'),                   'desc': tr.translate('privacy_welcome.no_logs_desc'),         'color': const Color(0xFFf472b6)},
-    ];
+class _FeatureCard extends StatelessWidget {
+  final _Feature feature;
+  const _FeatureCard({required this.feature});
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: r.scale(24).clamp(16.0, 32.0)),
-        child: Column(
-          children: [
-            SizedBox(height: r.scale(32).clamp(20.0, 44.0)),
-            Text(tr.translate('privacy_welcome.why_choose_us'), style: _heading(r.scale(26).clamp(20.0, 34.0)), textAlign: TextAlign.center),
-            SizedBox(height: r.scale(8).clamp(5.0, 12.0)),
-            Text(tr.translate('privacy_welcome.features_subtitle'), style: _body(r.scale(14).clamp(11.0, 17.0)), textAlign: TextAlign.center),
-            SizedBox(height: r.scale(28).clamp(18.0, 36.0)),
-            ...features.asMap().entries.map((entry) {
-              final index   = entry.key;
-              final feature = entry.value;
-              return TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: Duration(milliseconds: 400 + (index * 100)),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, child) => Transform.translate(
-                  offset: Offset(0, 20 * (1 - value)),
-                  child: Opacity(
-                    opacity: value,
-                    child: _buildFeatureCard(
-                      r:     r,
-                      icon:  feature['icon']  as IconData,
-                      title: feature['title'] as String,
-                      desc:  feature['desc']  as String,
-                      color: feature['color'] as Color,
-                    ),
-                  ),
-                ),
-              );
-            }),
-            SizedBox(height: r.scale(24).clamp(16.0, 32.0)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeatureCard({required ResponsiveHelper r, required IconData icon, required String title, required String desc, required Color color}) {
-    final iconBoxSize = r.scale(48).clamp(38.0, 60.0);
+  @override
+  Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
+    final iconBox = r.scale(44).clamp(36.0, 56.0);
     return Container(
-      margin: EdgeInsets.only(bottom: r.scale(12).clamp(8.0, 16.0)),
-      padding: EdgeInsets.all(r.scale(16).clamp(12.0, 20.0)),
+      padding: EdgeInsets.all(r.scale(14).clamp(11.0, 18.0)),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(r.scale(18).clamp(12.0, 24.0)),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(r.scale(16).clamp(12.0, 22.0)),
+        border: Border.all(color: _kBorder),
       ),
       child: Row(
         children: [
           Container(
-            width: iconBoxSize,
-            height: iconBoxSize,
+            width: iconBox,
+            height: iconBox,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(r.scale(13).clamp(9.0, 17.0)),
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(r.scale(12).clamp(9.0, 16.0)),
             ),
-            child: Icon(icon, color: color, size: r.scale(24).clamp(18.0, 30.0)),
+            child: Icon(
+              feature.icon,
+              color: Colors.white.withValues(alpha: 0.9),
+              size: r.scale(22).clamp(17.0, 28.0),
+            ),
           ),
-          SizedBox(width: r.scale(14).clamp(10.0, 18.0)),
+          SizedBox(width: r.scale(13).clamp(10.0, 16.0)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: _label(r.scale(14).clamp(11.0, 17.0), Colors.white)),
+                Text(
+                  feature.title,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: r.scale(14).clamp(12.0, 16.0),
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
                 SizedBox(height: r.scale(3).clamp(2.0, 5.0)),
-                Text(desc, style: _body(r.scale(12).clamp(10.0, 14.0))),
+                Text(
+                  feature.desc,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: r.scale(12).clamp(10.0, 14.0),
+                    height: 1.5,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
               ],
             ),
           ),
@@ -357,183 +562,193 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
       ),
     );
   }
+}
 
-  // ─── Page 3: Get Started ───────────────────────────────────────────────────
+class _NoRegistrationChip extends StatelessWidget {
+  final String label;
+  const _NoRegistrationChip({required this.label});
 
-  Widget _buildGetStartedPage() {
-    final tr = AppLocalizations.of(context);
-    final r  = ResponsiveHelper(context);
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: r.scale(32).clamp(20.0, 44.0)),
-        child: Column(
-          children: [
-            SizedBox(height: r.scale(60).clamp(36.0, 80.0)),
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 800),
-              curve: Curves.elasticOut,
-              builder: (context, value, child) => Transform.scale(
-                scale: value,
-                child: Container(
-                  width:  r.scale(120).clamp(88.0, 152.0),
-                  height: r.scale(120).clamp(88.0, 152.0),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF10b981), Color(0xFF059669)],
-                    ),
-                    boxShadow: [BoxShadow(color: const Color(0xFF10b981).withValues(alpha: 0.4), blurRadius: 36, spreadRadius: 4)],
-                  ),
-                  child: Icon(Icons.check_rounded, size: r.scale(52).clamp(38.0, 66.0), color: Colors.white),
-                ),
-              ),
-            ),
-            SizedBox(height: r.scale(48).clamp(28.0, 64.0)),
-            Text(
-              tr.translate('privacy_welcome.ready_to_start'),
-              textAlign: TextAlign.center,
-              style: _heading(r.scale(26).clamp(20.0, 34.0)),
-            ),
-            SizedBox(height: r.scale(14).clamp(10.0, 20.0)),
-            Text(
-              tr.translate('privacy_welcome.one_tap_away'),
-              textAlign: TextAlign.center,
-              style: _body(r.scale(15).clamp(12.0, 18.0)),
-            ),
-            SizedBox(height: r.scale(48).clamp(28.0, 64.0)),
-            GestureDetector(
-              onTap: _completeOnboarding,
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: r.scale(18).clamp(13.0, 24.0)),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D1F14),
-                  borderRadius: BorderRadius.circular(r.scale(16).clamp(12.0, 20.0)),
-                  border: Border.all(color: _green.withValues(alpha: 0.4), width: 1.5),
-                  boxShadow: [BoxShadow(color: _green.withValues(alpha: 0.12), blurRadius: 20, offset: const Offset(0, 6))],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      tr.translate('privacy_welcome.get_started'),
-                      style: _label(r.scale(16).clamp(13.0, 20.0), _green),
-                    ),
-                    SizedBox(width: r.scale(8).clamp(5.0, 12.0)),
-                    Icon(Icons.arrow_forward_rounded, color: _green, size: r.scale(20).clamp(16.0, 24.0)),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: r.scale(16).clamp(10.0, 22.0)),
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: r.scale(14).clamp(10.0, 20.0),
-                vertical:   r.scale(9).clamp(6.0, 13.0),
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.03),
-                borderRadius: BorderRadius.circular(r.scale(20).clamp(14.0, 26.0)),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(r.scale(3).clamp(2.0, 5.0)),
-                    decoration: BoxDecoration(color: const Color(0xFF10b981).withValues(alpha: 0.18), shape: BoxShape.circle),
-                    child: Icon(Icons.check, color: const Color(0xFF10b981), size: r.scale(12).clamp(9.0, 15.0)),
-                  ),
-                  SizedBox(width: r.scale(7).clamp(5.0, 10.0)),
-                  Text(tr.translate('privacy_welcome.no_registration'), style: _body(r.scale(12).clamp(10.0, 14.0), color: Colors.white.withValues(alpha: 0.55))),
-                ],
-              ),
-            ),
-            SizedBox(height: r.scale(40).clamp(24.0, 52.0)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Bottom Nav ────────────────────────────────────────────────────────────
-
-  Widget _buildBottomNav() {
-    final r       = ResponsiveHelper(context);
-    final btnSize = r.scale(48).clamp(40.0, 60.0);
-    final dotH    = r.scale(8).clamp(6.0, 10.0);
-    final dotActiveW = r.scale(28).clamp(20.0, 36.0);
-    final dotInactiveW = r.scale(8).clamp(6.0, 10.0);
-
+  @override
+  Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        r.horizontalPadding,
-        r.scale(16).clamp(10.0, 22.0),
-        r.horizontalPadding,
-        r.scale(24).clamp(16.0, 32.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: r.scale(14).clamp(10.0, 18.0),
+        vertical: r.scale(9).clamp(6.0, 12.0),
+      ),
+      decoration: BoxDecoration(
+        color: _kSurface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _kBorder),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          AnimatedOpacity(
-            opacity: _currentPage > 0 ? 1 : 0,
-            duration: const Duration(milliseconds: 200),
-            child: GestureDetector(
-              onTap: _currentPage > 0 ? _previousPage : null,
-              child: Container(
-                width: btnSize,
-                height: btnSize,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D1520),
-                  borderRadius: BorderRadius.circular(r.scale(14).clamp(10.0, 18.0)),
-                  border: Border.all(color: _cyan.withValues(alpha: 0.2)),
-                ),
-                child: Icon(Icons.arrow_back_rounded, color: _cyan.withValues(alpha: 0.8), size: r.scale(22).clamp(16.0, 28.0)),
-              ),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.check_rounded,
+              size: r.scale(11).clamp(9.0, 13.0),
+              color: Colors.white,
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(3, (index) {
-              final isActive = _currentPage == index;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-                margin: EdgeInsets.symmetric(horizontal: r.scale(4).clamp(3.0, 6.0)),
-                width:  isActive ? dotActiveW : dotInactiveW,
-                height: dotH,
-                decoration: BoxDecoration(
-                  gradient: isActive ? const LinearGradient(colors: [_cyan, _green]) : null,
-                  color: isActive ? null : Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(dotH / 2),
-                ),
-              );
-            }),
-          ),
-          AnimatedOpacity(
-            opacity: _currentPage < 2 ? 1 : 0,
-            duration: const Duration(milliseconds: 200),
-            child: GestureDetector(
-              onTap: _currentPage < 2 ? _nextPage : null,
-              child: Container(
-                width: btnSize,
-                height: btnSize,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D1F14),
-                  borderRadius: BorderRadius.circular(r.scale(14).clamp(10.0, 18.0)),
-                  border: Border.all(color: _green.withValues(alpha: 0.35)),
-                  boxShadow: [BoxShadow(color: _green.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))],
-                ),
-                child: Icon(Icons.arrow_forward_rounded, color: _green, size: r.scale(22).clamp(16.0, 28.0)),
-              ),
+          SizedBox(width: r.scale(8).clamp(6.0, 10.0)),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: r.scale(12).clamp(10.0, 14.0),
+              fontWeight: FontWeight.w500,
+              decoration: TextDecoration.none,
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _SkipButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool isRtl;
+  const _SkipButton({required this.label, required this.onTap, required this.isRtl});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: r.scale(14).clamp(10.0, 18.0),
+            vertical: r.scale(7).clamp(5.0, 10.0),
+          ),
+          decoration: BoxDecoration(
+            color: _kSurface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: _kBorder),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: r.scale(12.5).clamp(10.0, 15.0),
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavSquareButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isRtl;
+  const _NavSquareButton({
+    required this.icon,
+    required this.onTap,
+    required this.isRtl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
+    final size = r.scale(48).clamp(40.0, 60.0);
+    return Material(
+      color: _kSurface,
+      borderRadius: BorderRadius.circular(r.scale(14).clamp(11.0, 18.0)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(r.scale(14).clamp(11.0, 18.0)),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(r.scale(14).clamp(11.0, 18.0)),
+            border: Border.all(color: _kBorder),
+          ),
+          child: Icon(
+            // Mirror back arrow in RTL so it visually points to the previous page.
+            isRtl ? Icons.arrow_forward_rounded : icon,
+            color: Colors.white.withValues(alpha: 0.85),
+            size: r.scale(20).clamp(16.0, 26.0),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _PrimaryButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = ResponsiveHelper(context);
+    final h = r.scale(48).clamp(42.0, 58.0);
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(r.scale(14).clamp(11.0, 18.0)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(r.scale(14).clamp(11.0, 18.0)),
+        child: SizedBox(
+          height: h,
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: r.scale(14.5).clamp(12.0, 17.0),
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Static helpers exposed so subpage widgets can share the parent's text styles
+// without having to thread them through every constructor.
+TextStyle _headingStyle(BuildContext context, double size) {
+  final code = context.read<LanguageProvider>().currentLanguage.code;
+  final isRtl = code == 'fa' || code == 'ar';
+  final base = TextStyle(
+    fontSize: size,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+    height: 1.25,
+    letterSpacing: -0.3,
+    decoration: TextDecoration.none,
+  );
+  return isRtl ? base : GoogleFonts.poppins(textStyle: base);
+}
+
+TextStyle _bodyStyle(BuildContext context, double size, {Color? color}) {
+  final code = context.read<LanguageProvider>().currentLanguage.code;
+  final isRtl = code == 'fa' || code == 'ar';
+  final base = TextStyle(
+    fontSize: size,
+    fontWeight: FontWeight.w400,
+    color: color ?? Colors.white.withValues(alpha: 0.55),
+    height: 1.6,
+    decoration: TextDecoration.none,
+  );
+  return isRtl ? base : GoogleFonts.poppins(textStyle: base);
 }
