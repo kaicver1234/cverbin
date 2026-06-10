@@ -22,7 +22,7 @@ class IpInfoScreen extends StatefulWidget {
 }
 
 class _IpInfoScreenState extends State<IpInfoScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _isLoading = true;
   Map<String, dynamic>? _ipData;
   String? _errorMessage;
@@ -30,6 +30,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
 
   late final AnimationController _animController;
   late final Animation<double> _fade;
+  late final AnimationController _waveController;
 
   bool get _isRtl =>
       Provider.of<LanguageProvider>(context, listen: false).isRtl;
@@ -44,6 +45,10 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       duration: const Duration(milliseconds: 450),
     );
     _fade = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _waveController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat();
     AnalyticsService().logScreenView(screenName: 'Safheh_Ettelaat_IP');
     _fetchIpInfo();
   }
@@ -51,6 +56,7 @@ class _IpInfoScreenState extends State<IpInfoScreen>
   @override
   void dispose() {
     _animController.dispose();
+    _waveController.dispose();
     super.dispose();
   }
 
@@ -188,12 +194,8 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _kPrimary),
-          ),
-          const SizedBox(height: 18),
+          _buildWaveLoading(),
+          const SizedBox(height: 26),
           Text(
             _t(fa: 'در حال شناسایی IP...', en: 'Detecting IP...'),
             style: TextStyle(
@@ -204,6 +206,44 @@ class _IpInfoScreenState extends State<IpInfoScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildWaveLoading() {
+    const double barW = 4;
+    const double barH = 30;
+    const double hPad = 3;
+    const double bounce = 15;
+    return AnimatedBuilder(
+      animation: _waveController,
+      builder: (context, child) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (index) {
+            final delay = index * 0.15;
+            final progress = (_waveController.value + delay) % 1.0;
+
+            final offset = progress < 0.5
+                ? -bounce * (progress * 2)
+                : -bounce * (2 - progress * 2);
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: hPad),
+              child: Transform.translate(
+                offset: Offset(0, offset),
+                child: Container(
+                  width: barW,
+                  height: barH,
+                  decoration: BoxDecoration(
+                    color: _kPrimary.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 

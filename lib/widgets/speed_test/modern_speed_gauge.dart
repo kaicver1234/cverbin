@@ -1,9 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// Brand colour — the gauge speaks ONLY in this single hue so it stays clean
-/// and on-brand, like the speedtest.net dial.
-const Color _kBrand = Color(0xFF00D9FF);
+/// Monochrome gauge — pure white on the dark app background. No accent hues.
+const Color _kBrand = Colors.white;
 
 /// A clean, minimal circular speed gauge inspired by speedtest.net: a simple
 /// 270° dial with evenly spaced ticks, a single-colour progress arc, and a
@@ -212,30 +211,6 @@ class _GaugePainter extends CustomPainter {
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(rect, startAngle, sweepTotal, false, trackPaint);
-
-    // Evenly spaced ticks that light up in the brand colour up to the fill —
-    // the simple "dial" feel of speedtest.net.
-    const tickCount = 40;
-    for (int i = 0; i <= tickCount; i++) {
-      final t = i / tickCount;
-      final angle = startAngle + sweepTotal * t;
-      final lit = t <= progress + 0.0001;
-      final tickPaint = Paint()
-        ..color = lit
-            ? _color.withValues(alpha: 0.9)
-            : Colors.white.withValues(alpha: 0.10)
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round;
-      final outer = Offset(
-        center.dx + (radius - 16) * math.cos(angle),
-        center.dy + (radius - 16) * math.sin(angle),
-      );
-      final inner = Offset(
-        center.dx + (radius - 24) * math.cos(angle),
-        center.dy + (radius - 24) * math.sin(angle),
-      );
-      canvas.drawLine(inner, outer, tickPaint);
-    }
 
     if (progress <= 0) return;
 
