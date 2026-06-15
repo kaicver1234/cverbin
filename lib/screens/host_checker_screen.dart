@@ -96,15 +96,21 @@ class _HostCheckerScreenState extends State<HostCheckerScreen> {
   /// A reachability check must NOT download the page body — the old version did
   /// a full `http.get`, which timed out on heavy sites like YouTube (large body
   /// + redirects to consent pages) even though the browser opens them instantly.
-  /// A TCP handshake reflects exactly what "can I reach this host" means and is
-  /// fast and reliable through the VPN tunnel.
   ///
-  /// DNS is resolved *outside* the timer on purpose. `Socket.connect(hostname,…)`
-  /// folds the one-time DNS lookup into the measurement, so the first check of a
-  /// host reads high (cold DNS, e.g. ~300ms) while later checks read low (the OS
-  /// DNS cache is warm, e.g. ~18ms) — which looks like a bug. Timing only the
-  /// handshake to an already-resolved IP keeps the result stable from the very
-  /// first check, and we take the fastest of [_probeCount] handshakes.
+  /// We must, however, force a *real* round-trip to the origin server. A bare
+  /// TCP `Socket.connect` is NOT enough: while the VPN is connected the local
+  /// tunnel/proxy accepts the TCP connection itself and ACKs it in well under a
+  /// millisecond, so the handshake reads ~0ms (shown as "1ms") regardless of the
+  /// real distance to the server. Instead:
+  ///   • For HTTPS (443) we perform a TLS handshake — a proxy cannot complete it
+  ///     on the server's behalf, so its timing reflects the true latency.
+  ///   • For HTTP (80) we send a minimal `HEAD` and wait for the first response
+  ///     byte, which the proxy must relay from the origin.
+  ///
+  /// DNS is resolved *outside* the timer on purpose. Folding the one-time DNS
+  /// lookup into the measurement makes the first check of a host read high (cold
+  /// DNS) while later checks read low (warm OS cache) — which looks like a bug.
+  /// We take the fastest of [_probeCount] probes to smooth random jitter.
   Future<int> _tcpConnect(String host, int port) async {
     // Resolve once, up front. Throws SocketException on DNS failure, which the
     // caller maps to "Host not found".
@@ -119,10 +125,35 @@ class _HostCheckerScreenState extends State<HostCheckerScreen> {
     for (var i = 0; i < _probeCount; i++) {
       try {
         final sw = Stopwatch()..start();
-        final socket = await Socket.connect(addr, port, timeout: _connectTimeout);
-        sw.stop();
-        socket.destroy();
-        final ms = sw.elapsedMilliseconds;
+        if (port == 443) {
+          // TLS handshake = genuine round-trip(s) to the origin server.
+          final socket = await SecureSocket.connect(
+            addr,
+            port,
+            timeout: _connectTimeout,
+            onBadCertificate: (_) => true, // timing only; ignore cert validity
+          );
+          sw.stop();
+          socket.destroy();
+        } else {
+          final socket =
+              await Socket.connect(addr, port, timeout: _connectTimeout);
+          // Minimal request, then wait for the first response byte so the
+          // measurement spans a real round-trip, not just the local proxy ACK.
+          socket.write(
+              'HEAD / HTTP/1.0\r\nHost: $host\r\nConnection: close\r\n\r\n');
+          try {
+            await socket.first.timeout(_connectTimeout);
+          } catch (_) {
+            // No data / closed early — fall back to the connect+request RTT.
+          }
+          sw.stop();
+          socket.destroy();
+        }
+        // Microsecond precision so genuinely fast (but non-zero) hosts don't all
+        // collapse onto "1ms"; round to ms for display, floored at 1.
+        final us = sw.elapsedMicroseconds;
+        final ms = (us / 1000).round().clamp(1, 1 << 30);
         if (best == null || ms < best) best = ms;
       } on SocketException catch (e) {
         lastError = e;

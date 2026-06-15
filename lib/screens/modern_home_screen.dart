@@ -82,8 +82,14 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
   }
 
   Future<void> _handleConnectionToggle() async {
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+
+    // Ignore taps while the previous connect is still being cancelled — the
+    // button shows "Cancelling…" until teardown finishes and a real connect
+    // would actually go through.
+    if (provider.isCancelling) return;
+
     if (_isConnecting) {
-      final provider = Provider.of<V2RayProvider>(context, listen: false);
       provider.cancelConnect();
       if (mounted) setState(() => _isConnecting = false);
       return;
@@ -91,8 +97,6 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
     if (!mounted) return;
     setState(() => _isConnecting = true);
-
-    final provider = Provider.of<V2RayProvider>(context, listen: false);
 
     try {
       if (provider.activeConfig != null) {
@@ -460,12 +464,16 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
   Widget _buildStatusPill(V2RayProvider provider) {
     final isConnected = provider.activeConfig != null;
+    final isCancelling = provider.isCancelling;
     final isConnecting = _isConnecting || provider.isConnecting;
 
     final String text;
     final Color color;
 
-    if (isConnecting) {
+    if (isCancelling) {
+      text = AppLocalizations.of(context).translate('home.cancelling');
+      color = const Color(0xFFFFB020);
+    } else if (isConnecting) {
       text = AppLocalizations.of(context).translate('home.connecting');
       color = const Color(0xFF00D9FF);
     } else if (isConnected) {
@@ -479,7 +487,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       child: Row(
-        key: ValueKey(isConnecting ? 'c' : isConnected ? 'on' : 'off'),
+        key: ValueKey(isCancelling ? 'x' : isConnecting ? 'c' : isConnected ? 'on' : 'off'),
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
@@ -511,7 +519,10 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
   Widget _buildConnectionButtonWithStatus(V2RayProvider provider) {
     final responsive = ResponsiveHelper(context);
     final isConnected = provider.activeConfig != null;
-    final isConnecting = _isConnecting || provider.isConnecting;
+    // Keep the spinner running during the cancel-teardown window so the button
+    // visibly stays "busy" instead of snapping back to the idle state while the
+    // tap is still being ignored.
+    final isConnecting = _isConnecting || provider.isConnecting || provider.isCancelling;
 
     final btnSize = responsive.connectionButtonSize;
     return ModernConnectionButton(
@@ -1085,8 +1096,8 @@ class _AboutPageViewState extends State<_AboutPageView>
               ),
               const SizedBox(height: 10),
               _buildSocialLink(
-                icon: Icons.location_city_rounded,
-                iconColor: const Color(0xFFAB47BC),
+                icon: Icons.camera_alt_rounded,
+                iconColor: const Color(0xFFEC407A),
                 name: AppLocalizations.of(context).translate('about.tiksar_village_page'),
                 title: remoteConfig.tiksarPageId,
                 url: remoteConfig.tiksarPageUrl,

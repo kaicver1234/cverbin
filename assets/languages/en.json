@@ -37,6 +37,7 @@
         "tap_to_connect": "Tap to Connect",
         "tap_to_stop": "Tap to Stop",
         "connecting": "Connecting...",
+        "cancelling": "Cancelling...",
         "connected": "Connected",
         "disconnected": "Disconnected",
         "connection_failed": "Connection Failed",
@@ -104,7 +105,7 @@
     "about": {
         "title": "About",
         "app_name": "Tiksar VPN",
-        "about_description": "Tiksar VPN is a powerful tool for accessing free internet. Break through restrictions and enjoy unlimited access to the global web with complete privacy and security.",
+        "about_description": "TiksarVPN is a powerful tool for accessing the free internet. Break through restrictions and enjoy unlimited access to the global internet with complete privacy and security.",
         "copyright": "2026 TiksarVPN",
         "developed_with": "Developed with",
         "developer": "by Abolfazl Jahani",
@@ -203,6 +204,6 @@
         "address_copied": "{crypto} address copied",
         "open_trust_wallet": "Open Trust Wallet",
         "wallet_open_error": "Error opening wallet",
-        "thank_you": "Thank you so much for your support! Every contribution, big or small, motivates us to provide the best service possible. 🙏"
+        "thank_you": "We deeply appreciate your heartfelt support! Every contribution, big or small, motivates us to keep moving forward on this journey with greater strength. 💙"
     }
 }

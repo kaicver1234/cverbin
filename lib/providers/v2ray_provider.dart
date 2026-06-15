@@ -240,14 +240,30 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   // spawning a second smartConnect() that resets _cancelRequested and lets BOTH
   // runs proceed to connect (double-connect race).
   bool _smartConnecting = false;
+  // True from the instant the user taps cancel until the in-flight connect flow
+  // actually finishes tearing down (its finally block clears _connecting). The
+  // UI watches this to keep showing a "Cancelling…" state and to block re-taps
+  // during the teardown+settle window, so the connect button can't be pressed
+  // again until it would actually work.
+  bool _cancelling = false;
 
   // Getter for wasUsingSmartConnect
   bool get wasUsingSmartConnect => _wasUsingSmartConnect;
+
+  // True while an in-flight connect is being torn down after the user cancelled.
+  bool get isCancelling => _cancelling;
   
   void cancelConnect() {
     if (_isConnecting) {
       _cancelRequested = true;
       debugPrint('🛑 Cancel requested by user');
+      // Enter the "cancelling" state. The original connect flow (connectToServer
+      // or smartConnect) is still suspended at an await and won't release its
+      // re-entrancy guard (_connecting / _smartConnecting) until its finally
+      // block runs after teardown + the 500ms settle delay. We keep _cancelling
+      // true for that whole window so the UI shows "Cancelling…" and blocks
+      // re-taps until the button would actually work again.
+      _cancelling = true;
       // Tear down any in-flight v2ray start so a connect() that is currently
       // awaiting startV2Ray cannot leave the VPN actually running after the
       // user pressed cancel. Fire-and-forget — the connect flow will see
@@ -491,9 +507,20 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // flag is cleared, so a leak here would permanently block Smart Connect.
       _smartConnecting = false;
 
+      // Smart Connect delegates the real connection to connectToServer(), which
+      // owns _connecting and clears _cancelling in its own finally. But on exit
+      // paths where it bailed before delegating (cancelled during server test,
+      // empty server list, etc.) connectToServer never ran, so clear it here too
+      // to avoid a stuck "cancelling" state.
+      if (!_connecting) {
+        _cancelling = false;
+      }
+
       // Always ensure _isConnecting is reset
       if (_isConnecting) {
         _isConnecting = false;
+        _safeNotify();
+      } else {
         _safeNotify();
       }
     }
@@ -1636,7 +1663,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // cancel, error) — it's the only place _connecting is cleared, so a leak
       // here would permanently block all future connect attempts.
       _connecting = false;
-      
+      // Teardown is done — the button can be tapped again, so leave the
+      // "cancelling" state.
+      _cancelling = false;
+
       // Always notify UI at the end to ensure latest state
       _safeNotify();
       debugPrint('🏁 Connection process completed - UI notified');
