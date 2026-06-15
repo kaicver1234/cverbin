@@ -8,17 +8,6 @@ class LanguageService {
   static const String _languageKey = 'selected_language';
   static const String _defaultLanguageCode = 'en';
 
-  // Get saved language from storage
-  Future<AppLanguage> getSavedLanguage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedCode = prefs.getString(_languageKey) ?? _defaultLanguageCode;
-      return AppLanguage.getByCode(savedCode);
-    } catch (e) {
-      return AppLanguage.getByCode(_defaultLanguageCode);
-    }
-  }
-
   // Save language to storage
   Future<bool> saveLanguage(AppLanguage language) async {
     try {
@@ -26,15 +15,6 @@ class LanguageService {
       return await prefs.setString(_languageKey, language.code);
     } catch (e) {
       return false;
-    }
-  }
-
-  // Load all available languages from assets
-  Future<List<AppLanguage>> getAvailableLanguages() async {
-    try {
-      return AppLanguage.supportedLanguages;
-    } catch (e) {
-      return [AppLanguage.getByCode(_defaultLanguageCode)];
     }
   }
 
@@ -106,16 +86,6 @@ class LanguageService {
       }
     } catch (e) {
       return AppLanguage.getByCode(_defaultLanguageCode);
-    }
-  }
-
-  // Clear saved language (reset to default)
-  Future<bool> clearSavedLanguage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return await prefs.remove(_languageKey);
-    } catch (e) {
-      return false;
     }
   }
 }

@@ -73,22 +73,30 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen>
       _isChangingLanguage = true;
     });
 
-    final lp = Provider.of<LanguageProvider>(context, listen: false);
-    await lp.changeLanguage(language);
+    try {
+      final lp = Provider.of<LanguageProvider>(context, listen: false);
+      await lp.changeLanguage(language);
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('language_selected', true);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('language_selected', true);
 
-    if (mounted) {
-      await Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const PrivacyWelcomeScreen(),
-          transitionsBuilder: (_, anim, __, child) =>
-              FadeTransition(opacity: anim, child: child),
-          transitionDuration: const Duration(milliseconds: 350),
-        ),
-      );
+      if (mounted) {
+        await Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const PrivacyWelcomeScreen(),
+            transitionsBuilder: (_, anim, __, child) =>
+                FadeTransition(opacity: anim, child: child),
+            transitionDuration: const Duration(milliseconds: 350),
+          ),
+        );
+      }
+    } catch (_) {
+      // If changing the language or persisting it failed, release the lock so
+      // the user can tap again instead of being stuck on a spinning card.
+      if (mounted) {
+        setState(() => _isChangingLanguage = false);
+      }
     }
   }
 

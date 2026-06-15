@@ -113,18 +113,6 @@ class RemoteConfigService {
     );
   }
 
-  /// Check if maintenance mode is enabled
-  bool get isMaintenanceMode {
-    if (!_isSupported || _remoteConfig == null) return false;
-    return _remoteConfig!.getBool('maintenance_mode');
-  }
-
-  /// Get maintenance message
-  String get maintenanceMessage {
-    if (!_isSupported || _remoteConfig == null) return '';
-    return _remoteConfig!.getString('maintenance_message');
-  }
-
   /// Get social links
   String get telegramId {
     if (!_isSupported || _remoteConfig == null) return '@tiksar_vpn';

@@ -13,27 +13,6 @@ class AppLanguage {
 
   bool get isRtl => direction == 'rtl';
 
-  factory AppLanguage.fromJson(Map<String, dynamic> json) {
-    final language = json['language'] as Map<String, dynamic>;
-    return AppLanguage(
-      name: language['name'] as String,
-      code: language['code'] as String,
-      flag: language['flag'] as String,
-      direction: language['direction'] as String,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'language': {
-        'name': name,
-        'code': code,
-        'flag': flag,
-        'direction': direction,
-      },
-    };
-  }
-
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;

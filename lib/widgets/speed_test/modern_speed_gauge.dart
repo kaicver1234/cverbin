@@ -70,12 +70,19 @@ class _ModernSpeedGaugeState extends State<ModernSpeedGauge>
     return (widget.value / widget.maxValue).clamp(0.0, 1.0);
   }
 
+  void _onArcTick() {
+    _currentProgress = _arcAnim.value;
+  }
+
   void _animateTo(double target) {
+    // Detach the listener from the previous animation before replacing it,
+    // otherwise every value update leaves an orphaned listener attached to the
+    // long-lived controller — during a speed test that accumulates into a
+    // growing per-frame CPU leak.
+    _arcAnim.removeListener(_onArcTick);
     _arcAnim = Tween<double>(begin: _currentProgress, end: target).animate(
       CurvedAnimation(parent: _arcController, curve: Curves.easeOutCubic),
-    )..addListener(() {
-        _currentProgress = _arcAnim.value;
-      });
+    )..addListener(_onArcTick);
     _arcController.forward(from: 0.0);
   }
 

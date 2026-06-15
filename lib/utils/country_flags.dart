@@ -276,17 +276,6 @@ class CountryFlags {
     return '$_flagBaseUrl/$validCode.png';
   }
 
-  /// Get flag emoji from country code
-  static String getFlagEmoji(String? code) {
-    if (code == null || code.length != 2) return '🌐';
-    
-    final upperCode = code.toUpperCase();
-    // Convert country code to flag emoji
-    // Each letter is converted to its regional indicator symbol
-    return String.fromCharCodes(
-      upperCode.codeUnits.map((c) => 0x1F1E6 + (c - 0x41))
-    );
-  }
 
   /// Extract country code from server remark/name
   static String? extractCountryCode(String remark) {
@@ -314,15 +303,5 @@ class CountryFlags {
     }
     
     return null;
-  }
-
-  /// Get all country codes as a list
-  static List<String> getAllCountryCodes() {
-    return allCountryCodes.keys.toList()..sort();
-  }
-
-  /// Get all countries as a map (code -> name)
-  static Map<String, String> getAllCountries() {
-    return Map.from(allCountryCodes);
   }
 }

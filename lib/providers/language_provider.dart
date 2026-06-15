@@ -144,28 +144,6 @@ class LanguageProvider extends ChangeNotifier {
     return current != null;
   }
 
-  // Reload current language translations
-  Future<void> reloadTranslations() async {
-    _isLoading = true;
-    notifyListeners();
-
-    await _loadTranslations(_currentLanguage.code);
-
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  // Reset to device language
-  Future<bool> resetToDeviceLanguage() async {
-    final deviceLanguage = await _languageService.getDeviceLanguage();
-    return await changeLanguage(deviceLanguage);
-  }
-
-  // Get available languages
-  Future<List<AppLanguage>> getAvailableLanguages() async {
-    return await _languageService.getAvailableLanguages();
-  }
-
   // Get text direction for current language
   TextDirection get textDirection {
     return _currentLanguage.isRtl ? TextDirection.rtl : TextDirection.ltr;

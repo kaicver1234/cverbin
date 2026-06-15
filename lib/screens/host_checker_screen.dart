@@ -86,20 +86,61 @@ class _HostCheckerScreenState extends State<HostCheckerScreen> {
   /// Maximum time to wait for a TCP connection before giving up.
   static const Duration _connectTimeout = Duration(seconds: 8);
 
-  /// Opens a TCP connection to [host]:[port], returns the handshake time in ms,
-  /// then closes the socket. Throws on failure (DNS error, refused, timeout).
+  /// How many TCP handshakes to perform per check. We report the *fastest* of
+  /// these, which best reflects the true round-trip time and smooths out the
+  /// random jitter of any single sample.
+  static const int _probeCount = 3;
+
+  /// Measures the round-trip latency to [host]:[port] in milliseconds.
   ///
   /// A reachability check must NOT download the page body — the old version did
   /// a full `http.get`, which timed out on heavy sites like YouTube (large body
   /// + redirects to consent pages) even though the browser opens them instantly.
   /// A TCP handshake reflects exactly what "can I reach this host" means and is
   /// fast and reliable through the VPN tunnel.
+  ///
+  /// DNS is resolved *outside* the timer on purpose. `Socket.connect(hostname,…)`
+  /// folds the one-time DNS lookup into the measurement, so the first check of a
+  /// host reads high (cold DNS, e.g. ~300ms) while later checks read low (the OS
+  /// DNS cache is warm, e.g. ~18ms) — which looks like a bug. Timing only the
+  /// handshake to an already-resolved IP keeps the result stable from the very
+  /// first check, and we take the fastest of [_probeCount] handshakes.
   Future<int> _tcpConnect(String host, int port) async {
-    final sw = Stopwatch()..start();
-    final socket = await Socket.connect(host, port, timeout: _connectTimeout);
-    sw.stop();
-    socket.destroy();
-    return sw.elapsedMilliseconds;
+    // Resolve once, up front. Throws SocketException on DNS failure, which the
+    // caller maps to "Host not found".
+    final addresses = await InternetAddress.lookup(host);
+    final addr = addresses.firstWhere(
+      (a) => a.type == InternetAddressType.IPv4,
+      orElse: () => addresses.first,
+    );
+
+    int? best;
+    SocketException? lastError;
+    for (var i = 0; i < _probeCount; i++) {
+      try {
+        final sw = Stopwatch()..start();
+        final socket = await Socket.connect(addr, port, timeout: _connectTimeout);
+        sw.stop();
+        socket.destroy();
+        final ms = sw.elapsedMilliseconds;
+        if (best == null || ms < best) best = ms;
+      } on SocketException catch (e) {
+        lastError = e;
+        // "Connection refused" means the port is closed on this host. Retrying
+        // won't help; if we have no good sample yet, surface it so the caller
+        // can fall back to port 80.
+        final msg = (e.osError?.message ?? e.message).toLowerCase();
+        if (msg.contains('refused')) {
+          if (best != null) break;
+          rethrow;
+        }
+      }
+    }
+
+    if (best == null) {
+      throw lastError ?? const SocketException('Unreachable');
+    }
+    return best;
   }
 
   Future<void> _checkHost(String host) async {

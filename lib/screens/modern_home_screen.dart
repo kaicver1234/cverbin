@@ -386,7 +386,10 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     final isConnected = provider.activeConfig != null;
 
     return StreamBuilder(
-      stream: _timerStream,
+      // Only tick while connected. When disconnected the timer reads a constant
+      // "00:00:00", so leaving the periodic stream running just burns CPU/battery
+      // (this screen is kept alive, so the listener never detaches on its own).
+      stream: isConnected ? _timerStream : null,
       builder: (context, snapshot) {
         return Center(
           child: Text(
@@ -566,14 +569,18 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             children: [
               // Flag / icon
               Container(
-                width: responsive.serverIconSize * 0.85,
-                height: responsive.serverIconSize * 0.85,
+                width: responsive.homeFlagWidth,
+                height: responsive.homeFlagHeight,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 1,
+                  ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(7),
                   child: _buildServerIconContent(
                     countryCode,
                     isSmartConnect && provider.activeConfig == null,
@@ -629,23 +636,30 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     if (countryCode != null && CountryFlags.isValidCountryCode(countryCode)) {
       return CachedNetworkImage(
         imageUrl: CountryFlags.getFlagUrl(countryCode),
+        // Flag container is a true 4:3 rectangle, so `cover` fills it without
+        // cropping or distorting the (also 4:3) flag image.
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
+        memCacheWidth: 240,
         placeholder: (context, url) => Container(
           color: Colors.white.withValues(alpha: 0.08),
         ),
         errorWidget: (context, url, error) => Container(
           color: Colors.white.withValues(alpha: 0.08),
-          child: const Icon(Icons.public, color: Colors.white70, size: 22),
+          child: const Center(
+            child: Icon(Icons.public, color: Colors.white70, size: 18),
+          ),
         ),
       );
     }
 
-    return Icon(
-      isSmartConnect ? Icons.bolt_rounded : Icons.language_rounded,
-      color: Colors.white.withValues(alpha: 0.85),
-      size: 22,
+    return Center(
+      child: Icon(
+        isSmartConnect ? Icons.bolt_rounded : Icons.language_rounded,
+        color: Colors.white.withValues(alpha: 0.85),
+        size: 18,
+      ),
     );
   }
 
@@ -654,7 +668,9 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     final isConnected = provider.activeConfig != null;
 
     return StreamBuilder(
-      stream: _statsStream,
+      // Same as the connection timer: only poll traffic stats while connected.
+      // Disconnected stats are constant ("0 B"), so there's nothing to refresh.
+      stream: isConnected ? _statsStream : null,
       builder: (context, snapshot) {
         return Row(
           children: [

@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/language_provider.dart';
 import 'providers/v2ray_provider.dart';
 import 'providers/speed_test_provider.dart';
-import 'providers/theme_provider.dart';
 import 'providers/dns_provider.dart';
 import 'providers/per_app_proxy_provider.dart';
 import 'providers/routing_provider.dart';
@@ -193,7 +192,6 @@ class MyApp extends StatelessWidget {
           },
         ),
         ChangeNotifierProvider(create: (_) => SpeedTestProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, langProvider, child) {

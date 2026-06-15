@@ -64,7 +64,6 @@ class PerAppProxyProvider with ChangeNotifier {
   List<InstalledAppInfo> get installedApps => _installedApps;
   bool get isLoadingApps => _isLoadingApps;
   String? get loadError => _loadError;
-  bool get isEnabled => _mode != PerAppProxyMode.off;
   int get selectedCount => _selectedPackages.length;
 
   /// Returns the list of packages to pass as `blockedApps` to v2ray. Null
@@ -173,23 +172,10 @@ class PerAppProxyProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void setPackageSelected(String packageName, bool selected) {
-    final changed = selected
-        ? _selectedPackages.add(packageName)
-        : _selectedPackages.remove(packageName);
-    if (changed) notifyListeners();
-  }
-
   void clearSelection() {
     if (_selectedPackages.isEmpty) return;
     _selectedPackages.clear();
     notifyListeners();
-  }
-
-  void selectAllVisible(Iterable<String> packages) {
-    final before = _selectedPackages.length;
-    _selectedPackages.addAll(packages);
-    if (_selectedPackages.length != before) notifyListeners();
   }
 
   /// In-memory mode change. Persist + apply via [applyAndPersist].

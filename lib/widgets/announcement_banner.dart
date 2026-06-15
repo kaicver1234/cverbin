@@ -111,16 +111,30 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
     }
   }
 
+  // Muted, desaturated accents — no bright/neon tones, blends into the dark UI.
   Color _getColor(String type) {
     switch (type) {
       case 'warning':
-        return const Color(0xFFfbbf24);
+        return const Color(0xFFC79A4B); // muted gold
       case 'error':
-        return const Color(0xFFef4444);
+        return const Color(0xFFB55A5A); // muted brick
       case 'success':
-        return const Color(0xFF00FFA3);
+        return const Color(0xFF4F9E84); // muted teal
       default:
-        return const Color(0xFF00D9FF);
+        return const Color(0xFF5E8AA6); // muted steel blue
+    }
+  }
+
+  IconData _getIcon(String type) {
+    switch (type) {
+      case 'warning':
+        return Icons.warning_amber_rounded;
+      case 'error':
+        return Icons.error_outline_rounded;
+      case 'success':
+        return Icons.check_circle_outline_rounded;
+      default:
+        return Icons.campaign_outlined;
     }
   }
 
@@ -150,14 +164,16 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
     final isTablet = r.isTablet;
 
     // Sizing — tablet a bit more breathing room, small phones stay compact.
-    final double padH      = isSmallScreen ? 14 : (isTablet ? 20 : 16);
-    final double padV      = isSmallScreen ? 12 : (isTablet ? 16 : 14);
-    final double radius    = isSmallScreen ? 14 : (isTablet ? 18 : 16);
-    final double msgFont   = isSmallScreen ? 12.5 : (isTablet ? 15 : 13.5);
-    final double actionFont   = isSmallScreen ? 12 : (isTablet ? 14.5 : 13);
-    final double actionIcon   = isSmallScreen ? 14 : (isTablet ? 18 : 16);
-    final double closeIcon    = isSmallScreen ? 14 : (isTablet ? 18 : 16);
-    final double closeBtn     = isSmallScreen ? 24 : (isTablet ? 30 : 26);
+    final double padH       = isSmallScreen ? 14 : (isTablet ? 20 : 16);
+    final double padV       = isSmallScreen ? 13 : (isTablet ? 18 : 15);
+    final double radius     = isSmallScreen ? 16 : (isTablet ? 20 : 18);
+    final double msgFont    = isSmallScreen ? 12.5 : (isTablet ? 15 : 13.5);
+    final double actionFont = isSmallScreen ? 12 : (isTablet ? 14.5 : 13);
+    final double actionIcon = isSmallScreen ? 13 : (isTablet ? 17 : 15);
+    final double closeIcon  = isSmallScreen ? 14 : (isTablet ? 18 : 16);
+    final double closeBtn   = isSmallScreen ? 24 : (isTablet ? 30 : 26);
+    final double leadSize   = isSmallScreen ? 34 : (isTablet ? 44 : 38);
+    final double leadIcon   = isSmallScreen ? 18 : (isTablet ? 24 : 20);
     final double bottomMargin = isSmallScreen ? 12 : (isTablet ? 18 : 14);
     final double actionHeight = isSmallScreen ? 36 : (isTablet ? 46 : 40);
 
@@ -168,25 +184,26 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
         child: Container(
           margin: EdgeInsets.only(bottom: bottomMargin),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            // Deep, near-black surface — sits quietly inside the dark UI.
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF0A0A0A),
-                const Color(0xFF050505),
+                Color(0xFF101011),
+                Color(0xFF0A0A0B),
               ],
             ),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: color.withValues(alpha: 0.32),
-              width: 1.2,
+              color: color.withValues(alpha: 0.22),
+              width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: color.withValues(alpha: 0.18),
-                blurRadius: 14,
-                spreadRadius: -2,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 18,
+                spreadRadius: -4,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -194,63 +211,98 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
             borderRadius: BorderRadius.circular(radius),
             child: Stack(
               children: [
+                // Subtle accent strip on the leading edge (auto-flips with RTL).
+                PositionedDirectional(
+                  start: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 3,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          color.withValues(alpha: 0.55),
+                          color.withValues(alpha: 0.15),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
                 // Content
                 Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    padH,
-                    padV,
-                    padH,
-                    padV,
-                  ),
+                  padding: EdgeInsets.fromLTRB(padH, padV, padH, padV),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Message — reserve space on the right so close button never overlaps text
-                      Padding(
-                        padding: EdgeInsets.only(right: closeBtn + 6),
-                        child: Text(
-                          _banner!.message,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.92),
-                            fontSize: msgFont,
-                            height: 1.55,
-                            fontWeight: FontWeight.w500,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Leading type icon — muted tint, no glow.
+                          Container(
+                            width: leadSize,
+                            height: leadSize,
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(leadSize * 0.3),
+                              border: Border.all(
+                                color: color.withValues(alpha: 0.25),
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              _getIcon(_banner!.type),
+                              color: color.withValues(alpha: 0.9),
+                              size: leadIcon,
+                            ),
                           ),
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          SizedBox(width: isSmallScreen ? 10 : 12),
+
+                          // Message — leading-aligned, space reserved for close button.
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsetsDirectional.only(
+                                end: closeBtn,
+                                top: 2,
+                              ),
+                              child: Text(
+                                _banner!.message,
+                                textAlign: TextAlign.start,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: msgFont,
+                                  height: 1.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 5,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
 
-                      // Action button — full-width, balanced, well below the message
+                      // Action button — dark surface, thin accent border, no neon glow.
                       if (hasAction) ...[
-                        SizedBox(height: isSmallScreen ? 10 : (isTablet ? 14 : 12)),
+                        SizedBox(height: isSmallScreen ? 11 : (isTablet ? 15 : 13)),
                         Consumer<LanguageProvider>(
                           builder: (context, langProvider, _) => Material(
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () => _launchUrl(_banner!.actionUrl!),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(11),
                               child: Ink(
                                 height: actionHeight,
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                    colors: [
-                                      color,
-                                      Color.lerp(color, Colors.white, 0.15) ?? color,
-                                    ],
+                                  color: color.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(11),
+                                  border: Border.all(
+                                    color: color.withValues(alpha: 0.35),
+                                    width: 1,
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: color.withValues(alpha: 0.35),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -259,7 +311,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                                       child: Text(
                                         _banner!.actionText ?? AppLocalizations.of(context).translate('announcement.view'),
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color: Color.lerp(color, Colors.white, 0.35) ?? color,
                                           fontSize: actionFont,
                                           fontWeight: FontWeight.w700,
                                           letterSpacing: 0.2,
@@ -273,7 +325,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                                       langProvider.isRtl
                                           ? Icons.arrow_back_rounded
                                           : Icons.arrow_forward_rounded,
-                                      color: Colors.white,
+                                      color: Color.lerp(color, Colors.white, 0.35) ?? color,
                                       size: actionIcon,
                                     ),
                                   ],
@@ -287,10 +339,10 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                   ),
                 ),
 
-                // Close button — absolutely positioned so it doesn't shift the message
-                Positioned(
-                  top: isSmallScreen ? 6 : 8,
-                  right: isSmallScreen ? 6 : 8,
+                // Close button — absolutely positioned so it doesn't shift the message.
+                PositionedDirectional(
+                  top: isSmallScreen ? 8 : 10,
+                  end: isSmallScreen ? 8 : 10,
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -300,7 +352,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                         width: closeBtn,
                         height: closeBtn,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
+                          color: Colors.white.withValues(alpha: 0.05),
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.08),
@@ -309,7 +361,7 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                         ),
                         child: Icon(
                           Icons.close_rounded,
-                          color: Colors.white.withValues(alpha: 0.55),
+                          color: Colors.white.withValues(alpha: 0.5),
                           size: closeIcon,
                         ),
                       ),

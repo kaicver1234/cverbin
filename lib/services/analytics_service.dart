@@ -12,15 +12,10 @@ class AnalyticsService {
   bool _isInitialized = false;
   bool _isSupported = false;
 
-  FirebaseAnalytics? get analytics => _analytics;
-
-  /// Check if analytics is supported on this platform
-  bool get isSupported => _isSupported;
-
   /// Initialize Analytics with app info
   Future<void> initialize() async {
     if (_isInitialized) return;
-    
+
     // Skip analytics on desktop platforms
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       debugPrint('💻 Analytics: Skipped on desktop platform');
@@ -28,13 +23,13 @@ class AnalyticsService {
       _isInitialized = true;
       return;
     }
-    
+
     try {
       _analytics = FirebaseAnalytics.instance;
       _isSupported = true;
-      
+
       await _analytics!.setAnalyticsCollectionEnabled(true);
-      
+
       // Set app version as user property
       final packageInfo = await PackageInfo.fromPlatform();
       await setUserProperty(
@@ -45,7 +40,7 @@ class AnalyticsService {
         name: 'build_number',
         value: packageInfo.buildNumber,
       );
-      
+
       _isInitialized = true;
       debugPrint('✅ Analytics initialized successfully');
     } catch (e) {
@@ -58,7 +53,7 @@ class AnalyticsService {
   //
   // Every public log* method funnels through here so the support guard,
   // error handling and Firebase's value-type/length constraints live in ONE
-  // place instead of being copy-pasted (and drifting) across ~25 methods.
+  // place instead of being copy-pasted (and drifting) across the methods.
   //
   // Firebase Analytics constraints enforced here:
   //   • Parameter values must be String or num — bool is silently dropped, so
@@ -128,17 +123,6 @@ class AnalyticsService {
     );
   }
 
-  /// Log auto-connect event
-  Future<void> logAutoConnect({
-    required String serverName,
-  }) {
-    return _log(
-      'vpn_auto_connect',
-      params: {'server_name': serverName},
-      debugLabel: 'Auto Connect - $serverName',
-    );
-  }
-
   /// Log VPN disconnection event
   Future<void> logVpnDisconnect({
     required String serverName,
@@ -159,68 +143,6 @@ class AnalyticsService {
       },
       debugLabel:
           'VPN Disconnect - Duration: ${durationSeconds}s, Data: ${(uploadBytes + downloadBytes) / 1024 / 1024}MB',
-    );
-  }
-
-  /// Log connection failure
-  Future<void> logConnectionFailure({
-    required String serverName,
-    required String errorMessage,
-  }) {
-    return _log(
-      'vpn_connection_failure',
-      params: {
-        'server_name': serverName,
-        'error_message': errorMessage,
-      },
-      debugLabel: 'Connection Failure - $serverName',
-    );
-  }
-
-  /// Log subscription addition
-  Future<void> logSubscriptionAdded({
-    required String subscriptionName,
-    required int serverCount,
-    required String subscriptionType,
-  }) {
-    return _log(
-      'subscription_added',
-      params: {
-        'subscription_name': subscriptionName,
-        'server_count': serverCount,
-        'subscription_type': subscriptionType,
-      },
-      debugLabel: 'Subscription Added - $serverCount servers',
-    );
-  }
-
-  /// Log subscription update
-  Future<void> logSubscriptionUpdated({
-    required String subscriptionName,
-    required int newServerCount,
-  }) {
-    return _log(
-      'subscription_updated',
-      params: {
-        'subscription_name': subscriptionName,
-        'new_server_count': newServerCount,
-      },
-    );
-  }
-
-  /// Log app update check
-  Future<void> logUpdateCheck({
-    required String currentVersion,
-    required String latestVersion,
-    required bool updateAvailable,
-  }) {
-    return _log(
-      'update_check',
-      params: {
-        'current_version': currentVersion,
-        'latest_version': latestVersion,
-        'update_available': updateAvailable,
-      },
     );
   }
 
@@ -255,39 +177,6 @@ class AnalyticsService {
     }
   }
 
-  /// Log connection error
-  Future<void> logConnectionError({
-    required String errorType,
-    required String errorMessage,
-    String? serverName,
-  }) {
-    return _log(
-      'connection_error',
-      params: {
-        'error_type': errorType,
-        'error_message': errorMessage,
-        'server_name': serverName,
-      },
-      debugLabel: 'Connection Error - $errorType',
-    );
-  }
-
-  /// Log server ping test
-  Future<void> logServerPing({
-    required String serverName,
-    required int pingMs,
-    required bool success,
-  }) {
-    return _log(
-      'server_ping_test',
-      params: {
-        'server_name': serverName,
-        'ping_ms': pingMs,
-        'success': success,
-      },
-    );
-  }
-
   /// Log server selection
   Future<void> logServerSelection({
     required String serverName,
@@ -300,48 +189,6 @@ class AnalyticsService {
         'selection_method': selectionMethod, // 'manual', 'auto', 'fastest'
       },
       debugLabel: 'Server Selected - $serverName ($selectionMethod)',
-    );
-  }
-
-  /// Log app feature usage
-  Future<void> logFeatureUsage({
-    required String featureName,
-    Map<String, dynamic>? additionalParams,
-  }) {
-    return _log(
-      'feature_usage',
-      params: {
-        'feature_name': featureName,
-        if (additionalParams != null) ...additionalParams,
-      },
-      debugLabel: 'Feature Used - $featureName',
-    );
-  }
-
-  /// Log user session
-  Future<void> logAppOpen() async {
-    if (!_isSupported || _analytics == null) return;
-
-    try {
-      await _analytics!.logAppOpen();
-      debugPrint('📊 Analytics: App Opened');
-    } catch (e) {
-      debugPrint('⚠️ Analytics error [app_open]: $e');
-    }
-  }
-
-  /// Log settings change
-  Future<void> logSettingsChange({
-    required String settingName,
-    required String newValue,
-  }) {
-    return _log(
-      'settings_change',
-      params: {
-        'setting_name': settingName,
-        'new_value': newValue,
-      },
-      debugLabel: 'Setting Changed - $settingName: $newValue',
     );
   }
 
@@ -362,32 +209,6 @@ class AnalyticsService {
     }
   }
 
-  /// Set user ID (optional, for tracking specific users)
-  Future<void> setUserId(String userId) async {
-    if (!_isSupported || _analytics == null) return;
-
-    try {
-      await _analytics!.setUserId(id: userId);
-    } catch (e) {
-      // Silently fail
-    }
-  }
-
-  /// Log tab change in home screen
-  Future<void> logTabChange({
-    required String tabName,
-    required int tabIndex,
-  }) {
-    return _log(
-      'tab_taghir',
-      params: {
-        'tab_name': tabName,
-        'tab_index': tabIndex,
-      },
-      debugLabel: 'Tab Taghir - $tabName',
-    );
-  }
-
   /// Log DNS settings change
   Future<void> logDnsChange({
     required String dnsType,
@@ -406,24 +227,6 @@ class AnalyticsService {
   /// Log speed test start
   Future<void> logSpeedTestStart() {
     return _log('test_saraat_shoru', debugLabel: 'Test Saraat Shoru');
-  }
-
-  /// Log speed test result
-  Future<void> logSpeedTestResult({
-    required double downloadMbps,
-    required double uploadMbps,
-    required int pingMs,
-  }) {
-    return _log(
-      'natije_test_saraat',
-      params: {
-        'download_mbps': downloadMbps.toStringAsFixed(1),
-        'upload_mbps': uploadMbps.toStringAsFixed(1),
-        'ping_ms': pingMs,
-      },
-      debugLabel:
-          'Natije Test Saraat - D:${downloadMbps.toStringAsFixed(1)} U:${uploadMbps.toStringAsFixed(1)}',
-    );
   }
 
   /// Log host check
@@ -455,30 +258,8 @@ class AnalyticsService {
     );
   }
 
-  /// Log smart connect usage
-  Future<void> logSmartConnect({
-    required String selectedServer,
-  }) {
-    return _log(
-      'otaghak_hoshmandam',
-      params: {'server_entekhabi': selectedServer},
-      debugLabel: 'Otaghak Hoshmandam - $selectedServer',
-    );
-  }
-
   /// Log IP info screen refresh
   Future<void> logIpInfoRefresh() {
     return _log('berozresani_ettelaat_ip');
-  }
-
-  /// Log about screen social link tap
-  Future<void> logSocialLinkTap({
-    required String platform,
-  }) {
-    return _log(
-      'link_ejtemai_zade_shod',
-      params: {'platform': platform},
-      debugLabel: 'Link Ejtemai - $platform',
-    );
   }
 }

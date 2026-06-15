@@ -227,15 +227,17 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen>
           SizedBox(height: r.scale(18).clamp(12.0, 24.0)),
           Row(
             children: [
-              if (_currentPage > 0)
+              // On the first page there's no back button, so the Continue
+              // button takes the full width. From the second page onward the
+              // back button appears and the Continue button shrinks to fit.
+              if (_currentPage > 0) ...[
                 _NavSquareButton(
                   icon: Icons.arrow_back_rounded,
                   onTap: _onPrev,
                   isRtl: _isRtl,
-                )
-              else
-                SizedBox(width: r.scale(48).clamp(40.0, 60.0)),
-              SizedBox(width: r.scale(12).clamp(8.0, 16.0)),
+                ),
+                SizedBox(width: r.scale(12).clamp(8.0, 16.0)),
+              ],
               Expanded(
                 child: _PrimaryButton(
                   label: isLast

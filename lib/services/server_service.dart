@@ -6,10 +6,6 @@ import '../utils/country_flags.dart';
 import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 
 class ServerService {
-  // Default server URL for server configurations
-  static const String defaultServerUrl =
-      'https://sub.tiksar.ir/tiksarserver.txt';
-
   Future<List<V2RayConfig>> fetchServers({required String customUrl}) async {
     try {
       final url = customUrl;
@@ -122,7 +118,7 @@ class ServerService {
         address: json['address'] ?? json['add'] ?? '',
         port:
             int.tryParse(json['port']?.toString() ?? '') ??
-            int.tryParse(json['port']?.toString() ?? '') ??
+            int.tryParse(json['add_port']?.toString() ?? '') ??
             443,
         configType: json['type'] ?? json['net'] ?? 'vmess',
         fullConfig: jsonEncode(json),

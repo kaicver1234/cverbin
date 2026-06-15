@@ -30,7 +30,16 @@ class SpeedTestProvider with ChangeNotifier {
   SpeedTestState get state => _state;
 
   bool _isCanceled = false;
+  bool _disposed = false;
   String _measurementId = '';
+
+  // Guards notifyListeners() against firing after the provider is disposed
+  // (a speed test resolving its final notify while the user navigates away
+  // would otherwise crash with "used after being disposed").
+  void _safeNotify() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
 
   // Raw samples (pooled exactly like Cloudflare's getBandwidthPoints).
   final List<double> _latencies = [];        // ping in ms
@@ -124,7 +133,7 @@ class SpeedTestProvider with ChangeNotifier {
     _downloadSamples.clear();
     _uploadSamples.clear();
     _state = const SpeedTestState();
-    notifyListeners();
+    _safeNotify();
     debugPrint('[SpeedTest] Stopped');
   }
 
@@ -138,6 +147,10 @@ class SpeedTestProvider with ChangeNotifier {
 
     _isCanceled = false;
     _measurementId = _generateMeasurementId();
+    // Capture this run's id. A previous run paused at an await could otherwise
+    // resume after we reset _isCanceled and corrupt the shared sample buffers;
+    // comparing against the live _measurementId makes stale runs bail out.
+    final myId = _measurementId;
     _latencies.clear();
     _downloadSamples.clear();
     _uploadSamples.clear();
@@ -149,7 +162,7 @@ class SpeedTestProvider with ChangeNotifier {
       step: SpeedTestStep.loading,
       currentPhase: 'Initializing...',
     );
-    notifyListeners();
+    _safeNotify();
     debugPrint('[SpeedTest] Started');
 
     try {
@@ -160,21 +173,21 @@ class SpeedTestProvider with ChangeNotifier {
         progress: 0.0,
         currentSpeed: 0,
       );
-      notifyListeners();
+      _safeNotify();
       await _runLatencyPhase();
-      if (_isCanceled) return;
+      if (_isCanceled || myId != _measurementId) return;
 
       // Phase 2: Download
       await _transitionTo(SpeedTestStep.download, 'Measuring download...');
-      if (_isCanceled) return;
+      if (_isCanceled || myId != _measurementId) return;
       await _runBandwidthPhase(_downloadPlan, _downloadSamples, isDownload: true);
-      if (_isCanceled) return;
+      if (_isCanceled || myId != _measurementId) return;
 
       // Phase 3: Upload
       await _transitionTo(SpeedTestStep.upload, 'Measuring upload...');
-      if (_isCanceled) return;
+      if (_isCanceled || myId != _measurementId) return;
       await _runBandwidthPhase(_uploadPlan, _uploadSamples, isDownload: false);
-      if (_isCanceled) return;
+      if (_isCanceled || myId != _measurementId) return;
 
       _finalize();
       debugPrint(
@@ -189,7 +202,7 @@ class SpeedTestProvider with ChangeNotifier {
           isConnectionStable: false,
           currentSpeed: 0,
         );
-        notifyListeners();
+        _safeNotify();
       }
     } finally {
       _dio?.close();
@@ -201,11 +214,11 @@ class SpeedTestProvider with ChangeNotifier {
 
   Future<void> _transitionTo(SpeedTestStep step, String phase) async {
     _state = _state.copyWith(progress: 0.0, currentSpeed: 0);
-    notifyListeners();
+    _safeNotify();
     await Future.delayed(_phaseTransitionDelay);
     if (_isCanceled) return;
     _state = _state.copyWith(step: step, currentPhase: phase, progress: 0.0);
-    notifyListeners();
+    _safeNotify();
   }
 
   // ── Latency ──────────────────────────────────────────────────────────────────
@@ -484,12 +497,12 @@ class SpeedTestProvider with ChangeNotifier {
 
   void _setProgress(double p) {
     _state = _state.copyWith(progress: p.clamp(0.0, 1.0));
-    notifyListeners();
+    _safeNotify();
   }
 
   void _setCurrentSpeed(double v) {
     _state = _state.copyWith(currentSpeed: v);
-    notifyListeners();
+    _safeNotify();
   }
 
   void _publishLatency() {
@@ -501,7 +514,7 @@ class SpeedTestProvider with ChangeNotifier {
         jitter: _computeJitter(),
       ),
     );
-    notifyListeners();
+    _safeNotify();
   }
 
   void _publishBandwidth(List<_Sample> samples, {required bool isDownload}) {
@@ -517,7 +530,7 @@ class SpeedTestProvider with ChangeNotifier {
         result: _state.result.copyWith(uploadSpeed: mbps),
       );
     }
-    notifyListeners();
+    _safeNotify();
   }
 
   // ── Finalize ────────────────────────────────────────────────────────────────
@@ -549,7 +562,7 @@ class SpeedTestProvider with ChangeNotifier {
         packetLoss: packetLoss,
       ),
     );
-    notifyListeners();
+    _safeNotify();
   }
 
   // ── Stats helpers (match Cloudflare exactly) ──────────────────────────────────
@@ -605,6 +618,7 @@ class SpeedTestProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _isCanceled = true;
     _token?.cancel('disposed');
     _dio?.close(force: true);

@@ -47,11 +47,6 @@ class V2RayConfig {
     );
   }
   
-  // Get country flag emoji from country code
-  String get countryFlag {
-    return CountryFlags.getFlagEmoji(countryCode);
-  }
-  
   // Get country flag image URL from flagcdn.com
   String get countryFlagUrl {
     return CountryFlags.getFlagUrl(countryCode);
@@ -79,34 +74,4 @@ class V2RayConfig {
     );
   }
   
-  // Get display name for Smart Connect (with icon)
-  String getDisplayName(String Function(String) translate) {
-    if (isSmartConnect) {
-      return '⚡ ${translate('server_selection.smart_connect')}';
-    }
-    return remark;
-  }
-  
-  // Create a copy with updated fields
-  V2RayConfig copyWith({
-    String? id,
-    String? remark,
-    String? address,
-    int? port,
-    String? configType,
-    String? fullConfig,
-    String? countryCode,
-    bool? isConnected,
-  }) {
-    return V2RayConfig(
-      id: id ?? this.id,
-      remark: remark ?? this.remark,
-      address: address ?? this.address,
-      port: port ?? this.port,
-      configType: configType ?? this.configType,
-      fullConfig: fullConfig ?? this.fullConfig,
-      countryCode: countryCode ?? this.countryCode,
-      isConnected: isConnected ?? this.isConnected,
-    );
-  }
 }

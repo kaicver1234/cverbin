@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -49,7 +48,6 @@ class IpInfo {
     );
   }
 
-  String get locationString => '$country - $city';
 }
 
 class V2RayService extends ChangeNotifier {
@@ -64,12 +62,6 @@ class V2RayService extends ChangeNotifier {
   /// spurious "disconnected" callbacks that arrive right after connecting.
   DateTime? _lastSuccessfulConnectTime;
 
-  // IP Information
-  IpInfo? _ipInfo;
-  IpInfo? get ipInfo => _ipInfo;
-
-  bool _isLoadingIpInfo = false;
-  bool get isLoadingIpInfo => _isLoadingIpInfo;
 
   // Usage statistics
   int _uploadBytes = 0;
@@ -95,9 +87,9 @@ class V2RayService extends ChangeNotifier {
         final List<Map<String, dynamic>> appList = result
             .map(
               (app) => {
-                'packageName': app['packageName'] as String,
-                'name': app['name'] as String,
-                'isSystemApp': app['isSystemApp'] as bool,
+                'packageName': app['packageName']?.toString() ?? '',
+                'name': app['name']?.toString() ?? '',
+                'isSystemApp': app['isSystemApp'] == true,
               },
             )
             .toList();
@@ -124,12 +116,6 @@ class V2RayService extends ChangeNotifier {
     }
     // Also clear native ping service cache
     NativePingService.clearCache();
-  }
-  
-  // Force clear all ping progress flags (useful if pings get stuck)
-  void clearPingProgress() {
-    _pingInProgress.clear();
-    debugPrint('🧹 Cleared all ping progress flags');
   }
 
   // Singleton pattern
@@ -197,49 +183,7 @@ class V2RayService extends ChangeNotifier {
       _onDisconnected?.call();
       _clearActiveConfig();
     }
-
-    // Resolve any pending waitForNativeStatus() calls
-    _resolveStatusWaiters(stateString);
   }
-
-  // ── Reactive status waiting ────────────────────────────────────────────────
-  // Completers waiting for a meaningful native status on cold start.
-  final List<Completer<String>> _statusWaiters = [];
-
-  void _resolveStatusWaiters(String state) {
-    if (state.isEmpty) return;
-    for (final c in _statusWaiters) {
-      if (!c.isCompleted) c.complete(state);
-    }
-    _statusWaiters.clear();
-  }
-
-  /// Wait reactively for the native VPN status callback.
-  ///
-  /// Returns immediately if a meaningful status is already known.
-  /// Otherwise waits until [onStatusChanged] fires with a non-empty state,
-  /// or [timeout] elapses (returns '' on timeout).
-  ///
-  /// Meaningful states: 'connected' | 'running' | 'disconnected' | 'stopped' | 'stop'
-  Future<String> waitForNativeStatus({
-    Duration timeout = const Duration(seconds: 5),
-  }) async {
-    final current = _currentStatus?.state.toLowerCase().trim() ?? '';
-    if (current.isNotEmpty) return current;
-
-    final completer = Completer<String>();
-    _statusWaiters.add(completer);
-    try {
-      return await completer.future.timeout(timeout, onTimeout: () {
-        _statusWaiters.remove(completer);
-        return _currentStatus?.state.toLowerCase().trim() ?? '';
-      });
-    } catch (_) {
-      _statusWaiters.remove(completer);
-      return '';
-    }
-  }
-  // ──────────────────────────────────────────────────────────────────────────
 
   Future<void> initialize() async {
     if (!_isInitialized) {
@@ -377,7 +321,11 @@ class V2RayService extends ChangeNotifier {
       _activeConfig = null;
       _lastConnectionTime = null;
       _lastSuccessfulConnectTime = null;
-      
+      // Clear the cached native status too. Otherwise isActuallyConnected()
+      // (PRIORITY 2) still sees a stale "connected" state and resurrects the
+      // connection we just dropped, before the native callback catches up.
+      _currentStatus = null;
+
       // Notify listeners immediately for UI update
       notifyListeners();
 
@@ -404,11 +352,6 @@ class V2RayService extends ChangeNotifier {
     await prefs.setString('selected_config', jsonEncode(config.toJson()));
   }
 
-  // Public method to save selected config
-  Future<void> saveSelectedConfig(V2RayConfig config) async {
-    await _saveSelectedConfig(config);
-  }
-
   Future<void> _clearActiveConfig() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('active_config');
@@ -420,15 +363,6 @@ class V2RayService extends ChangeNotifier {
     if (configJson == null) return null;
     return V2RayConfig.fromJson(jsonDecode(configJson));
   }
-
-  Future<V2RayConfig?> loadSelectedConfig() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? configJson = prefs.getString('selected_config');
-    if (configJson == null) return null;
-    return V2RayConfig.fromJson(jsonDecode(configJson));
-  }
-
-  
 
   Future<void> _restoreConnectionTime() async {
     final prefs = await SharedPreferences.getInstance();
@@ -628,29 +562,6 @@ class V2RayService extends ChangeNotifier {
     }
   }
 
-  // Get delay of currently connected server - for checking if VPN is actually running
-  Future<int> getConnectedServerDelayDirect() async {
-    try {
-      await initialize();
-      // Internal timeout is intentionally longer than the outer timeouts used by callers
-      // (provider uses 6–7 s). That way, when the server is slow the outer timeout fires
-      // first and returns the -2 sentinel (ambiguous) rather than this inner timeout
-      // returning -1 (explicit disconnect), which would wrongly clear VPN state.
-      // -1 here only means a genuine exception (VPN service not running).
-      final delay = await _flutterV2ray.getConnectedServerDelay(
-        url: 'https://www.google.com/generate_204'
-      ).timeout(const Duration(seconds: 15));
-      debugPrint('🔍 Connected server delay: ${delay}ms');
-      return delay;
-    } catch (e) {
-      // Exception (e.g. plugin not yet bound to VPN service on cold start) is
-      // ambiguous — NOT the same as the native service explicitly returning -1.
-      // Return -2 so callers treat this as "unknown" and don't clear VPN state.
-      debugPrint('⚠️ getConnectedServerDelay exception (ambiguous): $e');
-      return -2;
-    }
-  }
-
   Future<List<V2RayConfig>> parseSubscriptionUrl(String url) async {
     try {
       final response = await http
@@ -758,7 +669,7 @@ class V2RayService extends ChangeNotifier {
                 address: address,
                 port: port,
                 configType: configType,
-                fullConfig: line,
+                fullConfig: configLine,
               ),
             );
           }
@@ -875,6 +786,7 @@ class V2RayService extends ChangeNotifier {
     _activeConfig = null;
     _lastConnectionTime = null;
     _lastSuccessfulConnectTime = null;
+    _currentStatus = null;
     _clearActiveConfig();
     notifyListeners();
   }
@@ -901,7 +813,6 @@ class V2RayService extends ChangeNotifier {
   // Fetch IP information from ipleak.net API
   Future<IpInfo> fetchIpInfo() async {
     // Set loading state
-    _isLoadingIpInfo = true;
     notifyListeners();
 
     const String apiUrl = 'https://ipleak.net/json/';
@@ -919,8 +830,6 @@ class V2RayService extends ChangeNotifier {
             final Map<String, dynamic> data = json.decode(response.body);
             final ipInfo = IpInfo.fromJson(data);
 
-            _ipInfo = ipInfo;
-            _isLoadingIpInfo = false;
             notifyListeners();
             // IP info fetched successfully
             return ipInfo;
@@ -938,8 +847,6 @@ class V2RayService extends ChangeNotifier {
 
       // After max retries, return error
       final errorInfo = IpInfo.error('Cannot get IP information');
-      _ipInfo = errorInfo;
-      _isLoadingIpInfo = false;
       notifyListeners();
       // Failed to fetch IP info after max retries
       return errorInfo;
@@ -947,8 +854,6 @@ class V2RayService extends ChangeNotifier {
       // Handle any unexpected errors
       // Unexpected error fetching IP info
       final errorInfo = IpInfo.error('Error: $e');
-      _ipInfo = errorInfo;
-      _isLoadingIpInfo = false;
       notifyListeners();
       return errorInfo;
     }
@@ -1064,161 +969,6 @@ class V2RayService extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ Error checking connection: $e');
       return false;
-    }
-  }
-
-  /// Get real-time ping monitoring for the currently connected server
-  /// Returns a stream of ping results that updates at the specified interval
-  Stream<PingResult>? startConnectedServerPingMonitoring({
-    Duration interval = const Duration(seconds: 5),
-  }) {
-    if (_activeConfig == null) {
-      // No active config for ping monitoring
-      return null;
-    }
-
-    try {
-      return NativePingService.startContinuousPing(
-        host: _activeConfig!.address,
-        port: _activeConfig!.port,
-        interval: interval,
-      );
-    } catch (e) {
-      // Error starting connected server ping monitoring
-      return null;
-    }
-  }
-
-  /// Get network type information
-  Future<String> getNetworkType() async {
-    try {
-      return await NativePingService.getNetworkType();
-    } catch (e) {
-      // Error getting network type
-      return 'Unknown';
-    }
-  }
-
-  /// Test connectivity using native ping service
-  Future<Map<String, PingResult>> testConnectivity() async {
-    try {
-      // Test common servers
-      final testHosts = [
-        (host: 'google.com', port: 80),
-        (host: 'cloudflare.com', port: 80),
-        (host: '1.1.1.1', port: 53),
-        (host: '8.8.8.8', port: 53),
-      ];
-      
-      return await NativePingService.pingMultipleHosts(
-        hosts: testHosts,
-        timeoutMs: 3000,
-      );
-    } catch (e) {
-      // Error testing connectivity
-      return {};
-    }
-  }
-
-  /// Get enhanced server delay with detailed ping information
-  Future<PingResult> getServerPingDetails(V2RayConfig config) async {
-    try {
-      return await NativePingService.pingHost(
-        host: config.address,
-        port: config.port,
-        timeoutMs: 8000,
-        useIcmp: true,
-        useTcp: true,
-        useCache: false,
-      );
-    } catch (e) {
-      // Error getting server ping details
-      return PingResult.error('Failed to ping server: $e');
-    }
-  }
-
-  /// Get fastest server from a list of configs using V2Ray ping
-  Future<V2RayConfig?> getFastestServer(List<V2RayConfig> configs) async {
-    if (configs.isEmpty) return null;
-
-    try {
-      V2RayConfig? fastestConfig;
-      int? lowestLatency;
-
-      // Ping each config sequentially using V2Ray's built-in method
-      for (final config in configs) {
-        final latency = await getServerDelay(config);
-        if (latency != null &&
-            latency > 0 &&
-            (lowestLatency == null || latency < lowestLatency)) {
-          lowestLatency = latency;
-          fastestConfig = config;
-        }
-      }
-
-      return fastestConfig;
-    } catch (e) {
-      // Error getting fastest server
-      return null;
-    }
-  }
-
-  Future<V2RayConfig?> parseSubscriptionConfig(String configText) async {
-    try {
-      // Extract country code if present: [CC] config
-      String? countryCode;
-      String configLine = configText.trim();
-      
-      final countryCodeMatch = RegExp(r'^\[([A-Z]{2})\]\s+(.+)$').firstMatch(configLine);
-      if (countryCodeMatch != null) {
-        countryCode = countryCodeMatch.group(1);
-        configLine = countryCodeMatch.group(2)!;
-      }
-      
-      // Try to parse as a V2Ray URL
-      final parser = V2ray.parseFromURL(configLine);
-
-      // Determine the protocol type from the URL prefix
-      String configType = '';
-      if (configLine.startsWith('vmess://')) {
-        configType = 'vmess';
-      } else if (configLine.startsWith('vless://')) {
-        configType = 'vless';
-      } else if (configLine.startsWith('ss://')) {
-        configType = 'shadowsocks';
-      } else if (configLine.startsWith('trojan://')) {
-        configType = 'trojan';
-      } else {
-        throw Exception('Unsupported protocol');
-      }
-
-      // Clean remark - remove country code patterns
-      String cleanRemark = parser.remark;
-      cleanRemark = cleanRemark.replaceAll(RegExp(r'^[\[\(][A-Z]{2}[\]\)]\s*'), '');
-      cleanRemark = cleanRemark.replaceAll(RegExp(r'^[A-Z]{2}[-\s]+'), '');
-      cleanRemark = cleanRemark.trim();
-      if (cleanRemark.isEmpty) {
-        cleanRemark = 'Server';
-      }
-
-      // Use the parsed address and port from the V2RayURL parser
-      String address = parser.address;
-      int port = parser.port;
-
-      // Create a new V2RayConfig object with a generated ID
-      return V2RayConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        remark: cleanRemark,
-        address: address,
-        port: port,
-        configType: configType,
-        fullConfig: configLine,
-        countryCode: countryCode,
-        isConnected: false,
-      );
-    } catch (e) {
-      // Error parsing config
-      return null;
     }
   }
 
@@ -1370,62 +1120,6 @@ class V2RayService extends ChangeNotifier {
   int get downloadBytes => _downloadBytes;
   int get connectedSeconds => _connectedSeconds;
 
-  // Get current speeds from V2Ray status (for internal use)
-  int get currentUploadSpeed => _currentStatus?.uploadSpeed ?? 0;
-  int get currentDownloadSpeed => _currentStatus?.downloadSpeed ?? 0;
-  
-  // Get current ping for the active server
-  Future<int?> getCurrentPing() async {
-    if (_activeConfig == null) return null;
-    
-    try {
-      // Method 1: Try to get connected server delay (most accurate for active connection)
-      try {
-        final connectedDelay = await _flutterV2ray.getConnectedServerDelay()
-            .timeout(const Duration(seconds: 3));
-        
-        if (connectedDelay >= 0 && connectedDelay < 10000) {
-          return connectedDelay;
-        }
-      } catch (e) {
-        debugPrint('⚠️ getConnectedServerDelay failed: $e');
-      }
-      
-      // Method 2: Try regular TCP ping to server
-      try {
-        final stopwatch = Stopwatch()..start();
-        final socket = await Socket.connect(
-          _activeConfig!.address,
-          _activeConfig!.port,
-          timeout: const Duration(seconds: 3),
-        );
-        stopwatch.stop();
-        await socket.close();
-        
-        final ping = stopwatch.elapsedMilliseconds;
-        if (ping > 0 && ping < 5000) {
-          return ping;
-        }
-      } catch (e) {
-        debugPrint('⚠️ TCP ping failed: $e');
-      }
-      
-      // Method 3: Use cached ping if available
-      final hostKey = '${_activeConfig!.address}:${_activeConfig!.port}';
-      if (_pingCache.containsKey(hostKey)) {
-        final cached = _pingCache[hostKey];
-        if (cached != null && cached.delay != null && cached.delay! > 0) {
-          return cached.delay;
-        }
-      }
-      
-      return null;
-    } catch (e) {
-      debugPrint('❌ Error getting current ping: $e');
-      return null;
-    }
-  }
-
   // Format usage statistics for display
   String getFormattedUpload() {
     return _formatBytes(_uploadBytes);
@@ -1433,10 +1127,6 @@ class V2RayService extends ChangeNotifier {
 
   String getFormattedDownload() {
     return _formatBytes(_downloadBytes);
-  }
-
-  String getFormattedTotalTraffic() {
-    return _formatBytes(_uploadBytes + _downloadBytes);
   }
 
   String getFormattedConnectedTime() {
