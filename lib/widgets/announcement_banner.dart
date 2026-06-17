@@ -125,19 +125,6 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
     }
   }
 
-  IconData _getIcon(String type) {
-    switch (type) {
-      case 'warning':
-        return Icons.warning_amber_rounded;
-      case 'error':
-        return Icons.error_outline_rounded;
-      case 'success':
-        return Icons.check_circle_outline_rounded;
-      default:
-        return Icons.campaign_outlined;
-    }
-  }
-
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
     try {
@@ -172,8 +159,6 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
     final double actionIcon = isSmallScreen ? 13 : (isTablet ? 17 : 15);
     final double closeIcon  = isSmallScreen ? 14 : (isTablet ? 18 : 16);
     final double closeBtn   = isSmallScreen ? 24 : (isTablet ? 30 : 26);
-    final double leadSize   = isSmallScreen ? 34 : (isTablet ? 44 : 38);
-    final double leadIcon   = isSmallScreen ? 18 : (isTablet ? 24 : 20);
     final double bottomMargin = isSmallScreen ? 12 : (isTablet ? 18 : 14);
     final double actionHeight = isSmallScreen ? 36 : (isTablet ? 46 : 40);
 
@@ -241,26 +226,6 @@ class _AnnouncementBannerWidgetState extends State<AnnouncementBannerWidget>
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Leading type icon — muted tint, no glow.
-                          Container(
-                            width: leadSize,
-                            height: leadSize,
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(leadSize * 0.3),
-                              border: Border.all(
-                                color: color.withValues(alpha: 0.25),
-                                width: 1,
-                              ),
-                            ),
-                            child: Icon(
-                              _getIcon(_banner!.type),
-                              color: color.withValues(alpha: 0.9),
-                              size: leadIcon,
-                            ),
-                          ),
-                          SizedBox(width: isSmallScreen ? 10 : 12),
-
                           // Message — leading-aligned, space reserved for close button.
                           Expanded(
                             child: Padding(
