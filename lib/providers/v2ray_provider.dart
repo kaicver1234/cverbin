@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/v2ray_config.dart';
 import '../models/subscription.dart';
@@ -307,14 +308,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _safeNotify();
     
     try {
-      // Get server configs
-      var servers = serverConfigs;
-      
+      // Smart Connect only operates on OFFICIAL servers — the user's manually
+      // added configs and subscriptions stay untouched here.
+      var servers = officialConfigs;
+
       // If no servers, try to load them first
       if (servers.isEmpty) {
         debugPrint('⚠️ No servers loaded, fetching...');
         await fetchServers();
-        servers = serverConfigs;
+        servers = officialConfigs;
       }
       
       if (servers.isEmpty) {
@@ -488,7 +490,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       // Fallback: try to connect to first server
       try {
-        final servers = serverConfigs;
+        final servers = officialConfigs;
         if (servers.isNotEmpty) {
           debugPrint('⚠️ Fallback: Connecting to first server');
           _selectedConfig = servers.first;
@@ -528,6 +530,25 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   
   // Getter for server configs (excluding smart connect)
   List<V2RayConfig> get serverConfigs => _configs.where((c) => !c.isSmartConnect).toList();
+
+  // Official configs (the ones fetched from the main server URL, NOT user-added).
+  // Used by Smart Connect and the "Free" tab so users cannot affect those.
+  List<V2RayConfig> get officialConfigs =>
+      _configs.where((c) => !c.isSmartConnect && !c.isUserAdded).toList();
+
+  // Standalone user-added configs (NOT belonging to any subscription).
+  List<V2RayConfig> get userConfigs => _configs
+      .where((c) => !c.isSmartConnect && c.isUserAdded && c.subscriptionId == null)
+      .toList();
+
+  // User-added subscriptions only (excludes the built-in default subscription).
+  List<Subscription> get userSubscriptions =>
+      _subscriptions.where((s) => s.isUserAdded).toList();
+
+  // Configs that belong to a specific subscription.
+  List<V2RayConfig> configsForSubscription(String subscriptionId) => _configs
+      .where((c) => !c.isSmartConnect && c.subscriptionId == subscriptionId)
+      .toList();
   
   // Method channel for VPN control
   static const platform = MethodChannel('com.tiksarvpn.app/vpn_control');
@@ -736,6 +757,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       //     active config against a real server entry. ~50ms.
       await _loadSavedStateAndShowUI();
 
+      // Load user-added subscriptions so the My Servers tab is populated
+      // immediately on cold start, before the official fetch runs.
+      await loadSubscriptions();
+
       // 1d. Detect VPN state using two fast, parallel native checks:
       //     - getConnectionState() reads V2RayController's in-process state.
       //     - isSystemVpnActive() queries the OS tunnel interface.
@@ -789,6 +814,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         for (var config in _configs) {
           config.isConnected = false;
         }
+        // Cold start with no active VPN → default UI back to Smart Connect.
+        // Without this, a previously-cached "selectedConfig" from the last
+        // session would silently stick around and override the default.
+        _selectedConfig = null;
+        _wasUsingSmartConnect = true;
       }
 
       // CRITICAL: First UI render with correct state. Splash is still on
@@ -1025,11 +1055,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       if (servers.isNotEmpty) {
         _v2rayService.clearPingCache();
-        
-        // COMPLETELY REPLACE all configs - no merging, no duplicates
-        _configs = servers;
+
+        // Preserve user-added configs (standalone + subscription-owned) when
+        // refreshing the official server list. Only the official ones get
+        // replaced — the user's My Servers tab is left alone.
+        final preservedUserConfigs =
+            _configs.where((c) => c.isUserAdded).toList();
+        _configs = [...servers, ...preservedUserConfigs];
         _serversFetchedOnce = true; // Mark as fetched
-        
+
         // Preserve connection state: if VPN is currently running, re-mark the connected config
         final activeConfig = _v2rayService.activeConfig;
         if (activeConfig != null) {
@@ -1044,15 +1078,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             }
           }
         }
-        
+
         await _v2rayService.saveConfigs(_configs);
-        debugPrint('✅ Loaded ${_configs.length} servers from online');
+        debugPrint('✅ Loaded ${_configs.length} servers (${servers.length} official + ${preservedUserConfigs.length} user)');
       } else {
         // Fallback to cache if online fetch returns empty
         debugPrint('⚠️ Online fetch returned empty, loading from cache...');
         _configs = await _v2rayService.loadConfigs();
         debugPrint('📂 Loaded ${_configs.length} servers from cache');
-        
+
         if (_configs.isEmpty) {
           _setError('No servers available');
         }
@@ -1077,7 +1111,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> loadSubscriptions() async {
-    // Simplified - just ensure we have the default subscription
+    // Load saved user subscriptions from storage. The built-in "default"
+    // subscription is kept in-memory only and is not exposed to the user.
+    final saved = await _v2rayService.loadSubscriptions();
     _subscriptions = [
       Subscription(
         id: 'default',
@@ -1085,9 +1121,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         url: _serverUrl,
         lastUpdated: DateTime.now(),
         configIds: [],
+        isUserAdded: false,
       ),
+      ...saved.where((s) => s.id != 'default'),
     ];
-    await _v2rayService.saveSubscriptions(_subscriptions);
     _safeNotify();
   }
 
@@ -1102,7 +1139,86 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _safeNotify();
   }
 
+  /// Parse a single V2Ray URI (vmess://, vless://, ss://, trojan://) entered by
+  /// the user and add it to the My Servers list. Returns the newly created
+  /// config so the UI can confirm success, or throws on parse failure.
+  Future<V2RayConfig> addUserConfigFromUri(String uri, {String? customName}) async {
+    final trimmed = uri.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Empty configuration');
+    }
+    if (!(trimmed.startsWith('vmess://') ||
+        trimmed.startsWith('vless://') ||
+        trimmed.startsWith('ss://') ||
+        trimmed.startsWith('trojan://'))) {
+      throw Exception('Unsupported config (use vmess/vless/ss/trojan)');
+    }
+
+    String configType;
+    if (trimmed.startsWith('vmess://')) {
+      configType = 'vmess';
+    } else if (trimmed.startsWith('vless://')) {
+      configType = 'vless';
+    } else if (trimmed.startsWith('ss://')) {
+      configType = 'shadowsocks';
+    } else {
+      configType = 'trojan';
+    }
+
+    try {
+      final parser = V2ray.parseFromURL(trimmed);
+      final remark = (customName != null && customName.trim().isNotEmpty)
+          ? customName.trim()
+          : (parser.remark.isNotEmpty ? parser.remark : 'My Server');
+
+      final newConfig = V2RayConfig(
+        id: 'user_${DateTime.now().millisecondsSinceEpoch}_${_configs.length}',
+        remark: remark,
+        address: parser.address,
+        port: parser.port,
+        configType: configType,
+        fullConfig: trimmed,
+        isUserAdded: true,
+      );
+
+      _configs.add(newConfig);
+      await _v2rayService.saveConfigs(_configs);
+      _safeNotify();
+      return newConfig;
+    } catch (e) {
+      throw Exception('Invalid configuration: $e');
+    }
+  }
+
+  /// Rename a single user-added standalone config.
+  Future<void> renameUserConfig(String configId, String newName) async {
+    final idx = _configs.indexWhere((c) => c.id == configId);
+    if (idx == -1) return;
+    final old = _configs[idx];
+    if (!old.isUserAdded) return; // Refuse to touch official configs.
+
+    _configs[idx] = V2RayConfig(
+      id: old.id,
+      remark: newName.trim().isEmpty ? old.remark : newName.trim(),
+      address: old.address,
+      port: old.port,
+      configType: old.configType,
+      fullConfig: old.fullConfig,
+      countryCode: old.countryCode,
+      isUserAdded: old.isUserAdded,
+      subscriptionId: old.subscriptionId,
+      isConnected: old.isConnected,
+    );
+    await _v2rayService.saveConfigs(_configs);
+    _safeNotify();
+  }
+
   Future<void> removeConfig(V2RayConfig config) async {
+    // Safety: never let users delete official servers.
+    if (!config.isUserAdded) {
+      debugPrint('⛔ Refusing to remove official server: ${config.remark}');
+      return;
+    }
     try {
       if (_v2rayService.activeConfig?.id == config.id) {
         await _v2rayService.disconnect().catchError((e) {
@@ -1124,16 +1240,24 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
 
       if (_selectedConfig?.id == config.id) {
+        // The user just deleted the server they had picked — fall back to
+        // Smart Connect so the home screen has a sensible default to connect
+        // to instead of a stale, no-longer-existing reference.
         _selectedConfig = null;
+        _wasUsingSmartConnect = true;
       }
 
       await _v2rayService.saveConfigs(_configs);
-      await _v2rayService.saveSubscriptions(_subscriptions);
+      await _v2rayService.saveSubscriptions(_userSubscriptionsForSave());
       _safeNotify();
     } catch (e) {
       _setError('Failed to delete configuration: $e');
     }
   }
+
+  // Only persist user-added subscriptions; the default in-memory one is never saved.
+  List<Subscription> _userSubscriptionsForSave() =>
+      _subscriptions.where((s) => s.isUserAdded).toList();
 
   @override
   void dispose() {
@@ -1162,37 +1286,49 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _setLoading(true);
     _errorMessage = '';
     try {
-      final configs = await _v2rayService.parseSubscriptionUrl(url);
-      if (configs.isEmpty) {
+      final subId = 'sub_${DateTime.now().millisecondsSinceEpoch}';
+      final fetched = await _v2rayService.parseSubscriptionUrl(url);
+      if (fetched.isEmpty) {
         _setError('No valid configurations found in subscription');
         return;
       }
 
-      // Add configs and display them immediately (avoid duplicates)
-      for (var config in configs) {
+      // Tag every config as user-added and tie it to this subscription so the
+      // My Servers tab can group them and fetchServers() won't wipe them.
+      final tagged = fetched
+          .map((c) => V2RayConfig(
+                id: c.id,
+                remark: c.remark,
+                address: c.address,
+                port: c.port,
+                configType: c.configType,
+                fullConfig: c.fullConfig,
+                countryCode: c.countryCode,
+                isUserAdded: true,
+                subscriptionId: subId,
+              ))
+          .toList();
+
+      for (final config in tagged) {
         if (!_configs.any((c) => c.id == config.id)) {
           _configs.add(config);
         }
       }
 
-      final newConfigIds = configs.map((c) => c.id).toList();
-
-      // Create subscription
       final subscription = Subscription(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
+        id: subId,
+        name: name.trim().isEmpty ? 'My Subscription' : name.trim(),
         url: url,
         lastUpdated: DateTime.now(),
-        configIds: newConfigIds,
+        configIds: tagged.map((c) => c.id).toList(),
+        isUserAdded: true,
       );
 
       _subscriptions.add(subscription);
 
-      // Save both configs and subscription
       await _v2rayService.saveConfigs(_configs);
-      await _v2rayService.saveSubscriptions(_subscriptions);
+      await _v2rayService.saveSubscriptions(_userSubscriptionsForSave());
 
-      // Update UI after everything is saved
       _safeNotify();
     } catch (e) {
       String errorMsg = 'Failed to add subscription';
@@ -1219,16 +1355,21 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> updateSubscription(Subscription subscription) async {
+    // Safety: only allow updates on user-added subscriptions.
+    if (!subscription.isUserAdded) {
+      debugPrint('⛔ Refusing to update non-user subscription: ${subscription.name}');
+      return;
+    }
     _setLoading(true);
     _isLoadingServers = true;
     _errorMessage = '';
     _safeNotify();
 
     try {
-      final configs = await _v2rayService.parseSubscriptionUrl(
+      final fetched = await _v2rayService.parseSubscriptionUrl(
         subscription.url,
       );
-      if (configs.isEmpty) {
+      if (fetched.isEmpty) {
         _setError('No valid configurations found in subscription');
         _isLoadingServers = false;
         _safeNotify();
@@ -1243,26 +1384,37 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Remove old configs
       _configs.removeWhere((c) => subscription.configIds.contains(c.id));
 
-      // Add new configs and display them immediately (avoid duplicates)
-      for (var config in configs) {
+      // Tag refreshed configs as user-added and link to this subscription.
+      final tagged = fetched
+          .map((c) => V2RayConfig(
+                id: c.id,
+                remark: c.remark,
+                address: c.address,
+                port: c.port,
+                configType: c.configType,
+                fullConfig: c.fullConfig,
+                countryCode: c.countryCode,
+                isUserAdded: true,
+                subscriptionId: subscription.id,
+              ))
+          .toList();
+
+      for (final config in tagged) {
         if (!_configs.any((c) => c.id == config.id)) {
           _configs.add(config);
         }
       }
-
-      final newConfigIds = configs.map((c) => c.id).toList();
 
       // Update subscription
       final index = _subscriptions.indexWhere((s) => s.id == subscription.id);
       if (index != -1) {
         _subscriptions[index] = subscription.copyWith(
           lastUpdated: DateTime.now(),
-          configIds: newConfigIds,
+          configIds: tagged.map((c) => c.id).toList(),
         );
 
-        // Save both configs and subscriptions to ensure persistence
         await _v2rayService.saveConfigs(_configs);
-        await _v2rayService.saveSubscriptions(_subscriptions);
+        await _v2rayService.saveSubscriptions(_userSubscriptionsForSave());
       }
 
       // Mark loading as complete
@@ -1293,16 +1445,56 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // Update subscription info without refreshing servers
+  // Remove a user-added subscription and all its configs.
   Future<void> removeSubscription(Subscription subscription) async {
-    // Remove configs associated with this subscription
-    _configs.removeWhere((c) => subscription.configIds.contains(c.id));
+    if (!subscription.isUserAdded) {
+      debugPrint('⛔ Refusing to remove non-user subscription: ${subscription.name}');
+      return;
+    }
 
-    // Remove subscription
+    // If we're connected to a config from this subscription, disconnect first.
+    final activeId = _v2rayService.activeConfig?.id;
+    if (activeId != null && subscription.configIds.contains(activeId)) {
+      try {
+        await _v2rayService.disconnect();
+      } catch (e) {
+        debugPrint('Error disconnecting before subscription remove: $e');
+      }
+    }
+
+    // Match by both configIds AND subscriptionId — covers configs that may have
+    // drifted from the stored configIds list across an update cycle.
+    _configs.removeWhere((c) =>
+        c.subscriptionId == subscription.id ||
+        subscription.configIds.contains(c.id));
+
+    // If the user was about to connect to a server from this subscription,
+    // fall back to Smart Connect so we don't keep a dangling reference.
+    final sel = _selectedConfig;
+    if (sel != null &&
+        (sel.subscriptionId == subscription.id ||
+            subscription.configIds.contains(sel.id))) {
+      _selectedConfig = null;
+      _wasUsingSmartConnect = true;
+    }
+
     _subscriptions.removeWhere((s) => s.id == subscription.id);
 
     await _v2rayService.saveConfigs(_configs);
-    await _v2rayService.saveSubscriptions(_subscriptions);
+    await _v2rayService.saveSubscriptions(_userSubscriptionsForSave());
+    _safeNotify();
+  }
+
+  /// Rename a user-added subscription without re-fetching its configs.
+  Future<void> renameSubscription(String subscriptionId, String newName) async {
+    final idx = _subscriptions.indexWhere((s) => s.id == subscriptionId);
+    if (idx == -1) return;
+    final sub = _subscriptions[idx];
+    if (!sub.isUserAdded) return;
+    _subscriptions[idx] = sub.copyWith(
+      name: newName.trim().isEmpty ? sub.name : newName.trim(),
+    );
+    await _v2rayService.saveSubscriptions(_userSubscriptionsForSave());
     _safeNotify();
   }
 
@@ -1707,10 +1899,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         _configs[i].isConnected = false;
       }
 
-      // After disconnect, reset to Smart Connect
-      _wasUsingSmartConnect = true;
-      _selectedConfig = null;
-      debugPrint('✅ Reset to Smart Connect after disconnect');
+      // Keep the user's selected server after disconnect within the same
+      // session — they explicitly picked it, so don't surprise them by
+      // jumping back to Smart Connect. Smart Connect only becomes the
+      // default again on a fresh cold start (see _initialize).
+      debugPrint('✅ Disconnected, keeping selected: ${_selectedConfig?.remark ?? "none"}');
 
       // Persist the changes
       await _v2rayService.saveConfigs(_configs);

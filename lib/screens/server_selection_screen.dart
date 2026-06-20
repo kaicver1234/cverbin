@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../models/v2ray_config.dart';
+import '../models/subscription.dart';
 import '../utils/app_localizations.dart';
 import '../utils/country_flags.dart';
 import '../utils/responsive_helper.dart';
@@ -38,7 +40,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   void initState() {
     super.initState();
     AnalyticsService().logScreenView(screenName: 'Safheh_Entekhab_Server');
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging && _activeTabIndex != _tabController.index) {
         setState(() => _activeTabIndex = _tabController.index);
@@ -154,6 +156,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
               _buildTabBar(responsive),
               if (_activeTabIndex == 0)
                 _buildActionToolbar(responsive),
+              if (_activeTabIndex == 2)
+                _buildMyServersToolbar(responsive),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -161,6 +165,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
                   children: [
                     _buildFreeTab(),
                     _buildPremiumTab(context),
+                    _buildMyServersTab(),
                   ],
                 ),
               ),
@@ -264,6 +269,13 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
               icon: Icons.diamond_rounded,
               isActive: _activeTabIndex == 1,
               onTap: () => _tabController.animateTo(1),
+              responsive: responsive,
+            ),
+            _buildTabButton(
+              label: AppLocalizations.of(context).translate('server_selection.my_servers'),
+              icon: Icons.bookmark_rounded,
+              isActive: _activeTabIndex == 2,
+              onTap: () => _tabController.animateTo(2),
               responsive: responsive,
             ),
           ],
@@ -413,7 +425,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
 
         final List<V2RayConfig> configs = _sortedConfigs != null
             ? _sortedConfigs!
-            : [V2RayConfig.smartConnect(), ...provider.configs];
+            : [V2RayConfig.smartConnect(), ...provider.officialConfigs];
 
         if (configs.length <= 1) return _buildEmptyState();
 
@@ -671,7 +683,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       return;
     }
 
-    final configs = provider.serverConfigs;
+    final configs = provider.officialConfigs;
     if (configs.isEmpty) {
       if (mounted) setState(() { _isTesting = false; _testStatusText = ''; });
       return;
@@ -751,7 +763,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
   }
 
   void _sortServersByPing(V2RayProvider provider, Map<String, int> pingResults) {
-    final servers = List<V2RayConfig>.from(provider.serverConfigs)
+    final servers = List<V2RayConfig>.from(provider.officialConfigs)
       ..sort((a, b) {
         final rawA = pingResults[a.id];
         final rawB = pingResults[b.id];
@@ -761,6 +773,1505 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen>
       });
     _sortedConfigs = [V2RayConfig.smartConnect(), ...servers];
   }
+
+  // ─── My Servers tab ────────────────────────────────────────────────────────
+
+  Widget _buildMyServersToolbar(ResponsiveHelper responsive) {
+    final hasAny = context.select<V2RayProvider, bool>(
+      (p) => p.userConfigs.isNotEmpty || p.userSubscriptions.isNotEmpty,
+    );
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        responsive.horizontalPadding,
+        0,
+        responsive.horizontalPadding,
+        10,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: _openAddMenu,
+              child: Container(
+                height: responsive.scale(44).clamp(38.0, 54.0),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E3A5F), Color(0xFF0D2137)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF00D9FF).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.add_rounded,
+                        color: Color(0xFF00D9FF), size: 18),
+                    const SizedBox(width: 7),
+                    Text(
+                      AppLocalizations.of(context)
+                          .translate('server_selection.add_menu_title'),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: responsive.scale(13).clamp(11.0, 15.0),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (hasAny) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                onTap: _isTesting ? null : _testUserServerPings,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: responsive.scale(44).clamp(38.0, 54.0),
+                  decoration: BoxDecoration(
+                    color: _isTesting
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isTesting
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_isTesting) ...[
+                        WaveLoading.small(
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          _testStatusText.isNotEmpty
+                              ? _testStatusText
+                              : '...',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize:
+                                responsive.scale(13).clamp(11.0, 15.0),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ] else ...[
+                        const Icon(Icons.speed_rounded,
+                            color: Color(0xFF00D9FF), size: 16),
+                        const SizedBox(width: 7),
+                        Text(
+                          AppLocalizations.of(context)
+                              .translate('server_selection.test_ping'),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize:
+                                responsive.scale(13).clamp(11.0, 15.0),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _testUserServerPings() async {
+    if (_isTesting || !mounted) return;
+
+    final V2RayProvider provider;
+    try {
+      provider = Provider.of<V2RayProvider>(context, listen: false);
+    } catch (_) {
+      return;
+    }
+
+    final configs = <V2RayConfig>[
+      ...provider.userConfigs,
+      ...provider.userSubscriptions
+          .expand((s) => provider.configsForSubscription(s.id)),
+    ];
+
+    if (configs.isEmpty) return;
+
+    setState(() {
+      _isTesting = true;
+      _totalCount = configs.length;
+      _testStatusText = '0 / $_totalCount';
+      // Clear only the results for the configs we're about to retest so
+      // ping badges for other tabs aren't wiped out.
+      for (final c in configs) {
+        _pingResults.remove(c.id);
+      }
+    });
+
+    try {
+      int successCount = 0;
+      int completed = 0;
+      int nextIndex = 0;
+
+      Future<void> worker() async {
+        while (mounted && _isTesting) {
+          if (nextIndex >= configs.length) break;
+          final idx = nextIndex++;
+
+          final config = configs[idx];
+          final delay = await _testSingleServer(config, provider);
+
+          if (!mounted || !_isTesting) break;
+
+          if (delay >= 0 && delay < 10000) {
+            _pingResults[config.id] = delay;
+            successCount++;
+          } else {
+            _pingResults[config.id] = -1;
+          }
+          completed++;
+
+          if (mounted) {
+            setState(() {
+              _testStatusText = '$completed / $_totalCount';
+            });
+          }
+        }
+      }
+
+      final workerCount = _batchSize.clamp(1, configs.length);
+      await Future.wait(List.generate(workerCount, (_) => worker()));
+
+      if (!mounted) return;
+      _showSnackBar(
+        '${AppLocalizations.of(context).translate('server_selection.servers_updated')} ($successCount/${configs.length})',
+        const Color(0xFF00FFA3),
+      );
+    } catch (_) {
+      if (mounted) {
+        _showSnackBar(
+          AppLocalizations.of(context)
+              .translate('server_selection.error_updating'),
+          Colors.red,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTesting = false;
+          _testStatusText = '';
+        });
+      }
+    }
+  }
+
+  Widget _buildMyServersTab() {
+    return Consumer<V2RayProvider>(
+      builder: (context, provider, _) {
+        final subs = provider.userSubscriptions;
+        final manualConfigs = provider.userConfigs;
+        final r = ResponsiveHelper(context);
+
+        if (subs.isEmpty && manualConfigs.isEmpty) {
+          return _buildMyServersEmpty();
+        }
+
+        return ListView(
+          padding: EdgeInsets.only(
+            left: r.horizontalPadding,
+            right: r.horizontalPadding,
+            top: 8,
+            bottom: 24,
+          ),
+          physics: const ClampingScrollPhysics(),
+          children: [
+            if (subs.isNotEmpty) ...[
+              _buildSectionHeader(
+                AppLocalizations.of(context)
+                    .translate('server_selection.subscriptions_section'),
+                Icons.cloud_download_rounded,
+              ),
+              const SizedBox(height: 8),
+              for (final sub in subs)
+                _SubscriptionCard(
+                  subscription: sub,
+                  configs: provider.configsForSubscription(sub.id),
+                  selectedId: provider.wasUsingSmartConnect
+                      ? null
+                      : provider.selectedConfig?.id,
+                  hasActive: provider.activeConfig != null,
+                  pingResults: _pingResults,
+                  onUpdate: () => _updateSubscription(sub),
+                  onRename: () => _renameSubscription(sub),
+                  onDelete: () => _deleteSubscription(sub),
+                  onTapConfig: (cfg) => _tapUserConfig(cfg),
+                ),
+              const SizedBox(height: 16),
+            ],
+            if (manualConfigs.isNotEmpty) ...[
+              _buildSectionHeader(
+                AppLocalizations.of(context)
+                    .translate('server_selection.manual_configs_section'),
+                Icons.dns_rounded,
+              ),
+              const SizedBox(height: 8),
+              for (final cfg in manualConfigs)
+                _UserServerCard(
+                  config: cfg,
+                  isSelected: !provider.wasUsingSmartConnect &&
+                      provider.selectedConfig?.id == cfg.id,
+                  ping: _pingResults[cfg.id],
+                  onTap: () => _tapUserConfig(cfg),
+                  onRename: () => _renameUserConfig(cfg),
+                  onDelete: () => _deleteUserConfig(cfg),
+                ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 2, left: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF00D9FF), size: 16),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.75),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMyServersEmpty() {
+    final r = ResponsiveHelper(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: r.scale(80).clamp(60.0, 100.0),
+            height: r.scale(80).clamp(60.0, 100.0),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF00D9FF).withValues(alpha: 0.15),
+                  const Color(0xFF00FFA3).withValues(alpha: 0.05),
+                ],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFF00D9FF).withValues(alpha: 0.2),
+              ),
+            ),
+            child: Icon(
+              Icons.bookmark_outline_rounded,
+              color: const Color(0xFF00D9FF),
+              size: r.scale(40).clamp(30.0, 50.0),
+            ),
+          ),
+          SizedBox(height: r.scale(20).clamp(14.0, 26.0)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: r.horizontalPadding),
+            child: Text(
+              AppLocalizations.of(context)
+                  .translate('server_selection.no_user_servers'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: r.scale(16).clamp(13.0, 19.0),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: r.horizontalPadding + 8),
+            child: Text(
+              AppLocalizations.of(context)
+                  .translate('server_selection.no_user_servers_hint'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: r.scale(13).clamp(11.0, 16.0),
+              ),
+            ),
+          ),
+          SizedBox(height: r.scale(24).clamp(16.0, 30.0)),
+          GestureDetector(
+            onTap: _openAddMenu,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: r.scale(24).clamp(16.0, 32.0),
+                vertical: r.scale(12).clamp(8.0, 16.0),
+              ),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E3A5F), Color(0xFF0D2137)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF00D9FF).withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_rounded,
+                      color: Color(0xFF00D9FF), size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    AppLocalizations.of(context)
+                        .translate('server_selection.add_menu_title'),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: r.scale(14).clamp(12.0, 17.0),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Actions ───────────────────────────────────────────────────────────────
+
+  void _tapUserConfig(V2RayConfig cfg) {
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    if (provider.activeConfig != null) {
+      _showDisconnectFirstDialog(context);
+    } else {
+      provider.selectConfig(cfg);
+      Navigator.pop(context);
+    }
+  }
+
+  void _openAddMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _AddMenuSheet(
+        onAddServer: () {
+          Navigator.pop(context);
+          _showAddServerDialog();
+        },
+        onAddSubscription: () {
+          Navigator.pop(context);
+          _showAddSubscriptionDialog();
+        },
+      ),
+    );
+  }
+
+  Future<void> _showAddServerDialog() async {
+    final configCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogCtx) => _UserDialogShell(
+        title: AppLocalizations.of(context)
+            .translate('server_selection.add_server_title'),
+        icon: Icons.add_link_rounded,
+        children: [
+          _DialogTextField(
+            controller: configCtrl,
+            hintKey: 'server_selection.config_hint',
+            maxLines: 4,
+            autofocus: true,
+          ),
+          const SizedBox(height: 10),
+          _DialogTextField(
+            controller: nameCtrl,
+            hintKey: 'server_selection.server_name_hint',
+            maxLines: 1,
+          ),
+          const SizedBox(height: 6),
+          _PasteFromClipboardButton(
+            onPaste: (text) => configCtrl.text = text,
+          ),
+        ],
+        onSave: () {
+          if (configCtrl.text.trim().isEmpty) {
+            _showSnackBar(
+              AppLocalizations.of(context)
+                  .translate('server_selection.config_required'),
+              Colors.orange,
+            );
+            return;
+          }
+          Navigator.pop(dialogCtx, {
+            'config': configCtrl.text.trim(),
+            'name': nameCtrl.text.trim(),
+          });
+        },
+      ),
+    );
+
+    if (result == null) return;
+    if (!mounted) return;
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    try {
+      await provider.addUserConfigFromUri(
+        result['config']!,
+        customName: result['name'],
+      );
+      if (!mounted) return;
+      _showSnackBar(
+        AppLocalizations.of(context)
+            .translate('server_selection.server_added'),
+        const Color(0xFF00FFA3),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(
+        AppLocalizations.of(context)
+            .translate('server_selection.invalid_config'),
+        Colors.red,
+      );
+    }
+  }
+
+  Future<void> _showAddSubscriptionDialog() async {
+    final nameCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogCtx) => _UserDialogShell(
+        title: AppLocalizations.of(context)
+            .translate('server_selection.add_subscription_title'),
+        icon: Icons.cloud_download_rounded,
+        children: [
+          _DialogTextField(
+            controller: nameCtrl,
+            hintKey: 'server_selection.subscription_name_hint',
+            maxLines: 1,
+            autofocus: true,
+          ),
+          const SizedBox(height: 10),
+          _DialogTextField(
+            controller: urlCtrl,
+            hintKey: 'server_selection.subscription_url_hint',
+            maxLines: 1,
+          ),
+          const SizedBox(height: 6),
+          _PasteFromClipboardButton(
+            onPaste: (text) => urlCtrl.text = text,
+          ),
+        ],
+        onSave: () {
+          if (urlCtrl.text.trim().isEmpty) {
+            _showSnackBar(
+              AppLocalizations.of(context)
+                  .translate('server_selection.url_required'),
+              Colors.orange,
+            );
+            return;
+          }
+          Navigator.pop(dialogCtx, {
+            'name': nameCtrl.text.trim(),
+            'url': urlCtrl.text.trim(),
+          });
+        },
+      ),
+    );
+
+    if (result == null) return;
+    if (!mounted) return;
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    final before = provider.userSubscriptions.length;
+    await provider.addSubscription(result['name']!, result['url']!);
+    if (!mounted) return;
+    if (provider.errorMessage.isNotEmpty) {
+      _showSnackBar(provider.errorMessage, Colors.red);
+    } else {
+      final added = provider.userSubscriptions.length > before
+          ? provider.userSubscriptions.last
+          : null;
+      final count = added != null ? added.configIds.length : 0;
+      _showSnackBar(
+        AppLocalizations.of(context).translate(
+          'server_selection.subscription_added',
+          parameters: {'count': '$count'},
+        ),
+        const Color(0xFF00FFA3),
+      );
+    }
+  }
+
+  Future<void> _updateSubscription(Subscription sub) async {
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    await provider.updateSubscription(sub);
+    if (!mounted) return;
+    if (provider.errorMessage.isNotEmpty) {
+      _showSnackBar(provider.errorMessage, Colors.red);
+    } else {
+      _showSnackBar(
+        AppLocalizations.of(context)
+            .translate('server_selection.subscription_updated'),
+        const Color(0xFF00FFA3),
+      );
+    }
+  }
+
+  Future<void> _renameSubscription(Subscription sub) async {
+    final ctrl = TextEditingController(text: sub.name);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => _UserDialogShell(
+        title: AppLocalizations.of(context)
+            .translate('server_selection.edit_subscription_title'),
+        icon: Icons.edit_rounded,
+        children: [
+          _DialogTextField(
+            controller: ctrl,
+            hintKey: 'server_selection.subscription_name_hint',
+            maxLines: 1,
+            autofocus: true,
+          ),
+        ],
+        onSave: () => Navigator.pop(dialogCtx, ctrl.text.trim()),
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+    if (!mounted) return;
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    await provider.renameSubscription(sub.id, result);
+  }
+
+  Future<void> _deleteSubscription(Subscription sub) async {
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF121212),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded,
+                color: Colors.redAccent, size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                loc.translate('server_selection.delete_subscription_title'),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          loc.translate(
+            'server_selection.delete_subscription_message',
+            parameters: {
+              'name': sub.name,
+              'count': '${sub.configIds.length}',
+            },
+          ),
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(
+              loc.translate('server_selection.cancel'),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7), fontSize: 15),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: Text(
+              loc.translate('server_selection.delete'),
+              style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    await provider.removeSubscription(sub);
+    if (!mounted) return;
+    _showSnackBar(
+      loc.translate('server_selection.subscription_removed'),
+      const Color(0xFF00FFA3),
+    );
+  }
+
+  Future<void> _renameUserConfig(V2RayConfig cfg) async {
+    final ctrl = TextEditingController(text: cfg.remark);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => _UserDialogShell(
+        title: AppLocalizations.of(context)
+            .translate('server_selection.edit_server_title'),
+        icon: Icons.edit_rounded,
+        children: [
+          _DialogTextField(
+            controller: ctrl,
+            hintKey: 'server_selection.server_name_hint',
+            maxLines: 1,
+            autofocus: true,
+          ),
+        ],
+        onSave: () => Navigator.pop(dialogCtx, ctrl.text.trim()),
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+    if (!mounted) return;
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    await provider.renameUserConfig(cfg.id, result);
+  }
+
+  Future<void> _deleteUserConfig(V2RayConfig cfg) async {
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF121212),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded,
+                color: Colors.redAccent, size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                loc.translate('server_selection.delete_server_title'),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          loc.translate(
+            'server_selection.delete_server_message',
+            parameters: {'name': cfg.remark},
+          ),
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(
+              loc.translate('server_selection.cancel'),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7), fontSize: 15),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: Text(
+              loc.translate('server_selection.delete'),
+              style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    await provider.removeConfig(cfg);
+    if (!mounted) return;
+    _showSnackBar(
+      loc.translate('server_selection.server_removed'),
+      const Color(0xFF00FFA3),
+    );
+  }
+}
+
+// ─── Add Menu Sheet ──────────────────────────────────────────────────────────
+
+class _AddMenuSheet extends StatelessWidget {
+  final VoidCallback onAddServer;
+  final VoidCallback onAddSubscription;
+  const _AddMenuSheet({
+    required this.onAddServer,
+    required this.onAddSubscription,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111418),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12, left: 4),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  loc.translate('server_selection.add_menu_title'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            _AddMenuOption(
+              icon: Icons.add_link_rounded,
+              title: loc.translate('server_selection.add_server_option'),
+              subtitle:
+                  loc.translate('server_selection.add_server_option_desc'),
+              onTap: onAddServer,
+            ),
+            const SizedBox(height: 8),
+            _AddMenuOption(
+              icon: Icons.cloud_download_rounded,
+              title:
+                  loc.translate('server_selection.add_subscription_option'),
+              subtitle: loc
+                  .translate('server_selection.add_subscription_option_desc'),
+              onTap: onAddSubscription,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddMenuOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  const _AddMenuOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E3A5F), Color(0xFF0D2137)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: const Color(0xFF00D9FF).withValues(alpha: 0.3)),
+              ),
+              child: Icon(icon, color: const Color(0xFF00D9FF), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 12,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Consumer<LanguageProvider>(
+              builder: (context, lang, _) => Icon(
+                lang.isRtl ? Icons.chevron_left : Icons.chevron_right,
+                color: Colors.white.withValues(alpha: 0.3),
+                size: 18,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Dialog shell + text field ───────────────────────────────────────────────
+
+class _UserDialogShell extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+  final VoidCallback onSave;
+  const _UserDialogShell({
+    required this.title,
+    required this.icon,
+    required this.children,
+    required this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return AlertDialog(
+      backgroundColor: const Color(0xFF121212),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF00D9FF), size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            loc.translate('server_selection.cancel'),
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7), fontSize: 15),
+          ),
+        ),
+        TextButton(
+          onPressed: onSave,
+          child: Text(
+            loc.translate('server_selection.save'),
+            style: const TextStyle(
+              color: Color(0xFF00D9FF),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hintKey;
+  final int maxLines;
+  final bool autofocus;
+  const _DialogTextField({
+    required this.controller,
+    required this.hintKey,
+    this.maxLines = 1,
+    this.autofocus = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      autofocus: autofocus,
+      maxLines: maxLines,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      cursorColor: const Color(0xFF00D9FF),
+      decoration: InputDecoration(
+        hintText: AppLocalizations.of(context).translate(hintKey),
+        hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.04),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+              color: const Color(0xFF00D9FF).withValues(alpha: 0.5)),
+        ),
+      ),
+    );
+  }
+}
+
+class _PasteFromClipboardButton extends StatelessWidget {
+  final void Function(String text) onPaste;
+  const _PasteFromClipboardButton({required this.onPaste});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: TextButton.icon(
+        onPressed: () async {
+          final data = await Clipboard.getData('text/plain');
+          final text = data?.text?.trim() ?? '';
+          if (text.isNotEmpty) onPaste(text);
+        },
+        icon: const Icon(Icons.paste_rounded,
+            size: 16, color: Color(0xFF00D9FF)),
+        label: const Text(
+          'Paste',
+          style: TextStyle(
+            color: Color(0xFF00D9FF),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Subscription Card ───────────────────────────────────────────────────────
+
+class _SubscriptionCard extends StatefulWidget {
+  final Subscription subscription;
+  final List<V2RayConfig> configs;
+  final String? selectedId;
+  final bool hasActive;
+  final Map<String, int> pingResults;
+  final VoidCallback onUpdate;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+  final void Function(V2RayConfig) onTapConfig;
+
+  const _SubscriptionCard({
+    required this.subscription,
+    required this.configs,
+    required this.selectedId,
+    required this.hasActive,
+    required this.pingResults,
+    required this.onUpdate,
+    required this.onRename,
+    required this.onDelete,
+    required this.onTapConfig,
+  });
+
+  @override
+  State<_SubscriptionCard> createState() => _SubscriptionCardState();
+}
+
+class _SubscriptionCardState extends State<_SubscriptionCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E3A5F), Color(0xFF0D2137)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: const Color(0xFF00D9FF)
+                              .withValues(alpha: 0.3)),
+                    ),
+                    child: const Icon(Icons.cloud_done_rounded,
+                        color: Color(0xFF00D9FF), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.subscription.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${loc.translate(
+                            'server_selection.servers_count',
+                            parameters: {
+                              'count': '${widget.configs.length}'
+                            },
+                          )} · ${_relativeTime(context, widget.subscription.lastUpdated)}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.45),
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  _CardAction(
+                    icon: Icons.refresh_rounded,
+                    color: const Color(0xFF00D9FF),
+                    onTap: widget.onUpdate,
+                  ),
+                  _CardAction(
+                    icon: Icons.edit_rounded,
+                    color: Colors.white.withValues(alpha: 0.7),
+                    onTap: widget.onRename,
+                  ),
+                  _CardAction(
+                    icon: Icons.delete_outline_rounded,
+                    color: Colors.redAccent.withValues(alpha: 0.85),
+                    onTap: widget.onDelete,
+                  ),
+                  AnimatedRotation(
+                    duration: const Duration(milliseconds: 200),
+                    turns: _expanded ? 0.5 : 0,
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded && widget.configs.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: Column(
+                children: [
+                  Container(
+                    height: 1,
+                    color: Colors.white.withValues(alpha: 0.05),
+                    margin: const EdgeInsets.only(bottom: 6),
+                  ),
+                  for (final cfg in widget.configs)
+                    _SubConfigRow(
+                      config: cfg,
+                      isSelected: widget.selectedId == cfg.id,
+                      ping: widget.pingResults[cfg.id],
+                      onTap: () => widget.onTapConfig(cfg),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardAction extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _CardAction({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        margin: const EdgeInsetsDirectional.only(end: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Icon(icon, color: color, size: 16),
+      ),
+    );
+  }
+}
+
+class _SubConfigRow extends StatelessWidget {
+  final V2RayConfig config;
+  final bool isSelected;
+  final int? ping;
+  final VoidCallback onTap;
+  const _SubConfigRow({
+    required this.config,
+    required this.isSelected,
+    required this.ping,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final countryCode =
+        config.countryCode ?? CountryFlags.extractCountryCode(config.remark);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? Colors.white.withValues(alpha: 0.18)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            _miniFlag(countryCode),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _cleanName(config.remark),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 13,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (ping != null) ...[
+              const SizedBox(width: 6),
+              _PingBadge(ping: ping!),
+            ],
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Container(
+                width: 18,
+                height: 18,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_rounded,
+                    color: Colors.black, size: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _miniFlag(String? countryCode) {
+    if (countryCode == null ||
+        !CountryFlags.isValidCountryCode(countryCode)) {
+      return Container(
+        width: 22,
+        height: 16,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Icon(Icons.public_rounded,
+            color: Colors.white38, size: 12),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: CachedNetworkImage(
+        imageUrl: CountryFlags.getFlagUrl(countryCode),
+        width: 22,
+        height: 16,
+        fit: BoxFit.cover,
+        memCacheWidth: 200,
+        placeholder: (_, __) => Container(
+          width: 22,
+          height: 16,
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
+        errorWidget: (_, __, ___) => Container(
+          width: 22,
+          height: 16,
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
+      ),
+    );
+  }
+
+  String _cleanName(String remark) {
+    String clean = remark;
+    clean = clean.replaceAll(RegExp(r'^[\[\(][A-Z]{2}[\]\)]\s*'), '');
+    clean = clean.replaceAll(RegExp(r'^[A-Z]{2}[-\s]+'), '');
+    return clean.trim().isEmpty ? remark : clean.trim();
+  }
+}
+
+// ─── User Server Card (manual config) ────────────────────────────────────────
+
+class _UserServerCard extends StatelessWidget {
+  final V2RayConfig config;
+  final bool isSelected;
+  final int? ping;
+  final VoidCallback onTap;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+  const _UserServerCard({
+    required this.config,
+    required this.isSelected,
+    required this.ping,
+    required this.onTap,
+    required this.onRename,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : Colors.white.withValues(alpha: 0.08),
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF1E3A5F).withValues(alpha: 0.8),
+                      const Color(0xFF0D2137).withValues(alpha: 0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: const Color(0xFF00D9FF).withValues(alpha: 0.25)),
+                ),
+                child: Icon(
+                  _iconForType(config.configType),
+                  color: const Color(0xFF00D9FF),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      config.remark,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.92),
+                        fontSize: 14,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${config.configType.toUpperCase()} · ${config.address}:${config.port}',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (ping != null) ...[
+                const SizedBox(width: 6),
+                _PingBadge(ping: ping!),
+              ],
+              const SizedBox(width: 4),
+              _CardAction(
+                icon: Icons.edit_rounded,
+                color: Colors.white.withValues(alpha: 0.7),
+                onTap: onRename,
+              ),
+              _CardAction(
+                icon: Icons.delete_outline_rounded,
+                color: Colors.redAccent.withValues(alpha: 0.85),
+                onTap: onDelete,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForType(String type) {
+    switch (type.toLowerCase()) {
+      case 'vmess':
+        return Icons.vpn_lock_rounded;
+      case 'vless':
+        return Icons.shield_rounded;
+      case 'shadowsocks':
+        return Icons.security_rounded;
+      case 'trojan':
+        return Icons.lock_rounded;
+      default:
+        return Icons.dns_rounded;
+    }
+  }
+}
+
+// ─── Relative time helper ────────────────────────────────────────────────────
+
+String _relativeTime(BuildContext context, DateTime then) {
+  final loc = AppLocalizations.of(context);
+  final diff = DateTime.now().difference(then);
+  if (diff.inMinutes < 1) {
+    return loc.translate('server_selection.just_now');
+  }
+  if (diff.inHours < 1) {
+    return loc.translate(
+      'server_selection.minutes_ago',
+      parameters: {'n': '${diff.inMinutes}'},
+    );
+  }
+  if (diff.inDays < 1) {
+    return loc.translate(
+      'server_selection.hours_ago',
+      parameters: {'n': '${diff.inHours}'},
+    );
+  }
+  return loc.translate(
+    'server_selection.days_ago',
+    parameters: {'n': '${diff.inDays}'},
+  );
 }
 
 // ─── Toolbar Icon Button ─────────────────────────────────────────────────────

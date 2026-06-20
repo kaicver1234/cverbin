@@ -8,6 +8,8 @@ class V2RayConfig {
   final String configType; // vmess, vless, etc.
   final String fullConfig;
   final String? countryCode; // ISO 3166-1 alpha-2 code (e.g., US, DE, FR)
+  final bool isUserAdded; // True for servers added manually by the user
+  final String? subscriptionId; // If part of a user subscription, the sub's id
   bool isConnected;
 
   V2RayConfig({
@@ -18,6 +20,8 @@ class V2RayConfig {
     required this.configType,
     required this.fullConfig,
     this.countryCode,
+    this.isUserAdded = false,
+    this.subscriptionId,
     this.isConnected = false,
   });
 
@@ -30,6 +34,8 @@ class V2RayConfig {
       'configType': configType,
       'fullConfig': fullConfig,
       'countryCode': countryCode,
+      'isUserAdded': isUserAdded,
+      'subscriptionId': subscriptionId,
       'isConnected': isConnected,
     };
   }
@@ -43,6 +49,8 @@ class V2RayConfig {
       configType: json['configType'],
       fullConfig: json['fullConfig'],
       countryCode: json['countryCode'],
+      isUserAdded: json['isUserAdded'] ?? false,
+      subscriptionId: json['subscriptionId'],
       isConnected: json['isConnected'] ?? false,
     );
   }

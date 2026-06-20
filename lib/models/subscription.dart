@@ -4,6 +4,7 @@ class Subscription {
   final String url;
   final DateTime lastUpdated;
   final List<String> configIds; // IDs of V2RayConfig objects
+  final bool isUserAdded; // False for the built-in default subscription
 
   Subscription({
     required this.id,
@@ -11,6 +12,7 @@ class Subscription {
     required this.url,
     required this.lastUpdated,
     required this.configIds,
+    this.isUserAdded = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -20,6 +22,7 @@ class Subscription {
       'url': url,
       'lastUpdated': lastUpdated.toIso8601String(),
       'configIds': configIds,
+      'isUserAdded': isUserAdded,
     };
   }
 
@@ -30,6 +33,7 @@ class Subscription {
       url: json['url'],
       lastUpdated: DateTime.parse(json['lastUpdated']),
       configIds: List<String>.from(json['configIds']),
+      isUserAdded: json['isUserAdded'] ?? false,
     );
   }
 
@@ -39,6 +43,7 @@ class Subscription {
     String? url,
     DateTime? lastUpdated,
     List<String>? configIds,
+    bool? isUserAdded,
   }) {
     return Subscription(
       id: id ?? this.id,
@@ -46,6 +51,7 @@ class Subscription {
       url: url ?? this.url,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       configIds: configIds ?? this.configIds,
+      isUserAdded: isUserAdded ?? this.isUserAdded,
     );
   }
 }
