@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/v2ray_config.dart';
-import '../models/subscription.dart';
 import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
 import '../services/analytics_service.dart';
@@ -209,7 +208,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     return true;
   }
   List<V2RayConfig> _configs = [];
-  List<Subscription> _subscriptions = [];
   bool _isLoadingServers = false;
   bool _isInitializing = true; // Track initialization state
   bool _serversFetchedOnce = false; // Track if servers were fetched at least once
@@ -326,16 +324,19 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       debugPrint('📋 Total servers available: ${servers.length}');
-      debugPrint('🎯 Testing first 20 servers using V2Ray core delay...');
+      debugPrint('🎯 Testing first 15 servers using V2Ray core delay...');
 
-      // Test first 20 servers using V2Ray core delay
-      final serversToTest = servers.take(20).toList();
+      // The server list arrives already sorted by ping (fastest first) from the
+      // config-tester tool, so the best candidate is near the top. Testing the
+      // first 15 (instead of 20) is enough to find the lowest-ping server while
+      // finishing noticeably faster.
+      final serversToTest = servers.take(15).toList();
       debugPrint('📦 Servers to test: ${serversToTest.length}');
 
-      // Test servers in batches of 10. Smaller batches keep native delay
-      // measurement concurrency in check AND give us a cancel checkpoint
-      // between batches, so a user who taps cancel mid-test stops within one
-      // batch instead of waiting for all 20 probes to time out.
+      // Test servers in batches of 10. This concurrency level is proven safe on
+      // low-end devices (higher makes every probe look "dead") AND gives us a
+      // cancel checkpoint between batches, so a user who taps cancel mid-test
+      // stops within one batch instead of waiting for all probes to time out.
       final results = <String, int>{};
       final batchSize = 10;
 
@@ -360,7 +361,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           batch.map((config) async {
             try {
               final delay = await _v2rayService.getServerDelay(config).timeout(
-                const Duration(seconds: 8),
+                const Duration(seconds: 5),
                 onTimeout: () {
                   debugPrint('   ⏱️ ${config.remark}: Timeout');
                   return -1;
@@ -384,11 +385,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         // Add results
         for (final entry in batchResults) {
           results[entry.key] = entry.value;
-        }
-        
-        // Small delay between batches
-        if (end < serversToTest.length) {
-          await Future.delayed(const Duration(milliseconds: 100));
         }
       }
       
@@ -540,7 +536,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   StreamSubscription? _vpnStatusSubscription;
 
   List<V2RayConfig> get configs => _configs;
-  List<Subscription> get subscriptions => _subscriptions;
   V2RayConfig? get selectedConfig => _selectedConfig;
   V2RayConfig? get activeConfig => _v2rayService.activeConfig;
   bool get isConnecting => _isConnecting;
@@ -1076,65 +1071,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  Future<void> loadSubscriptions() async {
-    // Simplified - just ensure we have the default subscription
-    _subscriptions = [
-      Subscription(
-        id: 'default',
-        name: 'Default Subscription',
-        url: _serverUrl,
-        lastUpdated: DateTime.now(),
-        configIds: [],
-      ),
-    ];
-    await _v2rayService.saveSubscriptions(_subscriptions);
-    _safeNotify();
-  }
-
-  Future<void> addConfig(V2RayConfig config) async {
-    // Add config and display it immediately (avoid duplicates)
-    if (!_configs.any((c) => c.id == config.id)) {
-      _configs.add(config);
-    }
-
-    // Save the configuration immediately to display it
-    await _v2rayService.saveConfigs(_configs);
-    _safeNotify();
-  }
-
-  Future<void> removeConfig(V2RayConfig config) async {
-    try {
-      if (_v2rayService.activeConfig?.id == config.id) {
-        await _v2rayService.disconnect().catchError((e) {
-          debugPrint('Error disconnecting before remove: $e');
-        });
-      }
-
-      _configs.removeWhere((c) => c.id == config.id);
-
-      for (int i = 0; i < _subscriptions.length; i++) {
-        final subscription = _subscriptions[i];
-        if (subscription.configIds.contains(config.id)) {
-          final updatedConfigIds = List<String>.from(subscription.configIds)
-            ..remove(config.id);
-          _subscriptions[i] = subscription.copyWith(
-            configIds: updatedConfigIds,
-          );
-        }
-      }
-
-      if (_selectedConfig?.id == config.id) {
-        _selectedConfig = null;
-      }
-
-      await _v2rayService.saveConfigs(_configs);
-      await _v2rayService.saveSubscriptions(_subscriptions);
-      _safeNotify();
-    } catch (e) {
-      _setError('Failed to delete configuration: $e');
-    }
-  }
-
   @override
   void dispose() {
     _disposed = true;
@@ -1156,154 +1092,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     // own resource lifecycle, so we deliberately don't call
     // _v2rayService.dispose().
     super.dispose();
-  }
-
-  Future<void> addSubscription(String name, String url) async {
-    _setLoading(true);
-    _errorMessage = '';
-    try {
-      final configs = await _v2rayService.parseSubscriptionUrl(url);
-      if (configs.isEmpty) {
-        _setError('No valid configurations found in subscription');
-        return;
-      }
-
-      // Add configs and display them immediately (avoid duplicates)
-      for (var config in configs) {
-        if (!_configs.any((c) => c.id == config.id)) {
-          _configs.add(config);
-        }
-      }
-
-      final newConfigIds = configs.map((c) => c.id).toList();
-
-      // Create subscription
-      final subscription = Subscription(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        url: url,
-        lastUpdated: DateTime.now(),
-        configIds: newConfigIds,
-      );
-
-      _subscriptions.add(subscription);
-
-      // Save both configs and subscription
-      await _v2rayService.saveConfigs(_configs);
-      await _v2rayService.saveSubscriptions(_subscriptions);
-
-      // Update UI after everything is saved
-      _safeNotify();
-    } catch (e) {
-      String errorMsg = 'Failed to add subscription';
-
-      // Provide more specific error messages
-      if (e.toString().contains('Network error') ||
-          e.toString().contains('timeout') ||
-          e.toString().contains('SocketException')) {
-        errorMsg = 'Network error: Check your internet connection';
-      } else if (e.toString().contains('Invalid URL')) {
-        errorMsg = 'Invalid subscription URL format';
-      } else if (e.toString().contains('No valid servers')) {
-        errorMsg = 'No valid servers found in subscription';
-      } else if (e.toString().contains('HTTP')) {
-        errorMsg = 'Server error: ${e.toString()}';
-      } else {
-        errorMsg = 'Failed to add subscription: ${e.toString()}';
-      }
-
-      _setError(errorMsg);
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> updateSubscription(Subscription subscription) async {
-    _setLoading(true);
-    _isLoadingServers = true;
-    _errorMessage = '';
-    _safeNotify();
-
-    try {
-      final configs = await _v2rayService.parseSubscriptionUrl(
-        subscription.url,
-      );
-      if (configs.isEmpty) {
-        _setError('No valid configurations found in subscription');
-        _isLoadingServers = false;
-        _safeNotify();
-        return;
-      }
-
-      // Clear ping cache for old configs before removing them
-      for (var configId in subscription.configIds) {
-        _v2rayService.clearPingCache(configId: configId);
-      }
-
-      // Remove old configs
-      _configs.removeWhere((c) => subscription.configIds.contains(c.id));
-
-      // Add new configs and display them immediately (avoid duplicates)
-      for (var config in configs) {
-        if (!_configs.any((c) => c.id == config.id)) {
-          _configs.add(config);
-        }
-      }
-
-      final newConfigIds = configs.map((c) => c.id).toList();
-
-      // Update subscription
-      final index = _subscriptions.indexWhere((s) => s.id == subscription.id);
-      if (index != -1) {
-        _subscriptions[index] = subscription.copyWith(
-          lastUpdated: DateTime.now(),
-          configIds: newConfigIds,
-        );
-
-        // Save both configs and subscriptions to ensure persistence
-        await _v2rayService.saveConfigs(_configs);
-        await _v2rayService.saveSubscriptions(_subscriptions);
-      }
-
-      // Mark loading as complete
-      _isLoadingServers = false;
-      _setLoading(false);
-      _safeNotify();
-    } catch (e) {
-      String errorMsg = 'Failed to update subscription';
-
-      // Provide more specific error messages
-      if (e.toString().contains('Network error') ||
-          e.toString().contains('timeout') ||
-          e.toString().contains('SocketException')) {
-        errorMsg = 'Network error: Check your internet connection';
-      } else if (e.toString().contains('Invalid URL')) {
-        errorMsg = 'Invalid subscription URL format';
-      } else if (e.toString().contains('No valid servers')) {
-        errorMsg = 'No valid servers found in subscription';
-      } else if (e.toString().contains('HTTP')) {
-        errorMsg = 'Server error: ${e.toString()}';
-      } else {
-        errorMsg = 'Failed to update subscription: ${e.toString()}';
-      }
-
-      _setError(errorMsg);
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Update subscription info without refreshing servers
-  Future<void> removeSubscription(Subscription subscription) async {
-    // Remove configs associated with this subscription
-    _configs.removeWhere((c) => subscription.configIds.contains(c.id));
-
-    // Remove subscription
-    _subscriptions.removeWhere((s) => s.id == subscription.id);
-
-    await _v2rayService.saveConfigs(_configs);
-    await _v2rayService.saveSubscriptions(_subscriptions);
-    _safeNotify();
   }
 
   Future<void> connectToServer(V2RayConfig config) async {
@@ -1758,7 +1546,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   void _setLoading(bool loading) {
     _isLoading = loading;
     // Note: _isLoadingServers is owned by fetchServers() and must NOT be
-    // mirrored here. Otherwise unrelated flows (loadConfigs, addSubscription,
+    // mirrored here. Otherwise unrelated flows (loadConfigs,
     // _initialize's finally block, etc.) flip the server-loading flag off
     // while a background fetchServers() is still in flight, briefly showing
     // an empty/loaded server list before the real fetch completes.

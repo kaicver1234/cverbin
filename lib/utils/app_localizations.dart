@@ -132,7 +132,6 @@ class TranslationKeys {
   static const String toolsLanguageSettings = 'tools.language_settings';
   static const String toolsLanguageSettingsDesc =
       'tools.language_settings_desc';
-  static const String toolsSubscriptionManager = 'tools.subscription_manager';
   static const String toolsIpInformation = 'tools.ip_information';
   static const String toolsHostChecker = 'tools.host_checker';
   static const String toolsSpeedTest = 'tools.speed_test';
@@ -170,7 +169,6 @@ class TranslationKeys {
   static const String homeIpAddress = 'home.ip_address';
   static const String homeLocation = 'home.location';
   static const String homeRefresh = 'home.refresh';
-  static const String homeSubscriptions = 'home.subscriptions';
   static const String homeAbout = 'home.about';
 
   // Common
@@ -211,23 +209,8 @@ class TranslationKeys {
   static const String serverSelectorLoadingServers =
       'server_selector.loading_servers';
   static const String serverSelectorNoServers = 'server_selector.no_servers';
-  static const String serverSelectorAddSubscription =
-      'server_selector.add_subscription';
   static const String serverSelectorErrorRefreshing =
       'server_selector.error_refreshing';
-
-  // Server List Item
-  static const String serverListItemDeleteConfiguration =
-      'server_list_item.delete_configuration';
-  static const String serverListItemDeleteConfirmation =
-      'server_list_item.delete_confirmation';
-  static const String serverListItemDelete = 'server_list_item.delete';
-  static const String serverListItemDeleteTooltip =
-      'server_list_item.delete_tooltip';
-  static const String serverListItemConnect = 'server_list_item.connect';
-  static const String serverListItemDisconnect = 'server_list_item.disconnect';
-  static const String serverListItemDefaultSubscription =
-      'server_list_item.default_subscription';
 
   // Server Bottom Sheet
   static const String serverBottomSheetSelectServer =
@@ -384,7 +367,6 @@ class TranslationKeys {
   static const String errorServerUnreachable = 'errors.server_unreachable';
   static const String errorInvalidConfiguration =
       'errors.invalid_configuration';
-  static const String errorSubscription = 'errors.subscription_error';
   static const String errorParsing = 'errors.parsing_error';
   static const String errorStorage = 'errors.storage_error';
   static const String errorVpnConnection = 'errors.vpn_connection_failed';
@@ -531,20 +513,6 @@ class TranslationKeys {
       'server_selection.servers_updated';
   static const String serverSelectionErrorUpdating =
       'server_selection.error_updating';
-  static const String serverSelectionImportFromClipboard =
-      'server_selection.import_from_clipboard';
-  static const String serverSelectionClipboardEmpty =
-      'server_selection.clipboard_empty';
-  static const String serverSelectionImportSuccess =
-      'server_selection.import_success';
-  static const String serverSelectionImportFailed =
-      'server_selection.import_failed';
-  static const String serverSelectionDeleteConfig =
-      'server_selection.delete_config';
-  static const String serverSelectionDeleteSuccess =
-      'server_selection.delete_success';
-  static const String serverSelectionDeleteFailed =
-      'server_selection.delete_failed';
   static const String serverSelectionConnectFailed =
       'server_selection.connect_failed';
   static const String serverSelectionTestPing = 'server_selection.test_ping';
@@ -565,142 +533,6 @@ class TranslationKeys {
       'server_selection.no_suitable_server';
   static const String serverSelectionTestingServer =
       'server_selection.testing_server';
-
-  // Store Screen
-  static const String storeScreenTitle = 'store_screen.title';
-  static const String storeScreenSubscriptionStore =
-      'store_screen.subscription_store';
-  static const String storeScreenSearchHint = 'store_screen.search_hint';
-  static const String storeScreenRetry = 'store_screen.retry';
-  static const String storeScreenNoSubscriptions =
-      'store_screen.no_subscriptions';
-  static const String storeScreenUnknown = 'store_screen.unknown';
-  static const String storeScreenCopyUrl = 'store_screen.copy_url';
-  static const String storeScreenUrlCopied = 'store_screen.url_copied';
-  static const String storeScreenAddToApp = 'store_screen.add_to_app';
-  static const String storeScreenAddingSubscription =
-      'store_screen.adding_subscription';
-  static const String storeScreenSubscriptionAdded =
-      'store_screen.subscription_added';
-  static const String storeScreenSubscriptionExists =
-      'store_screen.subscription_exists';
-  static const String storeScreenFailedToLoad = 'store_screen.failed_to_load';
-  static const String storeScreenAddNew = 'store_screen.add_new';
-  static const String storeScreenContactTelegram =
-      'store_screen.contact_telegram';
-  static const String storeScreenCancel = 'store_screen.cancel';
-  static const String storeScreenCouldNotLaunch =
-      'store_screen.could_not_launch';
-
-  // Subscription Management Screen
-  static const String subscriptionManagementTitle =
-      'subscription_management.title';
-  static const String subscriptionManagementManageSubs =
-      'subscription_management.manage_subs';
-  static const String subscriptionManagementHelp =
-      'subscription_management.help';
-  static const String subscriptionManagementUpdateAll =
-      'subscription_management.update_all';
-  static const String subscriptionManagementAddSubscription =
-      'subscription_management.add_subscription';
-  static const String subscriptionManagementEditSubscription =
-      'subscription_management.edit_subscription';
-  static const String subscriptionManagementName =
-      'subscription_management.name';
-  static const String subscriptionManagementUrl = 'subscription_management.url';
-  static const String subscriptionManagementCancel =
-      'subscription_management.cancel';
-  static const String subscriptionManagementUpdate =
-      'subscription_management.update';
-  static const String subscriptionManagementAdd = 'subscription_management.add';
-  static const String subscriptionManagementNoSubscriptions =
-      'subscription_management.no_subscriptions';
-  static const String subscriptionManagementReservedNameTitle =
-      'subscription_management.reserved_name_title';
-  static const String subscriptionManagementReservedNameContent =
-      'subscription_management.reserved_name_content';
-  static const String subscriptionManagementDuplicateNameTitle =
-      'subscription_management.duplicate_name_title';
-  static const String subscriptionManagementDuplicateNameContent =
-      'subscription_management.duplicate_name_content';
-  static const String subscriptionManagementUpdatingSubscription =
-      'subscription_management.updating_subscription';
-  static const String subscriptionManagementSubscriptionUpdated =
-      'subscription_management.subscription_updated';
-  static const String subscriptionManagementAddingSubscription =
-      'subscription_management.adding_subscription';
-  static const String subscriptionManagementSubscriptionAdded =
-      'subscription_management.subscription_added';
-  static const String subscriptionManagementDeleteSubscription =
-      'subscription_management.delete_subscription';
-  static const String subscriptionManagementDeleteConfirmation =
-      'subscription_management.delete_confirmation';
-  static const String subscriptionManagementSubscriptionDeleted =
-      'subscription_management.subscription_deleted';
-  static const String subscriptionManagementUpdatingAll =
-      'subscription_management.updating_all';
-  static const String subscriptionManagementAllUpdated =
-      'subscription_management.all_updated';
-  static const String subscriptionManagementCannotDeleteDefault =
-      'subscription_management.cannot_delete_default';
-  static const String subscriptionManagementHowToAdd =
-      'subscription_management.how_to_add';
-  static const String subscriptionManagementFormatRequirements =
-      'subscription_management.format_requirements';
-  static const String subscriptionManagementExample =
-      'subscription_management.example';
-  static const String subscriptionManagementSteps =
-      'subscription_management.steps';
-  static const String subscriptionManagementGotIt =
-      'subscription_management.got_it';
-  static const String subscriptionManagementLastUpdated =
-      'subscription_management.last_updated';
-  static const String subscriptionManagementServers =
-      'subscription_management.servers';
-  static const String subscriptionManagementEdit =
-      'subscription_management.edit';
-  static const String subscriptionManagementDelete =
-      'subscription_management.delete';
-  static const String subscriptionManagementDaysAgo =
-      'subscription_management.days_ago';
-  static const String subscriptionManagementHoursAgo =
-      'subscription_management.hours_ago';
-  static const String subscriptionManagementMinutesAgo =
-      'subscription_management.minutes_ago';
-  static const String subscriptionManagementJustNow =
-      'subscription_management.just_now';
-  static const String subscriptionManagementDay = 'subscription_management.day';
-  static const String subscriptionManagementDays =
-      'subscription_management.days';
-  static const String subscriptionManagementHour =
-      'subscription_management.hour';
-  static const String subscriptionManagementHours =
-      'subscription_management.hours';
-  static const String subscriptionManagementMinute =
-      'subscription_management.minute';
-  static const String subscriptionManagementMinutes =
-      'subscription_management.minutes';
-  static const String subscriptionManagementEnterName =
-      'subscription_management.enter_name';
-  static const String subscriptionManagementEnterUrl =
-      'subscription_management.enter_url';
-  static const String subscriptionManagementNameReserved =
-      'subscription_management.name_reserved';
-  static const String subscriptionManagementNameExists =
-      'subscription_management.name_exists';
-  static const String subscriptionManagementUniqueName =
-      'subscription_management.unique_name';
-  static const String subscriptionManagementV2RayConfigs =
-      'subscription_management.v2ray_configs';
-  static const String subscriptionManagementOnePerLine =
-      'subscription_management.one_per_line';
-  static const String subscriptionManagementSupports =
-      'subscription_management.supports';
-  static const String subscriptionManagementUniqueNameForSub =
-      'subscription_management.unique_name_for_sub';
-  static const String subscriptionManagementUrlWithConfigs =
-      'subscription_management.url_with_configs';
-  static const String subscriptionManagementAgo = 'subscription_management.ago';
 
   // Wallpaper Settings Screen
   static const String wallpaperSettingsTitle = 'wallpaper_settings.title';

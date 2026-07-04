@@ -159,12 +159,10 @@ class ServerService {
           // Use the parsed address and port from the V2RayURL parser
           String address = parser.address;
           int port = parser.port;
-          
-          // Build remark with country code prefix if available
+
+          // Configs now come as plain URIs without any country tag, so keep the
+          // remark exactly as parsed — no '[CC]' prefix is prepended anymore.
           String finalRemark = parser.remark;
-          if (countryCode != null && !finalRemark.toUpperCase().contains('[$countryCode]')) {
-            finalRemark = '[$countryCode] $finalRemark';
-          }
 
           return V2RayConfig(
             id: '${DateTime.now().millisecondsSinceEpoch}_${address}_$port',

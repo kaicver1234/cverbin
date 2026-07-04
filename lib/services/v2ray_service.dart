@@ -4,7 +4,6 @@ import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tiksarvpn/models/v2ray_config.dart';
-import 'package:tiksarvpn/models/subscription.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tiksarvpn/services/ping_service.dart';
@@ -562,147 +561,6 @@ class V2RayService extends ChangeNotifier {
     }
   }
 
-  Future<List<V2RayConfig>> parseSubscriptionUrl(String url) async {
-    try {
-      final response = await http
-          .get(Uri.parse(url))
-          .timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              throw Exception(
-                'Network timeout: Check your internet connection',
-              );
-            },
-          );
-
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Failed to load subscription: HTTP ${response.statusCode}',
-        );
-      }
-
-      final List<V2RayConfig> configs = [];
-      String content = response.body;
-
-      // Try to decode as base64 first
-      try {
-        // Check if the content looks like base64
-        if (_isBase64(content)) {
-          final decoded = utf8.decode(base64.decode(content.trim()));
-          // If decoding succeeds, use the decoded content
-          content = decoded;
-          // Successfully decoded base64 content
-        }
-      } catch (e) {
-        // If base64 decoding fails, use the original content
-        // Not a valid base64 content, using original
-      }
-
-      final List<String> lines = content.split('\n');
-
-      for (String line in lines) {
-        line = line.trim();
-        if (line.isEmpty) continue;
-
-        try {
-          // Extract country code if present: [CC] config or from remark
-          String? countryCode;
-          String configLine = line;
-          
-          // Try to extract country code from beginning: [CC] config
-          final countryCodeMatch = RegExp(r'^\[([A-Z]{2})\]\s*(.+)$').firstMatch(line);
-          if (countryCodeMatch != null) {
-            countryCode = countryCodeMatch.group(1);
-            configLine = countryCodeMatch.group(2)!;
-          }
-          
-          if (configLine.startsWith('vmess://') ||
-              configLine.startsWith('vless://') ||
-              configLine.startsWith('ss://') ||
-              configLine.startsWith('trojan://')) {
-            V2RayURL parser = V2ray.parseFromURL(configLine);
-            String configType = '';
-
-            if (configLine.startsWith('vmess://')) {
-              configType = 'vmess';
-            } else if (configLine.startsWith('vless://')) {
-              configType = 'vless';
-            } else if (configLine.startsWith('ss://')) {
-              configType = 'shadowsocks';
-            } else if (configLine.startsWith('trojan://')) {
-              configType = 'trojan';
-            }
-
-            // If no country code from line, try to extract from remark
-            if (countryCode == null && parser.remark.isNotEmpty) {
-              // Try patterns: [CC], (CC), CC-, -CC-, CC|, |CC|
-              final remarkMatch = RegExp(r'[\[\(]([A-Z]{2})[\]\)]|^([A-Z]{2})[-\s]|[-\s]([A-Z]{2})[-\s]|[\|\s]([A-Z]{2})[\|\s]').firstMatch(parser.remark);
-              if (remarkMatch != null) {
-                countryCode = remarkMatch.group(1) ?? remarkMatch.group(2) ?? remarkMatch.group(3) ?? remarkMatch.group(4);
-              }
-            }
-
-            // Clean remark - remove country code patterns
-            String cleanRemark = parser.remark;
-            // Remove [CC] or (CC) from beginning
-            cleanRemark = cleanRemark.replaceAll(RegExp(r'^[\[\(][A-Z]{2}[\]\)]\s*'), '');
-            // Remove CC- from beginning
-            cleanRemark = cleanRemark.replaceAll(RegExp(r'^[A-Z]{2}[-\s]+'), '');
-            // Trim any extra whitespace
-            cleanRemark = cleanRemark.trim();
-            // If remark is empty after cleaning, use a default name
-            if (cleanRemark.isEmpty) {
-              cleanRemark = 'Server ${configs.length + 1}';
-            }
-
-            // Use the parsed address and port from the V2RayURL parser
-            String address = parser.address;
-            int port = parser.port;
-
-            configs.add(
-              V2RayConfig(
-                id:
-                    DateTime.now().millisecondsSinceEpoch.toString() +
-                    configs.length.toString(),
-                remark: cleanRemark,
-                countryCode: countryCode,
-                address: address,
-                port: port,
-                configType: configType,
-                fullConfig: configLine,
-              ),
-            );
-          }
-        } catch (e) {
-          // Error parsing config
-        }
-      }
-
-      if (configs.isEmpty) {
-        throw Exception('No valid configurations found in subscription');
-      }
-
-      return configs;
-    } catch (e) {
-      // Error parsing subscription
-
-      // Provide more specific error messages based on exception type
-      if (e.toString().contains('SocketException') ||
-          e.toString().contains('Connection refused') ||
-          e.toString().contains('Network is unreachable')) {
-        throw Exception('Network error: Check your internet connection');
-      } else if (e.toString().contains('timeout')) {
-        throw Exception('Connection timeout: Server is not responding');
-      } else if (e.toString().contains('Invalid URL')) {
-        throw Exception('Invalid subscription URL format');
-      } else if (e.toString().contains('No valid configurations')) {
-        throw Exception('No valid servers found in subscription');
-      } else {
-        throw Exception('Failed to update subscription: ${e.toString()}');
-      }
-    }
-  }
-
   // Save and load configurations
   Future<void> saveConfigs(List<V2RayConfig> configs) async {
     final prefs = await SharedPreferences.getInstance();
@@ -719,27 +577,6 @@ class V2RayService extends ChangeNotifier {
 
     return configsJson
         .map((json) => V2RayConfig.fromJson(jsonDecode(json)))
-        .toList();
-  }
-
-  // Save and load subscriptions
-  Future<void> saveSubscriptions(List<Subscription> subscriptions) async {
-    final prefs = await SharedPreferences.getInstance();
-    final List<String> subscriptionsJson = subscriptions
-        .map((sub) => jsonEncode(sub.toJson()))
-        .toList();
-    await prefs.setStringList('v2ray_subscriptions', subscriptionsJson);
-  }
-
-  Future<List<Subscription>> loadSubscriptions() async {
-    final prefs = await SharedPreferences.getInstance();
-    final List<String>? subscriptionsJson = prefs.getStringList(
-      'v2ray_subscriptions',
-    );
-    if (subscriptionsJson == null) return [];
-
-    return subscriptionsJson
-        .map((json) => Subscription.fromJson(jsonDecode(json)))
         .toList();
   }
 
@@ -794,18 +631,6 @@ class V2RayService extends ChangeNotifier {
   void _stopStatusMonitoring() {
     _statusCheckTimer?.cancel();
     _statusCheckTimer = null;
-  }
-
-  // Helper method to check if a string is valid base64
-  bool _isBase64(String str) {
-    // Remove any whitespace
-    str = str.trim();
-    // Check if the length is valid for base64 (multiple of 4)
-    if (str.length % 4 != 0) {
-      return false;
-    }
-    // Check if the string contains only valid base64 characters
-    return RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(str);
   }
 
   // Removed getConnectedServerDelay method as requested
