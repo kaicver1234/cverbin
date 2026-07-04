@@ -18,6 +18,7 @@ class RoutingProvider with ChangeNotifier {
   static const String _bypassPrivateKey = 'routing_bypass_private';
   static const String _customSubnetsKey = 'routing_custom_subnets';
   static const String _customDomainsKey = 'routing_custom_domains';
+  static const String _blockAdsKey = 'routing_block_ads';
 
   // RFC1918 + link-local + loopback + multicast + CGNAT. Used when
   // [bypassPrivate] is enabled. Mirrors what every reputable VPN client ships
@@ -39,12 +40,14 @@ class RoutingProvider with ChangeNotifier {
 
   bool _bypassIran = false;
   bool _bypassPrivate = false;
+  bool _blockAds = false;
   List<String> _customSubnets = const [];
   List<String> _customDomains = const [];
   bool _initialized = false;
 
   bool get bypassIran => _bypassIran;
   bool get bypassPrivate => _bypassPrivate;
+  bool get blockAds => _blockAds;
   List<String> get customSubnets => List.unmodifiable(_customSubnets);
   List<String> get customDomains => List.unmodifiable(_customDomains);
   bool get isInitialized => _initialized;
@@ -67,7 +70,20 @@ class RoutingProvider with ChangeNotifier {
   List<Map<String, dynamic>> buildRoutingRules() {
     final rules = <Map<String, dynamic>>[];
 
-    // 1) Block ads via blackhole? Out of scope here — geo-bypass only.
+    // 1) Block ads/trackers. This rule is FIRST so it wins over every bypass
+    //    rule below — ad networks are dropped even on otherwise-direct routes.
+    //    `category-ads-all` is the standard community ad+tracker list baked
+    //    into the bundled geosite.dat; matched domains go to the `blackhole`
+    //    outbound (outbound3, defined by the parser) which simply drops them.
+    //    Off by default; enabling it never affects normal (non-ad) sites.
+    if (_blockAds) {
+      rules.add({
+        'type': 'field',
+        'outboundTag': 'blackhole',
+        'domain': ['geosite:category-ads-all'],
+      });
+    }
+
     // 2) Bypass private/LAN IPs at the core level too. This is belt-and-
     //    suspenders alongside bypassSubnets: if the OS-level bypass fails
     //    for any reason, the core still routes them direct.
@@ -120,6 +136,7 @@ class RoutingProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _bypassIran = prefs.getBool(_bypassIranKey) ?? false;
       _bypassPrivate = prefs.getBool(_bypassPrivateKey) ?? false;
+      _blockAds = prefs.getBool(_blockAdsKey) ?? false;
       _customSubnets = (prefs.getStringList(_customSubnetsKey) ?? const [])
           .where(isValidCidr)
           .toList(growable: false);
@@ -146,6 +163,13 @@ class RoutingProvider with ChangeNotifier {
     _bypassPrivate = value;
     notifyListeners();
     await _persistBool(_bypassPrivateKey, value);
+  }
+
+  Future<void> setBlockAds(bool value) async {
+    if (_blockAds == value) return;
+    _blockAds = value;
+    notifyListeners();
+    await _persistBool(_blockAdsKey, value);
   }
 
   /// Adds a CIDR subnet. Returns true if added, false if invalid or duplicate.

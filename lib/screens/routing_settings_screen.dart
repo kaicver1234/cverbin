@@ -15,6 +15,7 @@ import '../utils/responsive_helper.dart';
 // per-section accent colors (the same ones used for the tool cards).
 const Color _kPrimary = Color(0xFF00D9FF);
 const Color _kIranAccent = Color(0xFF00FFA3);
+const Color _kAdBlockAccent = Color(0xFFFF5C7A);
 const Color _kLanAccent = Color(0xFFA78BFA);
 const Color _kSubnetAccent = Color(0xFFFFB347);
 const Color _kDomainAccent = Color(0xFFFF6B9D);
@@ -102,6 +103,12 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
                       _buildPrivateToggle(routing),
                       const SizedBox(height: 24),
                       _buildSectionLabel(
+                        _t(fa: 'حریم خصوصی', en: 'Privacy'),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildAdBlockToggle(routing),
+                      const SizedBox(height: 24),
+                      _buildSectionLabel(
                         _t(fa: 'سابنت‌های دلخواه', en: 'Custom Subnets'),
                       ),
                       const SizedBox(height: 8),
@@ -132,6 +139,7 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
   Widget _buildHeroCard(RoutingProvider routing) {
     final activeCount = (routing.bypassIran ? 1 : 0) +
         (routing.bypassPrivate ? 1 : 0) +
+        (routing.blockAds ? 1 : 0) +
         (routing.customSubnets.isNotEmpty ? 1 : 0) +
         (routing.customDomains.isNotEmpty ? 1 : 0);
     final isActive = activeCount > 0;
@@ -230,6 +238,20 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
       ),
       value: routing.bypassPrivate,
       onChanged: routing.setBypassPrivate,
+    );
+  }
+
+  Widget _buildAdBlockToggle(RoutingProvider routing) {
+    return _buildToggleTile(
+      icon: Icons.block_rounded,
+      iconAccent: _kAdBlockAccent,
+      title: _t(fa: 'مسدودسازی تبلیغات', en: 'Block ads'),
+      subtitle: _t(
+        fa: 'تبلیغات و ردیاب‌ها در سطح شبکه مسدود می‌شوند',
+        en: 'Ads and trackers are blocked at the network level',
+      ),
+      value: routing.blockAds,
+      onChanged: routing.setBlockAds,
     );
   }
 

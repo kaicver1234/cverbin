@@ -36,6 +36,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   // something the tunnel cares about actually changed.
   bool? _lastAppliedBypassIran;
   bool? _lastAppliedBypassPrivate;
+  bool? _lastAppliedBlockAds;
   List<String>? _lastAppliedCustomSubnets;
   List<String>? _lastAppliedCustomDomains;
 
@@ -148,6 +149,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     if (previous == null) {
       _lastAppliedBypassIran = provider.bypassIran;
       _lastAppliedBypassPrivate = provider.bypassPrivate;
+      _lastAppliedBlockAds = provider.blockAds;
       _lastAppliedCustomSubnets =
           List<String>.from(provider.customSubnets)..sort();
       _lastAppliedCustomDomains =
@@ -172,6 +174,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
     final changed = _lastAppliedBypassIran != provider.bypassIran ||
         _lastAppliedBypassPrivate != provider.bypassPrivate ||
+        _lastAppliedBlockAds != provider.blockAds ||
         _lastAppliedCustomSubnets == null ||
         !_listsEqualOrdered(_lastAppliedCustomSubnets!, newSubnets) ||
         _lastAppliedCustomDomains == null ||
@@ -181,6 +184,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
     _lastAppliedBypassIran = provider.bypassIran;
     _lastAppliedBypassPrivate = provider.bypassPrivate;
+    _lastAppliedBlockAds = provider.blockAds;
     _lastAppliedCustomSubnets = newSubnets;
     _lastAppliedCustomDomains = newDomains;
 
@@ -324,68 +328,82 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       debugPrint('📋 Total servers available: ${servers.length}');
-      debugPrint('🎯 Testing first 15 servers using V2Ray core delay...');
+      debugPrint('🎯 Testing ALL servers using V2Ray core delay...');
 
-      // The server list arrives already sorted by ping (fastest first) from the
-      // config-tester tool, so the best candidate is near the top. Testing the
-      // first 15 (instead of 20) is enough to find the lowest-ping server while
-      // finishing noticeably faster.
-      final serversToTest = servers.take(15).toList();
+      // Test every available server (not just the top slice) so Smart Connect
+      // always picks the true lowest-ping server. The batching below caps
+      // concurrency, so more servers just means more batches — not more load
+      // at any single moment.
+      final serversToTest = servers.toList();
       debugPrint('📦 Servers to test: ${serversToTest.length}');
 
-      // Test servers in batches of 10. This concurrency level is proven safe on
-      // low-end devices (higher makes every probe look "dead") AND gives us a
-      // cancel checkpoint between batches, so a user who taps cancel mid-test
-      // stops within one batch instead of waiting for all probes to time out.
+      // Ping every server through a fixed-size *sliding window* of concurrent
+      // probes instead of fixed batches.
+      //
+      // Concurrency is still capped at 10 — the level proven safe on low-end
+      // devices (higher makes every probe look "dead"). What changed is that we
+      // no longer wait for a slow straggler: the old code ran servers in groups
+      // of 10 and blocked on the slowest one in each group, so a single dead
+      // server forced the nine already-finished probes to wait out its full
+      // 5-second timeout. Here, the instant any of the 10 slots frees up we feed
+      // it the next server, so a timeout only ever stalls its own slot. Same peak
+      // load, same 5-second per-server timeout, but several times faster on a
+      // list that contains dead servers.
       final results = <String, int>{};
-      final batchSize = 10;
+      const maxConcurrent = 10;
+      // Shared cursor into serversToTest. `cursor++` is atomic here because Dart
+      // runs on a single event-loop thread — the read-and-increment completes
+      // synchronously between awaits, so no two workers can grab the same index.
+      int cursor = 0;
 
-      for (int i = 0; i < serversToTest.length; i += batchSize) {
-        // Bail out cleanly if the user cancelled between batches.
-        if (_cancelRequested) {
-          debugPrint('🛑 Smart Connect cancelled by user during server testing');
-          _isConnecting = false;
-          _cancelRequested = false;
-          _safeNotify();
-          return;
+      Future<void> pingWorker() async {
+        while (true) {
+          // Per-probe cancel checkpoint (finer than the old per-batch check):
+          // a user who taps cancel stops within one probe, not one batch.
+          if (_cancelRequested) return;
+          final int index = cursor++;
+          if (index >= serversToTest.length) return;
+          final config = serversToTest[index];
+
+          try {
+            final delay = await _v2rayService.getServerDelay(config).timeout(
+              const Duration(seconds: 5),
+              onTimeout: () {
+                debugPrint('   ⏱️ ${config.remark}: Timeout');
+                return -1;
+              },
+            );
+
+            final ok = delay != null && delay >= 0 && delay < 10000;
+            results[config.id] = ok ? delay : -1;
+            debugPrint(ok
+                ? '   ✅ ${config.remark}: ${delay}ms'
+                : '   ❌ ${config.remark}: Failed');
+          } catch (e) {
+            results[config.id] = -1;
+            debugPrint('   ❌ ${config.remark}: Error - $e');
+          }
         }
+      }
 
-        final end = (i + batchSize < serversToTest.length) ? i + batchSize : serversToTest.length;
-        final batch = serversToTest.sublist(i, end);
+      debugPrint('📊 Testing ${serversToTest.length} servers '
+          '(up to $maxConcurrent at a time)...');
 
-        debugPrint('');
-        debugPrint('📊 Testing batch ${i ~/ batchSize + 1}: servers ${i + 1} to $end');
+      final workerCount = serversToTest.length < maxConcurrent
+          ? serversToTest.length
+          : maxConcurrent;
+      await Future.wait(
+        List.generate(workerCount, (_) => pingWorker()),
+      );
 
-        // Test batch in parallel
-        final batchResults = await Future.wait(
-          batch.map((config) async {
-            try {
-              final delay = await _v2rayService.getServerDelay(config).timeout(
-                const Duration(seconds: 5),
-                onTimeout: () {
-                  debugPrint('   ⏱️ ${config.remark}: Timeout');
-                  return -1;
-                },
-              );
-              
-              if (delay != null && delay >= 0 && delay < 10000) {
-                debugPrint('   ✅ ${config.remark}: ${delay}ms');
-              } else {
-                debugPrint('   ❌ ${config.remark}: Failed');
-              }
-              
-              return MapEntry(config.id, delay ?? -1);
-            } catch (e) {
-              debugPrint('   ❌ ${config.remark}: Error - $e');
-              return MapEntry(config.id, -1);
-            }
-          }),
-        );
-        
-        // Add results
-        for (final entry in batchResults) {
-          results[entry.key] = entry.value;
-        }
+      // Bail out cleanly if the user cancelled during testing (same behaviour as
+      // the old per-batch guard, just evaluated once after the pool drains).
+      if (_cancelRequested) {
+        debugPrint('🛑 Smart Connect cancelled by user during server testing');
+        _isConnecting = false;
+        _cancelRequested = false;
+        _safeNotify();
+        return;
       }
       
       debugPrint('');
