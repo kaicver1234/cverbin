@@ -179,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
               SizedBox(height: r.scale(25).clamp(16.0, 34.0)),
 
               Text(
-                'v1.1.7',
+                'v1.1.6',
                 style: TextStyle(
                   fontSize: r.scale(11).clamp(9.0, 14.0),
                   fontWeight: FontWeight.w300,

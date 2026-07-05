@@ -1044,7 +1044,7 @@ class _AboutPageViewState extends State<_AboutPageView>
                   ),
                 ),
                 child: Text(
-                  'Version 1.1.7',
+                  'Version 1.1.6',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 11,
