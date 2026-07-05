@@ -653,7 +653,7 @@ class _EmptyState extends StatelessWidget {
             child: Icon(
               Icons.language_rounded,
               size: box * 0.46,
-              color: _kAccent.withValues(alpha: 0.7),
+              color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 20),

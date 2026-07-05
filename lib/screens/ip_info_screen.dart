@@ -329,8 +329,6 @@ class _IpInfoScreenState extends State<IpInfoScreen>
     final ip = (_ipData!['query'] ?? 'Unknown').toString();
     final city = (_ipData!['city'] ?? '').toString();
     final country = (_ipData!['country'] ?? '').toString();
-    final countryCode =
-        (_ipData!['countryCode'] ?? '').toString().toLowerCase();
     final location =
         [city, country].where((s) => s.isNotEmpty).join(', ');
 
@@ -339,7 +337,6 @@ class _IpInfoScreenState extends State<IpInfoScreen>
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 padding:
@@ -372,7 +369,6 @@ class _IpInfoScreenState extends State<IpInfoScreen>
                   ],
                 ),
               ),
-              if (countryCode.length == 2) _buildFlag(countryCode),
             ],
           ),
           const SizedBox(height: 22),
@@ -460,44 +456,6 @@ class _IpInfoScreenState extends State<IpInfoScreen>
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildFlag(String countryCode) {
-    return Container(
-      width: 56,
-      height: 40,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(7),
-        child: Image.network(
-          'https://flagcdn.com/w160/$countryCode.png',
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            final emoji = countryCode.toUpperCase().split('').map((c) {
-              return String.fromCharCode(c.codeUnitAt(0) + 127397);
-            }).join();
-            return Center(child: Text(emoji, style: const TextStyle(fontSize: 26)));
-          },
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Center(
-              child: WaveLoading.small(
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
-            );
-          },
-        ),
       ),
     );
   }

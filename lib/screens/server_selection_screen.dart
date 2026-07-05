@@ -878,8 +878,8 @@ class _SmartConnectCard extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: EdgeInsets.symmetric(
-            horizontal: r.scale(16).clamp(11.0, 22.0),
-            vertical: r.scale(14).clamp(10.0, 20.0),
+            horizontal: r.scale(13).clamp(10.0, 18.0),
+            vertical: r.scale(11).clamp(8.0, 15.0),
           ),
           decoration: BoxDecoration(
             gradient: isSelected
@@ -893,7 +893,7 @@ class _SmartConnectCard extends StatelessWidget {
                   )
                 : null,
             color: isSelected ? null : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(13),
             border: Border.all(
               color: isSelected
                   ? Colors.white.withValues(alpha: 0.25)
@@ -904,28 +904,28 @@ class _SmartConnectCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: r.scale(44).clamp(36.0, 56.0),
-                height: r.scale(44).clamp(36.0, 56.0),
+                width: r.scale(38).clamp(32.0, 48.0),
+                height: r.scale(38).clamp(32.0, 48.0),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF00D9FF), Color(0xFF00FFA3)],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(11),
                   child: Image.asset(
                     'assets/images/apk.png',
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Icon(
                       Icons.flash_on_rounded,
                       color: Colors.white,
-                      size: r.scale(22).clamp(18.0, 28.0),
+                      size: r.scale(19).clamp(16.0, 24.0),
                     ),
                   ),
                 ),
               ),
-              SizedBox(width: r.scale(14).clamp(10.0, 18.0)),
+              SizedBox(width: r.scale(12).clamp(9.0, 16.0)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,7 +935,7 @@ class _SmartConnectCard extends StatelessWidget {
                           .translate('server_selection.smart_connect'),
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: r.scale(15).clamp(13.0, 19.0),
+                        fontSize: r.scale(14).clamp(12.0, 17.5),
                         fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
@@ -947,7 +947,7 @@ class _SmartConnectCard extends StatelessWidget {
                           'server_selection.smart_connect_description'),
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.45),
-                        fontSize: r.scale(12).clamp(10.0, 15.0),
+                        fontSize: r.scale(11).clamp(9.5, 14.0),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -957,14 +957,14 @@ class _SmartConnectCard extends StatelessWidget {
               ),
               if (isSelected)
                 Container(
-                  width: 22,
-                  height: 22,
+                  width: 19,
+                  height: 19,
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.check_rounded,
-                      color: Colors.black, size: 14),
+                      color: Colors.black, size: 12),
                 )
               else
                 Consumer<LanguageProvider>(
@@ -1118,25 +1118,30 @@ class _PingBadge extends StatelessWidget {
     }
 
     final r = ResponsiveHelper(context);
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: r.scale(7).clamp(5.0, 11.0),
-        vertical: r.scale(3).clamp(2.0, 6.0),
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: r.scale(11).clamp(9.5, 14.0),
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.2,
+    // مینیمال: یه نقطهٔ کوچکِ رنگی + خودِ عدد به همون رنگ، بدون کادر/پس‌زمینه.
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+          ),
         ),
-      ),
+        SizedBox(width: r.scale(5).clamp(4.0, 7.0)),
+        Text(
+          label,
+          style: TextStyle(
+            color: color.withValues(alpha: 0.9),
+            fontSize: r.scale(10.5).clamp(9.0, 13.0),
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.1,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
     );
   }
 }
