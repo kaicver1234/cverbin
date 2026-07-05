@@ -728,56 +728,62 @@ class _GroupHeader extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(
-        top: r.scale(14).clamp(10.0, 20.0),
-        bottom: r.scale(8).clamp(5.0, 12.0),
-        left: 2,
-        right: 2,
+        top: r.scale(12).clamp(8.0, 16.0),
+        bottom: r.scale(6).clamp(4.0, 9.0),
+        left: 4,
+        right: 4,
       ),
       child: Row(
         children: [
           if (!isOther)
             ClipRRect(
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(4),
               child: CachedNetworkImage(
                 imageUrl: CountryFlags.getFlagUrl(countryKey),
-                width: r.scale(26).clamp(22.0, 34.0),
-                height: r.scale(19).clamp(16.0, 25.0),
+                width: r.scale(22).clamp(18.0, 28.0),
+                height: r.scale(16).clamp(13.0, 21.0),
                 fit: BoxFit.cover,
-                memCacheWidth: 120,
+                memCacheWidth: 100,
                 fadeInDuration: const Duration(milliseconds: 100),
                 placeholder: (_, __) => Container(
                     color: Colors.white.withValues(alpha: 0.08)),
                 errorWidget: (_, __, ___) => Icon(Icons.flag_rounded,
-                    color: Colors.white38, size: r.scale(16).clamp(13.0, 20.0)),
+                    color: Colors.white38, size: r.scale(14).clamp(11.0, 18.0)),
               ),
             )
           else
             Icon(Icons.public_rounded,
-                color: Colors.white38, size: r.scale(20).clamp(16.0, 26.0)),
-          SizedBox(width: r.scale(10).clamp(7.0, 14.0)),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontSize: r.scale(14).clamp(12.0, 18.0),
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
+                color: Colors.white38, size: r.scale(18).clamp(14.0, 22.0)),
+          SizedBox(width: r.scale(9).clamp(6.0, 13.0)),
+          // اسم کشور UPPERCASE با فاصله‌گذاری حروف — ظاهرِ «برچسب بخش».
+          Flexible(
+            child: Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: r.scale(12).clamp(10.5, 15.0),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(width: r.scale(8).clamp(6.0, 12.0)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+          SizedBox(width: r.scale(7).clamp(5.0, 10.0)),
+          Text(
+            '· $count',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: r.scale(12).clamp(10.5, 15.0),
+              fontWeight: FontWeight.w600,
             ),
-            child: Text(
-              '$count',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.55),
-                fontSize: r.scale(11).clamp(9.5, 14.0),
-                fontWeight: FontWeight.w600,
-              ),
+          ),
+          // خط جداکنندهٔ ظریف که تا انتهای ردیف کشیده می‌شه (ظاهر تمیزتر).
+          Expanded(
+            child: Container(
+              margin: EdgeInsets.only(left: r.scale(10).clamp(7.0, 14.0)),
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.05),
             ),
           ),
         ],
@@ -993,44 +999,54 @@ class _ServerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final countryCode =
-        config.countryCode ?? CountryFlags.extractCountryCode(config.remark);
     final r = ResponsiveHelper(context);
 
     return Padding(
-      padding: EdgeInsets.only(bottom: r.scale(10).clamp(6.0, 14.0)),
+      padding: EdgeInsets.only(bottom: r.scale(6).clamp(4.0, 9.0)),
       child: GestureDetector(
         onTap: onTap,
+        behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: EdgeInsets.symmetric(
-            horizontal: r.scale(14).clamp(10.0, 20.0),
-            vertical: r.scale(13).clamp(9.0, 18.0),
+            horizontal: r.scale(12).clamp(9.0, 16.0),
+            vertical: r.scale(9).clamp(7.0, 13.0),
           ),
           decoration: BoxDecoration(
             color: isSelected
                 ? Colors.white.withValues(alpha: 0.1)
-                : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(16),
+                : Colors.white.withValues(alpha: 0.035),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected
-                  ? Colors.white.withValues(alpha: 0.25)
-                  : Colors.white.withValues(alpha: 0.08),
-              width: isSelected ? 1.5 : 1,
+                  ? const Color(0xFF00D9FF).withValues(alpha: 0.4)
+                  : Colors.white.withValues(alpha: 0.06),
+              width: isSelected ? 1.4 : 1,
             ),
           ),
           child: Row(
             children: [
-              _buildFlag(countryCode, r),
-              SizedBox(width: r.scale(12).clamp(8.0, 16.0)),
+              // نقطهٔ کوچک ابتدای ردیف: هم تورفتگیِ زیر هدرِ کشور رو می‌سازه،
+              // هم موقع انتخاب رنگی می‌شه (جایگزین پرچمِ تکراریِ هر ردیف).
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? const Color(0xFF00D9FF)
+                      : Colors.white.withValues(alpha: 0.18),
+                ),
+              ),
+              SizedBox(width: r.scale(12).clamp(9.0, 16.0)),
               Expanded(
                 child: Text(
                   _cleanName(config.remark),
                   style: TextStyle(
                     color: isSelected
                         ? Colors.white
-                        : Colors.white.withValues(alpha: 0.9),
-                    fontSize: r.scale(14).clamp(12.0, 18.0),
+                        : Colors.white.withValues(alpha: 0.85),
+                    fontSize: r.scale(13.5).clamp(11.5, 16.5),
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   ),
                   maxLines: 1,
@@ -1041,72 +1057,21 @@ class _ServerCard extends StatelessWidget {
                 SizedBox(width: r.scale(8).clamp(5.0, 12.0)),
                 _PingBadge(ping: ping!),
               ],
-              SizedBox(width: r.scale(8).clamp(5.0, 12.0)),
-              if (isSelected)
+              if (isSelected) ...[
+                SizedBox(width: r.scale(8).clamp(5.0, 12.0)),
                 Container(
-                  width: r.scale(20).clamp(16.0, 26.0),
-                  height: r.scale(20).clamp(16.0, 26.0),
+                  width: r.scale(18).clamp(15.0, 24.0),
+                  height: r.scale(18).clamp(15.0, 24.0),
                   decoration: const BoxDecoration(
-                    color: Colors.white,
+                    color: Color(0xFF00D9FF),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.check_rounded,
-                      color: Colors.black, size: 13),
-                )
-              else
-                Consumer<LanguageProvider>(
-                  builder: (context, lang, _) => Icon(
-                    lang.isRtl ? Icons.chevron_left : Icons.chevron_right,
-                    color: Colors.white.withValues(alpha: 0.25),
-                    size: 16,
-                  ),
+                      color: Colors.black, size: 12),
                 ),
+              ],
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFlag(String? countryCode, ResponsiveHelper r) {
-    final w = r.flagWidth * 0.85;
-    final h = r.flagHeight * 0.78;
-
-    if (countryCode == null || !CountryFlags.isValidCountryCode(countryCode)) {
-      return Container(
-        width: w,
-        height: h,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(Icons.public_rounded,
-            color: Colors.white38, size: r.scale(16).clamp(12.0, 20.0)),
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: CachedNetworkImage(
-        imageUrl: CountryFlags.getFlagUrl(countryCode),
-        width: w,
-        height: h,
-        fit: BoxFit.cover,
-        memCacheWidth: 240,
-        maxWidthDiskCache: 360,
-        fadeInDuration: const Duration(milliseconds: 100),
-        fadeOutDuration: Duration.zero,
-        placeholderFadeInDuration: Duration.zero,
-        placeholder: (_, __) => Container(
-          width: w,
-          height: h,
-          color: Colors.white.withValues(alpha: 0.08),
-        ),
-        errorWidget: (_, __, ___) => Container(
-          width: w,
-          height: h,
-          color: Colors.white.withValues(alpha: 0.08),
-          child: const Icon(Icons.flag_rounded, color: Colors.white38, size: 16),
         ),
       ),
     );

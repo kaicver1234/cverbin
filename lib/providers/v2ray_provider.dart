@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/v2ray_config.dart';
+import '../utils/country_flags.dart';
 import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
 import '../services/analytics_service.dart';
@@ -328,13 +329,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       
       debugPrint('📋 Total servers available: ${servers.length}');
-      debugPrint('🎯 Testing ALL servers using V2Ray core delay...');
+      debugPrint('🎯 Testing top servers using V2Ray core delay...');
 
-      // Test every available server (not just the top slice) so Smart Connect
-      // always picks the true lowest-ping server. The batching below caps
-      // concurrency, so more servers just means more batches — not more load
-      // at any single moment.
-      final serversToTest = servers.toList();
+      // Smart Connect فقط ۳۰ سرور اولِ لیست رو تست می‌کنه — به‌درخواست کاربر.
+      // لیست از قبل بر اساس پینگ مرتبه (سریع‌ترین اول)، پس ۳۰ تای اول همون
+      // بهترین کاندیدها هستن و نیازی به تستِ کل لیست نیست (سریع‌تر + مصرف کمتر).
+      const smartConnectLimit = 30;
+      final serversToTest = servers.take(smartConnectLimit).toList();
       debugPrint('📦 Servers to test: ${serversToTest.length}');
 
       // Ping every server through a fixed-size *sliding window* of concurrent
@@ -540,8 +541,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
   
-  // Getter for server configs (excluding smart connect)
-  List<V2RayConfig> get serverConfigs => _configs.where((c) => !c.isSmartConnect).toList();
+  // Getter for server configs (excluding smart connect).
+  // سرورهای بدون کد کشورِ معتبر (گروه «Other») کلاً کنار گذاشته می‌شن —
+  // به‌درخواست کاربر، چون معمولاً با VPN جور در نمیان. این فیلترِ مرکزیه، پس
+  // لیست انتخاب سرور، Smart Connect و تست پینگ همگی این سرورها رو نادیده می‌گیرن.
+  List<V2RayConfig> get serverConfigs => _configs
+      .where((c) =>
+          !c.isSmartConnect && CountryFlags.isValidCountryCode(c.countryCode))
+      .toList();
   
   // Method channel for VPN control
   static const platform = MethodChannel('com.tiksarvpn.app/vpn_control');
