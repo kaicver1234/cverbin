@@ -177,21 +177,6 @@ class AnalyticsService {
     }
   }
 
-  /// Log server selection
-  Future<void> logServerSelection({
-    required String serverName,
-    required String selectionMethod,
-  }) {
-    return _log(
-      'server_selection',
-      params: {
-        'server_name': serverName,
-        'selection_method': selectionMethod, // 'manual', 'auto', 'fastest'
-      },
-      debugLabel: 'Server Selected - $serverName ($selectionMethod)',
-    );
-  }
-
   /// Set user property (e.g., preferred language, app version)
   Future<void> setUserProperty({
     required String name,

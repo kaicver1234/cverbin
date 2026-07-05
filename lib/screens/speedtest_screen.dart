@@ -16,8 +16,37 @@ import '../utils/responsive_helper.dart';
 // reads as a clean, minimal instrument rather than a colourful dashboard.
 const Color _kWhite = Colors.white;
 
-class SpeedTestScreen extends StatelessWidget {
+class SpeedTestScreen extends StatefulWidget {
   const SpeedTestScreen({super.key});
+
+  @override
+  State<SpeedTestScreen> createState() => _SpeedTestScreenState();
+}
+
+class _SpeedTestScreenState extends State<SpeedTestScreen> {
+  // Captured once so it can be used safely in dispose() without touching
+  // context after the widget is gone.
+  SpeedTestProvider? _provider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _provider = Provider.of<SpeedTestProvider>(context, listen: false);
+  }
+
+  @override
+  void dispose() {
+    // The SpeedTestProvider is registered app-level (see main.dart) and outlives
+    // this screen, so a test left mid-run would keep hammering Cloudflare in the
+    // background (up to 250MB down / 50MB up through the tunnel). Stop any
+    // in-flight test when the user leaves the screen. A completed/idle test
+    // (step == ready) is left untouched so its result survives a revisit.
+    final p = _provider;
+    if (p != null && p.state.step != SpeedTestStep.ready) {
+      p.stopTest();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -511,56 +511,6 @@ class V2RayService extends ChangeNotifier {
     }
   }
 
-  // Direct ping using V2Ray core - Inspired by v2rayNG's RealPingWorkerService
-  // This uses the native V2Ray core's measureOutboundDelay method for accurate results
-  Future<int?> getServerDelayDirect(V2RayConfig config) async {
-    try {
-      await initialize();
-
-      // Safely parse the config with retry mechanism
-      V2RayURL? parser;
-      int parseAttempts = 0;
-      while (parser == null && parseAttempts < 2) {
-        try {
-          parser = V2ray.parseFromURL(config.fullConfig);
-        } catch (parseError) {
-          parseAttempts++;
-          if (parseAttempts >= 2) {
-            debugPrint('❌ Parse failed ${config.remark}: $parseError');
-            return null;
-          }
-          await Future.delayed(const Duration(milliseconds: 50));
-        }
-      }
-
-      if (parser == null) return null;
-
-      // Use V2Ray core's native ping method (similar to v2rayNG's measureOutboundDelay)
-      // This is more accurate than TCP/ICMP ping as it tests the actual proxy connection
-      final delay = await _flutterV2ray
-          .getServerDelay(config: parser.getFullConfiguration())
-          .timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              debugPrint('⏱️ Timeout ${config.remark}');
-              return -1;
-            },
-          );
-
-      // Valid delay range: 0-10000ms (same as v2rayNG)
-      if (delay >= 0 && delay < 10000) {
-        debugPrint('✓ ${config.remark}: ${delay}ms');
-        return delay;
-      } else {
-        debugPrint('✗ ${config.remark}: invalid');
-        return null;
-      }
-    } catch (e) {
-      debugPrint('❌ ${config.remark}: $e');
-      return null;
-    }
-  }
-
   // Save and load configurations
   Future<void> saveConfigs(List<V2RayConfig> configs) async {
     final prefs = await SharedPreferences.getInstance();

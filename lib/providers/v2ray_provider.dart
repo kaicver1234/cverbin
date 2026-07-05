@@ -553,7 +553,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   static const EventChannel _vpnStatusEventChannel = EventChannel('com.tiksarvpn.app/vpn_status_events');
   StreamSubscription? _vpnStatusSubscription;
 
-  List<V2RayConfig> get configs => _configs;
   V2RayConfig? get selectedConfig => _selectedConfig;
   V2RayConfig? get activeConfig => _v2rayService.activeConfig;
   bool get isConnecting => _isConnecting;
@@ -1022,7 +1021,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   // Single server URL - ONLY source of servers
-  static const String _serverUrl = 'https://sub.tiksar.ir/tiksarserver.txt';
+  static const String _serverUrl = 'https://sub.tiksar.ir/sub-server/server-tk.txt';
 
   Future<void> fetchServers({String? customUrl}) async {
     _isLoadingServers = true;
@@ -1532,32 +1531,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // Removed pingServer and pingAllServers methods as requested
 
-  Future<void> selectConfig(V2RayConfig config) async {
-    // Check if Smart Connect is selected
-    if (config.isSmartConnect) {
-      debugPrint('⚡ Smart Connect selected');
-      _wasUsingSmartConnect = true;
-      _safeNotify();
-      return; // Don't set as selected config, will be handled by connect
-    }
-    
-    _wasUsingSmartConnect = false;
-    _selectedConfig = config;
-    // Note: We don't save selected server anymore - always defaults to first server
-    // User selection is temporary until disconnect
-    
-    // Log server selection analytics
-    try {
-      await _analyticsService.logServerSelection(
-        serverName: config.remark,
-        selectionMethod: 'manual',
-      );
-    } catch (e) {
-      // Analytics logging failed, ignore
-    }
-    
-    _safeNotify();
-  }
+  // Removed selectConfig method (used only by the removed manual server-list UI)
 
   // Proxy mode feature removed for simplification
 

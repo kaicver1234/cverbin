@@ -15,7 +15,7 @@ import '../models/speed_test_state.dart';
 ///  • Server processing time is subtracted from every timing by parsing the
 ///    `Server-Timing: cfRequestDuration;dur=…` response header (falling back to
 ///    a 10 ms estimate), exactly like the reference engine.
-///  • Download speed = 8 · bytes / ((ttfb − serverTime) + payloadTransferTime).
+///  • Download speed = 8 · bytes · 1.005 / ((ttfb − serverTime) + payloadTransferTime).
 ///    Upload speed   = 8 · bytes · 1.005 / ttfb.
 ///  • The reported bandwidth is the **90th percentile** of every individual
 ///    request's bits-per-second (pooled across all payload sizes), using the
@@ -122,6 +122,14 @@ class SpeedTestProvider with ChangeNotifier {
   String _generateMeasurementId() =>
       '${DateTime.now().millisecondsSinceEpoch}-${math.Random().nextInt(999999)}';
 
+  // True once this run is no longer the active one — either the user cancelled
+  // (`_isCanceled`) or a newer run replaced it (`myId != _measurementId`).
+  // A new run resets `_isCanceled` to false, so the id comparison is what stops
+  // a stale run (resumed from a non-cancelable `Future.delayed`) from mutating
+  // the new run's shared sample buffers / UI state. Checked after every await
+  // and wherever `_isCanceled` used to be checked inside the measurement loops.
+  bool _isStale(String myId) => _isCanceled || myId != _measurementId;
+
   // ── Public API ──────────────────────────────────────────────────────────────
 
   void stopTest() {
@@ -174,27 +182,30 @@ class SpeedTestProvider with ChangeNotifier {
         currentSpeed: 0,
       );
       _safeNotify();
-      await _runLatencyPhase();
-      if (_isCanceled || myId != _measurementId) return;
+      await _runLatencyPhase(myId);
+      if (_isStale(myId)) return;
 
       // Phase 2: Download
-      await _transitionTo(SpeedTestStep.download, 'Measuring download...');
-      if (_isCanceled || myId != _measurementId) return;
-      await _runBandwidthPhase(_downloadPlan, _downloadSamples, isDownload: true);
-      if (_isCanceled || myId != _measurementId) return;
+      await _transitionTo(SpeedTestStep.download, 'Measuring download...', myId);
+      if (_isStale(myId)) return;
+      await _runBandwidthPhase(_downloadPlan, _downloadSamples,
+          isDownload: true, myId: myId);
+      if (_isStale(myId)) return;
 
       // Phase 3: Upload
-      await _transitionTo(SpeedTestStep.upload, 'Measuring upload...');
-      if (_isCanceled || myId != _measurementId) return;
-      await _runBandwidthPhase(_uploadPlan, _uploadSamples, isDownload: false);
-      if (_isCanceled || myId != _measurementId) return;
+      await _transitionTo(SpeedTestStep.upload, 'Measuring upload...', myId);
+      if (_isStale(myId)) return;
+      await _runBandwidthPhase(_uploadPlan, _uploadSamples,
+          isDownload: false, myId: myId);
+      if (_isStale(myId)) return;
 
       _finalize();
       debugPrint(
           '[SpeedTest] Complete: down=${_state.result.downloadSpeed.toStringAsFixed(1)} up=${_state.result.uploadSpeed.toStringAsFixed(1)} Mbps ping=${_state.result.ping}ms');
     } catch (e) {
       debugPrint('[SpeedTest] Error: $e');
-      if (!_isCanceled) {
+      // Don't surface an error (or clobber state) if a newer run has taken over.
+      if (!_isStale(myId)) {
         _state = _state.copyWith(
           step: SpeedTestStep.ready,
           errorMessage: 'test_failed',
@@ -205,18 +216,23 @@ class SpeedTestProvider with ChangeNotifier {
         _safeNotify();
       }
     } finally {
-      _dio?.close();
-      _dio = null;
+      // Only tear down the dio if THIS run still owns it. A stale run reaching
+      // its finally must not close the active run's client out from under it.
+      if (!_isStale(myId)) {
+        _dio?.close();
+        _dio = null;
+      }
     }
   }
 
   // ── Phase transition (Cloudflare-style 1200 ms gap + progress reset) ─────────
 
-  Future<void> _transitionTo(SpeedTestStep step, String phase) async {
+  Future<void> _transitionTo(
+      SpeedTestStep step, String phase, String myId) async {
     _state = _state.copyWith(progress: 0.0, currentSpeed: 0);
     _safeNotify();
     await Future.delayed(_phaseTransitionDelay);
-    if (_isCanceled) return;
+    if (_isStale(myId)) return;
     _state = _state.copyWith(step: step, currentPhase: phase, progress: 0.0);
     _safeNotify();
   }
@@ -224,7 +240,7 @@ class SpeedTestProvider with ChangeNotifier {
   // ── Latency ──────────────────────────────────────────────────────────────────
   // A 0-byte download; ping = max(0.01, ttfb − serverTime).
 
-  Future<void> _runLatencyPhase() async {
+  Future<void> _runLatencyPhase(String myId) async {
     final total = _latencyPlan.fold<int>(0, (s, g) => s + g['numPackets']!);
     int done = 0;
     int consecutiveFailures = 0;
@@ -232,10 +248,10 @@ class SpeedTestProvider with ChangeNotifier {
     for (final group in _latencyPlan) {
       final numPackets = group['numPackets']!;
       for (int i = 0; i < numPackets; i++) {
-        if (_isCanceled) return;
+        if (_isStale(myId)) return;
         try {
-          final ping = await _measureLatency();
-          if (ping != null && !_isCanceled) {
+          final ping = await _measureLatency(myId);
+          if (ping != null && !_isStale(myId)) {
             _latencies.add(ping);
             consecutiveFailures = 0;
             _publishLatency();
@@ -257,7 +273,7 @@ class SpeedTestProvider with ChangeNotifier {
     if (_latencies.isEmpty) throw Exception('Latency measurement failed');
   }
 
-  Future<double?> _measureLatency() async {
+  Future<double?> _measureLatency(String myId) async {
     final sw = Stopwatch()..start();
     final resp = await _dio!.get<ResponseBody>(
       '$_downUrl?bytes=0&measId=$_measurementId',
@@ -272,7 +288,7 @@ class SpeedTestProvider with ChangeNotifier {
     final serverTime = _parseServerTime(resp.headers);
     // Drain (0 bytes, but make sure the stream completes / connection frees).
     await resp.data!.stream.drain<void>();
-    if (_isCanceled) return null;
+    if (_isStale(myId)) return null;
     return math.max(0.01, ttfb - (serverTime ?? _estimatedServerTime));
   }
 
@@ -282,6 +298,7 @@ class SpeedTestProvider with ChangeNotifier {
     List<_Round> plan,
     List<_Sample> sink, {
     required bool isDownload,
+    required String myId,
   }) async {
     final total = plan.fold<int>(0, (s, r) => s + r.count);
     int done = 0;
@@ -289,7 +306,7 @@ class SpeedTestProvider with ChangeNotifier {
     bool finished = false;
 
     for (final round in plan) {
-      if (_isCanceled) return;
+      if (_isStale(myId)) return;
       if (finished) {
         // Skip larger payloads of this type — but keep progress moving.
         done += round.count;
@@ -301,13 +318,13 @@ class SpeedTestProvider with ChangeNotifier {
       final roundWatch = Stopwatch()..start();
 
       for (int i = 0; i < round.count; i++) {
-        if (_isCanceled) return;
+        if (_isStale(myId)) return;
         try {
           final sample = isDownload
-              ? await _measureDownload(round.bytes)
-              : await _measureUpload(round.bytes);
+              ? await _measureDownload(round.bytes, myId)
+              : await _measureUpload(round.bytes, myId);
 
-          if (!_isCanceled && sample != null) {
+          if (!_isStale(myId) && sample != null) {
             // Cloudflare pools every request whose duration ≥ 10 ms.
             if (sample.durationMs >= _bandwidthMinRequestDuration &&
                 sample.bps > 0) {
@@ -359,7 +376,7 @@ class SpeedTestProvider with ChangeNotifier {
   }
 
   /// Download: duration = (ttfb − serverTime) + payloadDownloadTime.
-  Future<_Sample?> _measureDownload(int bytes) async {
+  Future<_Sample?> _measureDownload(int bytes, String myId) async {
     final sw = Stopwatch()..start();
     final resp = await _dio!.get<ResponseBody>(
       '$_downUrl?bytes=$bytes&measId=$_measurementId&during=download',
@@ -380,7 +397,7 @@ class SpeedTestProvider with ChangeNotifier {
     DateTime? lastUpdate;
 
     await for (final chunk in resp.data!.stream) {
-      if (_isCanceled) break;
+      if (_isStale(myId)) break;
       received += chunk.length;
 
       final elapsed = payloadWatch.elapsedMilliseconds / 1000.0;
@@ -394,18 +411,22 @@ class SpeedTestProvider with ChangeNotifier {
     }
     final payloadMs = payloadWatch.elapsedMicroseconds / 1000.0;
     sw.stop();
-    if (_isCanceled || received <= 0) return null;
+    if (_isStale(myId) || received <= 0) return null;
 
     final ping = math.max(0.01, ttfb - (serverTime ?? _estimatedServerTime));
     final durationMs = ping + payloadMs;
     if (durationMs <= 0) return null;
-    final bps = (8 * received) / (durationMs / 1000.0);
+    // Match Cloudflare's transferSize: its engine bills the on-wire size
+    // (body + headers) via `numBytes * (1 + ESTIMATED_HEADER_FRACTION)`. dio only
+    // exposes the decoded body length (`received`), so apply the same ~0.5%
+    // header overhead for exact parity with speed.cloudflare.com.
+    final bps = (8 * received * (1 + _headerFraction)) / (durationMs / 1000.0);
     return _Sample(durationMs, bps);
   }
 
   /// Upload: duration = ttfb (the server's first response byte arrives only
   /// after it has received the whole body). bps = 8·bytes·1.005 / duration.
-  Future<_Sample?> _measureUpload(int bytes) async {
+  Future<_Sample?> _measureUpload(int bytes, String myId) async {
     // A fixed zero-filled buffer — instantaneous to allocate, unlike the old
     // per-byte random generation that throttled uploads to CPU speed.
     final payload = Uint8List(bytes);
@@ -432,7 +453,7 @@ class SpeedTestProvider with ChangeNotifier {
         },
       ),
       onSendProgress: (sent, t) {
-        if (_isCanceled) return;
+        if (_isStale(myId)) return;
         final nowUs = sw.elapsedMicroseconds;
 
         // Phase 1: let the socket send buffer fill before trusting any reading.
@@ -464,7 +485,7 @@ class SpeedTestProvider with ChangeNotifier {
       cancelToken: _token,
     );
     sw.stop();
-    if (_isCanceled) return null;
+    if (_isStale(myId)) return null;
 
     final durationMs = sw.elapsedMicroseconds / 1000.0;
     if (durationMs <= 0) return null;
