@@ -1531,7 +1531,20 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // Removed pingServer and pingAllServers methods as requested
 
-  // Removed selectConfig method (used only by the removed manual server-list UI)
+  // Manual server selection (restored for the grouped-by-location server list).
+  // Sets the selected config so the Home connect button connects to it instead
+  // of running Smart Connect. Selecting the Smart Connect card just re-arms
+  // Smart Connect mode. Selection is temporary (not persisted) until disconnect.
+  Future<void> selectConfig(V2RayConfig config) async {
+    if (config.isSmartConnect) {
+      _wasUsingSmartConnect = true;
+      _safeNotify();
+      return; // handled by smartConnect() on connect
+    }
+    _wasUsingSmartConnect = false;
+    _selectedConfig = config;
+    _safeNotify();
+  }
 
   // Proxy mode feature removed for simplification
 

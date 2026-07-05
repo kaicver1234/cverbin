@@ -83,7 +83,8 @@
         "premium": "Premium",
         "coming_soon": "Coming Soon",
         "coming_soon_desc": "This feature will be available in future updates",
-        "current_server": "Current Server"
+        "current_server": "Current Server",
+        "other": "Other"
     },
     "host_checker": {
         "title": "Host Checker",

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../models/app_language.dart';
 import '../utils/app_localizations.dart';
+import '../utils/country_flags.dart';
 import '../utils/responsive_helper.dart';
+import '../screens/server_selection_screen.dart';
 import '../widgets/app_background.dart';
 import '../widgets/modern_glass_card.dart';
 import '../widgets/modern_connection_button.dart';
@@ -98,14 +101,31 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     try {
       if (provider.activeConfig != null) {
         await provider.disconnect();
-      } else {
-        // Single Connect button: always test the configs and connect to the
-        // one with the lowest ping (Smart Connect). Manual server selection has
-        // been removed, so there is no other path here.
+      } else if (provider.wasUsingSmartConnect) {
+        // Smart Connect: test all configs and connect to the fastest.
         await provider.smartConnect();
-
         if (mounted && provider.errorMessage.isNotEmpty) {
           _showSnackBar(provider.errorMessage, Colors.red);
+        }
+      } else {
+        // Manual selection: connect to the server the user picked in the list.
+        if (provider.selectedConfig == null &&
+            provider.serverConfigs.isNotEmpty) {
+          await provider.selectConfig(provider.serverConfigs.first);
+        }
+        if (provider.selectedConfig == null) {
+          if (mounted) {
+            _showSnackBar(
+              AppLocalizations.of(context)
+                  .translate('common.please_select_server'),
+              Colors.red,
+            );
+          }
+        } else {
+          await provider.connectToServer(provider.selectedConfig!);
+          if (mounted && provider.errorMessage.isNotEmpty) {
+            _showSnackBar(provider.errorMessage, Colors.red);
+          }
         }
       }
     } catch (e) {
@@ -364,6 +384,156 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
 
 
+  // Strips a leading "[CC] " country tag so the card shows a clean server name.
+  String _cleanServerName(String name) {
+    return name.replaceAll(RegExp(r'^\[[A-Za-z]{2}\]\s*'), '').trim();
+  }
+
+  Widget _buildServerCard(V2RayProvider provider) {
+    final responsive = ResponsiveHelper(context);
+    final isSmartConnect = provider.wasUsingSmartConnect;
+    final selectedConfig = provider.selectedConfig ?? provider.activeConfig;
+
+    String serverName;
+    String? countryCode;
+
+    if (provider.activeConfig != null) {
+      serverName = _cleanServerName(provider.activeConfig!.remark);
+      countryCode = provider.activeConfig!.countryCode;
+    } else if (isSmartConnect) {
+      serverName = AppLocalizations.of(context)
+          .translate('server_selection.smart_connect');
+    } else if (selectedConfig != null) {
+      serverName = _cleanServerName(selectedConfig.remark);
+      countryCode = selectedConfig.countryCode;
+    } else {
+      serverName = AppLocalizations.of(context)
+          .translate('server_selection.select_server');
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const ServerSelectionScreen()),
+        ),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          key: const ValueKey('server_card'),
+          padding: EdgeInsets.symmetric(
+            horizontal: responsive.scale(16).clamp(12.0, 22.0),
+            vertical: responsive.scale(14).clamp(10.0, 18.0),
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.035),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.07),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Flag / icon
+              Container(
+                width: responsive.homeFlagWidth,
+                height: responsive.homeFlagHeight,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 1,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(7),
+                  child: _buildServerIconContent(
+                    countryCode,
+                    isSmartConnect && provider.activeConfig == null,
+                  ),
+                ),
+              ),
+              SizedBox(width: responsive.scale(14).clamp(10.0, 18.0)),
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)
+                          .translate('server_selection.current_server')
+                          .toUpperCase(),
+                      style: GoogleFonts.poppins(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: responsive.scale(9.5).clamp(8.5, 11.5),
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      serverName,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: responsive.scale(15).clamp(13.0, 17.0),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Consumer<LanguageProvider>(
+                builder: (context, langProvider, _) => Icon(
+                  langProvider.isRtl
+                      ? Icons.chevron_left
+                      : Icons.chevron_right,
+                  color: Colors.white.withValues(alpha: 0.4),
+                  size: responsive.scale(22).clamp(18.0, 26.0),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServerIconContent(String? countryCode, bool isSmartConnect) {
+    if (countryCode != null && CountryFlags.isValidCountryCode(countryCode)) {
+      return CachedNetworkImage(
+        imageUrl: CountryFlags.getFlagUrl(countryCode),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        memCacheWidth: 240,
+        placeholder: (context, url) => Container(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: Colors.white.withValues(alpha: 0.08),
+          child: const Center(
+            child: Icon(Icons.public, color: Colors.white70, size: 18),
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Icon(
+        isSmartConnect ? Icons.bolt_rounded : Icons.language_rounded,
+        color: Colors.white.withValues(alpha: 0.85),
+        size: 18,
+      ),
+    );
+  }
+
   Widget _buildConnectionTimer(V2RayProvider provider) {
     final responsive = ResponsiveHelper(context);
     final isConnected = provider.activeConfig != null;
@@ -425,6 +595,11 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
             _buildConnectionTimer(provider),
 
             SizedBox(height: responsive.responsiveValue(small: 28, medium: 34, large: 40)),
+
+            // Server card (minimal) - opens the grouped server list
+            _buildServerCard(provider),
+
+            SizedBox(height: responsive.responsiveValue(small: 22, medium: 28, large: 34)),
 
             // Minimal stats (no card, simple)
             _buildSimpleStats(provider),
@@ -869,7 +1044,7 @@ class _AboutPageViewState extends State<_AboutPageView>
                   ),
                 ),
                 child: Text(
-                  'Version 1.1.6',
+                  'Version 1.1.7',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 11,

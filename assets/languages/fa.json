@@ -83,7 +83,8 @@
         "premium": "ویژه",
         "coming_soon": "به زودی",
         "coming_soon_desc": "این ویژگی در آینده تکمیل خواهد شد",
-        "current_server": "سرور فعلی"
+        "current_server": "سرور فعلی",
+        "other": "سایر"
     },
     "host_checker": {
         "title": "بررسی میزبان",
