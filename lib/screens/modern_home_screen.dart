@@ -220,46 +220,90 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
   Widget _buildModernHeader(BuildContext context, LanguageProvider languageProvider) {
     final responsive = ResponsiveHelper(context);
-    
+
     return Padding(
-      padding: EdgeInsets.all(responsive.horizontalPadding),
+      padding: EdgeInsets.fromLTRB(
+        responsive.horizontalPadding,
+        responsive.scale(6).clamp(4.0, 10.0),
+        responsive.horizontalPadding,
+        responsive.scale(4).clamp(2.0, 8.0),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Brand Info - Simple (No Logo)
+          // Brand — wordmark with a subtle two-tone accent + tagline
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'TiksarVPN',
-                style: GoogleFonts.poppins(
-                  fontSize: responsive.headerFontSize,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
+              RichText(
+                text: TextSpan(
+                  style: GoogleFonts.poppins(
+                    fontSize: responsive.headerFontSize,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                    height: 1.0,
+                  ),
+                  children: const [
+                    TextSpan(text: 'Tiksar', style: TextStyle(color: Colors.white)),
+                    TextSpan(
+                      text: 'VPN',
+                      style: TextStyle(color: Color(0xFF00D9FF)),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                'Secure & Fast',
-                style: GoogleFonts.poppins(
-                  fontSize: responsive.headerFontSize * 0.55,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white.withValues(alpha: 0.5),
-                ),
+              SizedBox(height: responsive.scale(3).clamp(2.0, 5.0)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF00FFA3).withValues(alpha: 0.9),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00FFA3).withValues(alpha: 0.5),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Secure & Fast',
+                    style: GoogleFonts.poppins(
+                      fontSize: responsive.headerFontSize * 0.5,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.45),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          
-          // Language Button
+
+          // Language button — clean circular glass icon
           GestureDetector(
             onTap: () => _showLanguageModal(context),
-            child: ModernGlassCard(
-              padding: EdgeInsets.all(responsive.scale(12)),
-              borderRadius: BorderRadius.circular(14),
+            child: Container(
+              width: responsive.scale(42).clamp(38.0, 52.0),
+              height: responsive.scale(42).clamp(38.0, 52.0),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.05),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 1,
+                ),
+              ),
               child: Icon(
-                Icons.language,
-                color: Colors.white,
-                size: responsive.scale(18),
+                Icons.language_rounded,
+                color: Colors.white.withValues(alpha: 0.9),
+                size: responsive.scale(20).clamp(17.0, 26.0),
               ),
             ),
           ),
@@ -419,18 +463,25 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
           MaterialPageRoute(
               builder: (context) => const ServerSelectionScreen()),
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
           key: const ValueKey('server_card'),
           padding: EdgeInsets.symmetric(
-            horizontal: responsive.scale(16).clamp(12.0, 22.0),
-            vertical: responsive.scale(14).clamp(10.0, 18.0),
+            horizontal: responsive.scale(15).clamp(12.0, 20.0),
+            vertical: responsive.scale(13).clamp(10.0, 17.0),
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.035),
-            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.05),
+                Colors.white.withValues(alpha: 0.025),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.07),
+              color: Colors.white.withValues(alpha: 0.08),
               width: 1,
             ),
           ),
@@ -442,39 +493,49 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                 height: responsive.homeFlagHeight,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(9),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.12),
                     width: 1,
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(8),
                   child: _buildServerIconContent(
                     countryCode,
                     isSmartConnect && provider.activeConfig == null,
                   ),
                 ),
               ),
-              SizedBox(width: responsive.scale(14).clamp(10.0, 18.0)),
+              SizedBox(width: responsive.scale(13).clamp(10.0, 17.0)),
               // Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      AppLocalizations.of(context)
-                          .translate('server_selection.current_server')
-                          .toUpperCase(),
-                      style: GoogleFonts.poppins(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        fontSize: responsive.scale(9.5).clamp(8.5, 11.5),
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1.0,
-                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.dns_rounded,
+                          color: Colors.white.withValues(alpha: 0.35),
+                          size: responsive.scale(11).clamp(9.0, 13.0),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          AppLocalizations.of(context)
+                              .translate('server_selection.current_server')
+                              .toUpperCase(),
+                          style: GoogleFonts.poppins(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            fontSize: responsive.scale(9.5).clamp(8.5, 11.5),
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Text(
                       serverName,
                       style: GoogleFonts.poppins(
@@ -489,13 +550,22 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
                   ],
                 ),
               ),
+              SizedBox(width: responsive.scale(8).clamp(6.0, 12.0)),
+              // Chevron in a subtle chip
               Consumer<LanguageProvider>(
-                builder: (context, langProvider, _) => Icon(
-                  langProvider.isRtl
-                      ? Icons.chevron_left
-                      : Icons.chevron_right,
-                  color: Colors.white.withValues(alpha: 0.4),
-                  size: responsive.scale(22).clamp(18.0, 26.0),
+                builder: (context, langProvider, _) => Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    langProvider.isRtl
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
+                    color: Colors.white.withValues(alpha: 0.5),
+                    size: responsive.scale(18).clamp(15.0, 22.0),
+                  ),
                 ),
               ),
             ],
@@ -544,20 +614,33 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       // (this screen is kept alive, so the listener never detaches on its own).
       stream: isConnected ? _timerStream : null,
       builder: (context, snapshot) {
-        return Center(
-          child: Text(
-            isConnected
-                ? provider.v2rayService.getFormattedConnectedTime()
-                : '00:00:00',
-            key: const ValueKey('timer'),
-            style: GoogleFonts.poppins(
-              fontSize: responsive.timerFontSize * 0.95,
-              fontWeight: FontWeight.w500,
-              color: Colors.white.withValues(alpha: isConnected ? 1.0 : 0.35),
-              letterSpacing: 2.0,
-              fontFeatures: const [FontFeature.tabularFigures()],
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppLocalizations.of(context).translate('home.duration').toUpperCase(),
+              style: GoogleFonts.poppins(
+                fontSize: responsive.scale(9.5).clamp(8.5, 11.5),
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withValues(alpha: 0.35),
+                letterSpacing: 1.5,
+              ),
             ),
-          ),
+            SizedBox(height: responsive.scale(6).clamp(4.0, 9.0)),
+            Text(
+              isConnected
+                  ? provider.v2rayService.getFormattedConnectedTime()
+                  : '00:00:00',
+              key: const ValueKey('timer'),
+              style: GoogleFonts.poppins(
+                fontSize: responsive.timerFontSize * 0.95,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: isConnected ? 1.0 : 0.3),
+                letterSpacing: 2.0,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
         );
       },
     );
@@ -575,34 +658,34 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
         padding: EdgeInsets.symmetric(horizontal: responsive.horizontalPadding),
         child: Column(
           children: [
-            SizedBox(height: responsive.responsiveValue(small: 8, medium: 12, large: 16)),
+            SizedBox(height: responsive.responsiveValue(small: 6, medium: 10, large: 14)),
 
             const AnnouncementBannerWidget(),
 
-            SizedBox(height: responsive.responsiveValue(small: 24, medium: 30, large: 36)),
+            SizedBox(height: responsive.responsiveValue(small: 26, medium: 34, large: 42)),
 
-            // Connection button (centerpiece)
+            // Status pill (connect text) - above the button now
+            _buildStatusPill(provider),
+
+            SizedBox(height: responsive.responsiveValue(small: 18, medium: 22, large: 26)),
+
+            // Connection button (centerpiece) — wrapped in a soft ambient glow
             _buildConnectionButtonWithStatus(provider),
 
-            SizedBox(height: responsive.responsiveValue(small: 14, medium: 18, large: 22)),
+            SizedBox(height: responsive.responsiveValue(small: 20, medium: 24, large: 28)),
 
-            // Status pill (connect text) - below button
-            _buildStatusPill(provider),
+            // Timer below button
+            _buildConnectionTimer(provider),
+
+            SizedBox(height: responsive.responsiveValue(small: 30, medium: 36, large: 44)),
+
+            // Live stats — a single quiet card with a soft divider
+            _buildSimpleStats(provider),
 
             SizedBox(height: responsive.responsiveValue(small: 16, medium: 20, large: 24)),
 
-            // Timer below status
-            _buildConnectionTimer(provider),
-
-            SizedBox(height: responsive.responsiveValue(small: 28, medium: 34, large: 40)),
-
             // Server card (minimal) - opens the grouped server list
             _buildServerCard(provider),
-
-            SizedBox(height: responsive.responsiveValue(small: 22, medium: 28, large: 34)),
-
-            // Minimal stats (no card, simple)
-            _buildSimpleStats(provider),
 
             SizedBox(height: responsive.scale(100).clamp(70.0, 130.0)),
           ],
@@ -635,32 +718,43 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
-      child: Row(
+      child: Container(
         key: ValueKey(isCancelling ? 'x' : isConnecting ? 'c' : isConnected ? 'on' : 'off'),
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              boxShadow: [
-                BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 8, spreadRadius: 0.5),
-              ],
-            ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: color.withValues(alpha: 0.22),
+            width: 1,
           ),
-          const SizedBox(width: 9),
-          Text(
-            text,
-            style: GoogleFonts.poppins(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 12.5,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.4,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color,
+                boxShadow: [
+                  BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 8, spreadRadius: 0.5),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 9),
+            Text(
+              text.toUpperCase(),
+              style: GoogleFonts.poppins(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -674,12 +768,49 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     final isConnecting = _isConnecting || provider.isConnecting || provider.isCancelling;
 
     final btnSize = responsive.connectionButtonSize;
-    return ModernConnectionButton(
-      key: const ValueKey('connection_button'),
-      isConnected: isConnected,
-      isConnecting: isConnecting,
-      onTap: _handleConnectionToggle,
-      size: btnSize,
+
+    // Ambient glow behind the button — tinted by state (green connected,
+    // cyan connecting, faint white idle). Purely decorative, sits under the
+    // button and never intercepts taps.
+    final Color glowColor = isConnected
+        ? const Color(0xFF00FFA3)
+        : isConnecting
+            ? const Color(0xFF00D9FF)
+            : Colors.white;
+    final double glowAlpha = isConnected ? 0.16 : (isConnecting ? 0.12 : 0.04);
+
+    return SizedBox(
+      width: btnSize * 1.6,
+      height: btnSize * 1.6,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IgnorePointer(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 500),
+              width: btnSize * 1.55,
+              height: btnSize * 1.55,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    glowColor.withValues(alpha: glowAlpha),
+                    glowColor.withValues(alpha: 0.0),
+                  ],
+                  stops: const [0.0, 0.85],
+                ),
+              ),
+            ),
+          ),
+          ModernConnectionButton(
+            key: const ValueKey('connection_button'),
+            isConnected: isConnected,
+            isConnecting: isConnecting,
+            onTap: _handleConnectionToggle,
+            size: btnSize,
+          ),
+        ],
+      ),
     );
   }
 
@@ -692,25 +823,52 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
       // Disconnected stats are constant ("0 B"), so there's nothing to refresh.
       stream: isConnected ? _statsStream : null,
       builder: (context, snapshot) {
-        return Row(
-          children: [
-            Expanded(
-              child: _buildSimpleStatItem(
-                icon: Icons.arrow_downward_rounded,
-                label: AppLocalizations.of(context).translate('home.download'),
-                value: isConnected ? v2rayService.getFormattedDownload() : '0 B',
-                color: const Color(0xFF00FFA3),
-              ),
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.06),
+              width: 1,
             ),
-            Expanded(
-              child: _buildSimpleStatItem(
-                icon: Icons.arrow_upward_rounded,
-                label: AppLocalizations.of(context).translate('home.upload'),
-                value: isConnected ? v2rayService.getFormattedUpload() : '0 B',
-                color: const Color(0xFF00D9FF),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildSimpleStatItem(
+                  icon: Icons.arrow_downward_rounded,
+                  label: AppLocalizations.of(context).translate('home.download'),
+                  value: isConnected ? v2rayService.getFormattedDownload() : '0 B',
+                  color: const Color(0xFF00FFA3),
+                ),
               ),
-            ),
-          ],
+              // Soft vertical divider
+              Container(
+                width: 1,
+                height: 34,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.0),
+                      Colors.white.withValues(alpha: 0.1),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _buildSimpleStatItem(
+                  icon: Icons.arrow_upward_rounded,
+                  label: AppLocalizations.of(context).translate('home.upload'),
+                  value: isConnected ? v2rayService.getFormattedUpload() : '0 B',
+                  color: const Color(0xFF00D9FF),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -727,29 +885,38 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            color: Colors.white.withValues(alpha: 0.6),
-            fontSize: responsive.scale(12).clamp(10.5, 14.0),
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.3,
+        // Colored icon chip
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: responsive.scale(16).clamp(13.0, 20.0),
           ),
         ),
-        SizedBox(height: responsive.scale(4)),
-        Icon(
-          icon,
-          color: Colors.white,
-          size: responsive.scale(18).clamp(14.0, 22.0),
-        ),
-        SizedBox(height: responsive.scale(4)),
+        SizedBox(height: responsive.scale(8).clamp(6.0, 11.0)),
         Text(
           value,
           style: GoogleFonts.poppins(
             color: Colors.white,
-            fontSize: responsive.scale(13.5).clamp(11.5, 16.0),
-            fontWeight: FontWeight.w600,
+            fontSize: responsive.scale(15).clamp(12.5, 17.5),
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        SizedBox(height: responsive.scale(2)),
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.poppins(
+            color: Colors.white.withValues(alpha: 0.4),
+            fontSize: responsive.scale(10).clamp(8.5, 12.0),
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.8,
           ),
         ),
       ],

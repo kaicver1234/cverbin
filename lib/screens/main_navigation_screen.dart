@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../services/update_checker_service.dart';
+import '../services/ad_service.dart';
+import '../models/ad_config.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/ad_overlay_screen.dart';
 import '../models/app_update_info.dart';
 import 'modern_home_screen.dart';
 
@@ -15,13 +18,35 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   bool _hasCheckedUpdate = false;
+  bool _hasShownAd = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForUpdate();
+      // اول تبلیغِ باز شدن اپ رو نشون بده (اگه روشن باشه)، بعد چک آپدیت.
+      // ترتیبی انجام می‌شن تا دیالوگ آپدیت روی تبلیغ نیفته.
+      _showAppOpenAdThenCheckUpdate();
     });
+  }
+
+  Future<void> _showAppOpenAdThenCheckUpdate() async {
+    await _showAppOpenAd();
+    if (mounted) _checkForUpdate();
+  }
+
+  /// تبلیغِ اختصاصی رو (اگه روی سرور روشن و مربوط به «باز شدن اپ» باشه) نشون می‌ده.
+  Future<void> _showAppOpenAd() async {
+    if (_hasShownAd) return;
+    _hasShownAd = true;
+
+    try {
+      final AdConfig ad = await AdService.fetchAd();
+      if (!mounted) return;
+      if (ad.isValid && ad.showOn == 'app_open') {
+        await AdOverlayScreen.show(context, ad);
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkForUpdate() async {
