@@ -50,8 +50,8 @@ android {
         applicationId = "com.tiksarvpn.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 13
-        versionName = "1.1.6"
+        versionCode = 14
+        versionName = "1.1.7"
         multiDexEnabled = true
     }
 
